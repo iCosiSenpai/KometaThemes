@@ -5,10 +5,10 @@
 (function () {
     'use strict';
 
-    if (window.KT && window.KT.VERSION === '1.0.0.6') { return; }
+    if (window.KT && window.KT.VERSION === '1.0.0.7') { return; }
 
     var KT = {
-        VERSION: '1.0.0.6',
+        VERSION: '1.0.0.7',
         GUID: '48c98707-45d1-43ac-94b8-f74d875ad29c',
         pages: (window.KT && window.KT.pages) || {}
     };

@@ -1,7 +1,7 @@
 ---
 name: "KometaThemes"
 guid: "48c98707-45d1-43ac-94b8-f74d875ad29c"
-version: "1.0.0.6"
+version: "1.0.0.7"
 targetAbi: "10.11.8.0"
 framework: "net9.0"
 overview: "Plugin for Jellyfin that fetches anime themes (OPs and EDs) from animethemes.moe with multi-provider support"
@@ -15,6 +15,9 @@ owner: "KometaThemes"
 artifacts:
   - "Jellyfin.Plugin.KometaThemes.dll"
 changelog: |-
+  v1.0.0.7
+  - Interface language (English / Italiano, in the General tab) now switches the whole dashboard instantly when you pick it, instead of only after saving and reopening the page
+
   v1.0.0.6
   - Unresolved tab: each row now has a "Search & bind" button that opens the Theme Finder for that anime so you can search and attach themes manually
   - Clearer settings: the old "Library" tab is now "Excluded" (just the blacklist, with plainer wording) and the themes playlist moved into the "Themes & Download" tab with a short explanation of what Refresh / Export M3U do

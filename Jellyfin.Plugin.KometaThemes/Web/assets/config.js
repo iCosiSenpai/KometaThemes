@@ -296,7 +296,10 @@
             wrap.appendChild(control);
             if (descriptor.desc) { wrap.appendChild(util.el('div', 'kt-field-desc', KT.t(descriptor.desc))); }
         }
-        descriptor.input.addEventListener('change', updateDirty);
+        descriptor.input.addEventListener('change', function () {
+            updateDirty();
+            if (descriptor.onChange) { descriptor.onChange(); }
+        });
         descriptor.input.addEventListener('input', updateDirty);
         state.fields.push(descriptor);
         return wrap;
@@ -322,7 +325,7 @@
 
     function buildGeneralPanel(panel) {
         panel.appendChild(card('interface', [grid([
-            renderField({ path: 'UiLanguage', type: 'select', label: 'uiLanguage', options: [
+            renderField({ path: 'UiLanguage', type: 'select', label: 'uiLanguage', onChange: applyLanguageLive, options: [
                 { value: 'en', label: 'English' }, { value: 'it', label: 'Italiano' }
             ] })
         ])]));
@@ -955,6 +958,52 @@
         });
     }
 
+    /* ---- ui (re)build — shared by first load and live language switch ---- */
+
+    function renderUiText() {
+        KT.i18n.apply(state.page);
+        q('ktBtnSave').textContent = KT.t('save');
+        q('ktBtnDiscard').textContent = KT.t('discard');
+        q('ktBtnSyncNow').textContent = KT.t('syncNow');
+        q('ktBtnForceSync').textContent = KT.t('forceSync');
+        q('ktBtnToggleLog').textContent = KT.t('toggleLog');
+        q('ktStatCache').parentElement.title = KT.t('tabFailed');
+    }
+
+    function buildAllPanels() {
+        state.fields = [];
+        [['ktPanelGeneral', buildGeneralPanel], ['ktPanelThemes', buildThemesPanel],
+         ['ktPanelProviders', buildProvidersPanel], ['ktPanelLibrary', buildLibraryPanel],
+         ['ktPanelFailed', buildFailedPanel]].forEach(function (pair) {
+            var host = q(pair[0]);
+            util.clear(host);
+            pair[1](host);
+        });
+        util.clear(q('ktLog'));
+        buildLogPanel();
+    }
+
+    /* Switch UI language without leaving the page or losing unsaved edits. */
+    function applyLanguageLive() {
+        var live = JSON.parse(JSON.stringify(state.config || {}));
+        state.fields.forEach(function (field) { setPath(live, field.path, field.read()); });
+        live.ProviderPriority = state.providers.slice();
+
+        KT.i18n.setLang(getPath(live, 'UiLanguage') || 'en');
+        renderUiText();
+        buildAllPanels();
+
+        /* restore the captured form values into the freshly rebuilt fields */
+        state.fields.forEach(function (field) { field.write(getPath(live, field.path)); });
+        state.providers = (live.ProviderPriority || []).slice();
+        renderProviders();
+        updateDirty();
+
+        loadHero();
+        loadSkipped();
+        loadFailed();
+    }
+
     /* ---- entry point ---- */
 
     function show(page) {
@@ -965,21 +1014,11 @@
 
             if (!page.dataset.ktBound) {
                 page.dataset.ktBound = '1';
-                KT.i18n.apply(page);
-                buildGeneralPanel(q('ktPanelGeneral'));
-                buildThemesPanel(q('ktPanelThemes'));
-                buildProvidersPanel(q('ktPanelProviders'));
-                buildLibraryPanel(q('ktPanelLibrary'));
-                buildFailedPanel(q('ktPanelFailed'));
-                buildLogPanel();
+                buildAllPanels();
+                renderUiText();
                 bindTabs();
                 bindCacheTile();
                 KT.ui.attachSyncDot(q('ktLiveDot'));
-                q('ktBtnSave').textContent = KT.t('save');
-                q('ktBtnDiscard').textContent = KT.t('discard');
-                q('ktBtnSyncNow').textContent = KT.t('syncNow');
-                q('ktBtnForceSync').textContent = KT.t('forceSync');
-                q('ktBtnToggleLog').textContent = KT.t('toggleLog');
                 q('ktBtnSave').addEventListener('click', save);
                 q('ktBtnDiscard').addEventListener('click', applyConfigToForm);
                 q('ktBtnSyncNow').addEventListener('click', function () { triggerSync(false); });
