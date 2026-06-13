@@ -9,6 +9,11 @@
   <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-green">
 </p>
 
+<p align="center">
+  <a href="https://buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-iCosiSenpai-ffdd00?logo=buymeacoffee&logoColor=black"></a>
+  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://img.shields.io/badge/Donate-PayPal-0070ba?logo=paypal&logoColor=white"></a>
+</p>
+
 Anime openings and endings for [Jellyfin](https://jellyfin.org/), fetched automatically from [animethemes.moe](https://animethemes.moe). Multi-provider matching, multi-season handling, a guided Theme Finder UI, and first-class support for the Jellyfin 10.11.x theme playback quirks.
 
 > 🇮🇹 La versione italiana è più in basso — [vai alla sezione italiana](#-italiano).
@@ -154,6 +159,13 @@ dotnet test
 
 Requires the .NET 9.0 SDK. Local end-to-end testing: run `jellyfin/jellyfin:10.11.11` in Docker and drop the built DLL in `config/plugins/KometaThemes_<version>/`.
 
+## ❤️ Support
+
+KometaThemes is free and open source. If it saves you time, consider supporting development:
+
+- ☕ **Buy me a coffee:** [buymeacoffee.com/iCosiSenpai](https://buymeacoffee.com/iCosiSenpai)
+- 💙 **PayPal:** [donate here](https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ)
+
 ## Credits & License
 
 Theme data and media: [animethemes.moe](https://animethemes.moe). License: [GPL-3.0](LICENSE).
@@ -183,6 +195,12 @@ Plugin per [Jellyfin](https://jellyfin.org/) che scarica automaticamente sigle a
 > **Arrivi da una 2.x?** La numerazione riparte da **1.0.0.0**: disinstalla prima la vecchia versione, riavvia, poi installa la 1.0.0.0 dal catalogo. La configurazione si conserva.
 
 Per il pulsante ♪ nelle pagine degli item, punta il tuo injector JS (es. plugin Custom JavaScript) a `/Plugins/KometaThemes/ItemButton.js` (visibile solo agli amministratori).
+
+---
+
+### ❤️ Sostieni il progetto
+
+Se KometaThemes ti è utile, puoi offrirmi un caffè: ☕ [buymeacoffee.com/iCosiSenpai](https://buymeacoffee.com/iCosiSenpai) · 💙 [Dona con PayPal](https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ)
 
 ---
 

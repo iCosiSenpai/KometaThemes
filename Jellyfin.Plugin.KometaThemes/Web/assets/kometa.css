@@ -299,6 +299,19 @@
 .kt-btn-sm { min-height: 30px; padding: 4px 12px; font-size: 0.84em; }
 .kt-btn-icon { min-width: 38px; padding: 8px; }
 
+/* support / donate */
+.kt-support {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    align-items: center; justify-content: center;
+    margin-top: 22px; padding-top: 18px;
+    border-top: 1px solid var(--kt-border);
+}
+.kt-support-label { color: var(--kt-text-faint); font-size: 0.9em; margin-right: 4px; }
+.kt-btn-bmc { border: none; color: #0d0c0b; background: #ffdd00; }
+.kt-btn-bmc:hover { border: none; color: #0d0c0b; box-shadow: 0 6px 22px rgba(255, 221, 0, 0.38); }
+.kt-btn-paypal { border: none; color: #fff; background: #0070ba; }
+.kt-btn-paypal:hover { border: none; box-shadow: 0 6px 22px rgba(0, 112, 186, 0.40); }
+
 /* ---- chips & badges ---------------------------------------------------------- */
 
 .kt-chip {

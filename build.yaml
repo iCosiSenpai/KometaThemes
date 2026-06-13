@@ -1,7 +1,7 @@
 ---
 name: "KometaThemes"
 guid: "48c98707-45d1-43ac-94b8-f74d875ad29c"
-version: "1.0.0.2"
+version: "1.0.0.3"
 targetAbi: "10.11.8.0"
 framework: "net9.0"
 overview: "Plugin for Jellyfin that fetches anime themes (OPs and EDs) from animethemes.moe with multi-provider support"
@@ -15,6 +15,9 @@ owner: "KometaThemes"
 artifacts:
   - "Jellyfin.Plugin.KometaThemes.dll"
 changelog: |-
+  v1.0.0.3
+  - Added Buy Me a Coffee and PayPal donate buttons to the plugin pages, README and the GitHub Sponsor button
+
   v1.0.0.2
   - Fix: the provider priority list no longer grows with duplicate entries on every save/restart (the saved list is now deduplicated and repaired automatically on load)
   - The "KometaThemes" entry in the dashboard Plugins sidebar now shows the brand planet icon instead of the generic folder, and a cleaner "KometaThemes" label
