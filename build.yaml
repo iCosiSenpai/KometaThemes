@@ -1,7 +1,7 @@
 ---
 name: "KometaThemes"
 guid: "48c98707-45d1-43ac-94b8-f74d875ad29c"
-version: "1.0.0.0"
+version: "1.0.0.1"
 targetAbi: "10.11.8.0"
 framework: "net9.0"
 overview: "Plugin for Jellyfin that fetches anime themes (OPs and EDs) from animethemes.moe with multi-provider support"
@@ -15,6 +15,9 @@ owner: "KometaThemes"
 artifacts:
   - "Jellyfin.Plugin.KometaThemes.dll"
 changelog: |-
+  v1.0.0.1
+  - Fix: the ♪ Theme Finder button is now injected correctly when other web-mod plugins (Jellyfin Enhanced, KefinTweaks, JavaScript Injector, …) are installed — the File Transformation registration now joins the shared "index.html" pipeline instead of a separate one that never ran
+
   v1.0.0.0
   - Automatic anime OP/ED theme download from animethemes.moe (audio + video)
   - Multi-provider matching (AniDB, AniList, MyAnimeList, Kitsu, AniSearch) with title fallback
