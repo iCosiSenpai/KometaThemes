@@ -9,7 +9,7 @@
 
     KT.i18n.extend({
         en: {
-            tabGeneral: 'General', tabThemes: 'Themes & Download', tabProviders: 'Providers & Matching', tabLibrary: 'Library',
+            tabGeneral: 'General', tabThemes: 'Themes & Download', tabProviders: 'Providers & Matching', tabLibrary: 'Excluded',
             statHealth: 'Status', statLastSync: 'Last sync', statCache: 'Cache hit rate', statSkipped: 'Skipped items',
             statSkippedSub: 'excluded from sync', healthOk: 'Ready', healthRunning: 'Syncing', healthDown: 'Unreachable',
             syncNow: 'Sync now', forceSync: 'Force sync', toggleLog: 'Activity log',
@@ -57,12 +57,13 @@
             cacheEntries: 'Entries', cacheHits: 'Hits', cacheMisses: 'Misses', cacheHitRate: 'Hit rate',
             clearCache: 'Clear cache', cacheCleared: 'Cache cleared',
             confirmClearCache: 'Clear the whole resolution cache?',
-            skippedTitle: 'Excluded items',
-            skippedNote: 'These items are permanently skipped by the sync. Restore one to include it again.',
+            skippedTitle: 'Excluded anime (blacklist)',
+            skippedNote: 'Anime you blacklisted: the sync skips them forever and never searches them again. Press Restore to bring one back.',
             skippedSearch: 'Filter by name…', skippedEmpty: 'No excluded items.',
             restore: 'Restore', restored: 'Item restored',
             colName: 'Name', colType: 'Type', colYear: 'Year', colReason: 'Reason', colWhen: 'When', colActions: '',
-            playlistTitle: 'Playlist',
+            playlistTitle: 'Themes playlist',
+            playlistNote: 'Builds an M3U playlist containing every theme you have downloaded. Refresh rebuilds it; Export M3U saves it to a file.',
             enablePlaylist: 'Maintain a global themes playlist',
             playlistName: 'Playlist name', playlistRoot: 'Export root path (optional)',
             refreshPlaylist: 'Refresh playlist', exportM3u: 'Export M3U',
@@ -70,10 +71,10 @@
             displayHint: 'If themes still do not play, check Settings → Display → "Play theme songs" in your user profile: the Jellyfin 10.11 migration may have reset it.',
             tabFailed: 'Unresolved',
             failedTitle: 'Items that did not fetch',
-            failedNote: 'These items could not be matched to an anime, or their download failed. Retry them, or blacklist the ones that are not on AnimeThemes so they are never searched again.',
+            failedNote: 'These items could not be matched to an anime, or their download failed. Search & bind one manually, retry the automatic match, or blacklist the ones that are not on AnimeThemes so they are never searched again.',
             failedEmpty: 'Nothing here — every item fetched correctly.',
             failedReasonUnresolved: 'Not matched', failedReasonDownload: 'Download failed',
-            failedRetry: 'Retry', failedBlacklist: 'Blacklist', failedDismiss: 'Dismiss',
+            failedSearch: 'Search & bind', failedRetry: 'Retry', failedBlacklist: 'Blacklist', failedDismiss: 'Dismiss',
             failedClearAll: 'Clear list',
             failedConfirmBlacklist: 'Blacklist "{name}"? It will never be searched again. You can restore it later from the Library tab.',
             failedConfirmClear: 'Clear the whole unresolved list? Items will reappear if they fail again on the next sync.',
@@ -86,7 +87,7 @@
             logLoadFailed: 'Could not load the server log'
         },
         it: {
-            tabGeneral: 'Generale', tabThemes: 'Temi & Download', tabProviders: 'Provider & Matching', tabLibrary: 'Libreria',
+            tabGeneral: 'Generale', tabThemes: 'Temi & Download', tabProviders: 'Provider & Matching', tabLibrary: 'Esclusi',
             statHealth: 'Stato', statLastSync: 'Ultimo sync', statCache: 'Cache hit rate', statSkipped: 'Elementi esclusi',
             statSkippedSub: 'esclusi dal sync', healthOk: 'Pronto', healthRunning: 'Sync in corso', healthDown: 'Non raggiungibile',
             syncNow: 'Sync ora', forceSync: 'Forza sync', toggleLog: 'Log attività',
@@ -134,12 +135,13 @@
             cacheEntries: 'Voci', cacheHits: 'Hit', cacheMisses: 'Miss', cacheHitRate: 'Hit rate',
             clearCache: 'Svuota cache', cacheCleared: 'Cache svuotata',
             confirmClearCache: 'Svuotare tutta la cache di risoluzione?',
-            skippedTitle: 'Elementi esclusi',
-            skippedNote: 'Questi elementi sono esclusi permanentemente dal sync. Ripristinane uno per includerlo di nuovo.',
+            skippedTitle: 'Anime esclusi (blacklist)',
+            skippedNote: 'Gli anime che hai messo in blacklist: la sincronizzazione li salta per sempre e non li cerca più. Premi Ripristina per rimetterne uno in gioco.',
             skippedSearch: 'Filtra per nome…', skippedEmpty: 'Nessun elemento escluso.',
             restore: 'Ripristina', restored: 'Elemento ripristinato',
             colName: 'Nome', colType: 'Tipo', colYear: 'Anno', colReason: 'Motivo', colWhen: 'Quando', colActions: '',
-            playlistTitle: 'Playlist',
+            playlistTitle: 'Playlist dei temi',
+            playlistNote: 'Crea una playlist M3U con tutti i temi che hai scaricato. Refresh la rigenera; Export M3U la salva come file.',
             enablePlaylist: 'Mantieni una playlist globale dei temi',
             playlistName: 'Nome playlist', playlistRoot: 'Percorso radice export (opzionale)',
             refreshPlaylist: 'Aggiorna playlist', exportM3u: 'Esporta M3U',
@@ -147,10 +149,10 @@
             displayHint: 'Se i temi continuano a non riprodursi, controlla Impostazioni → Schermo → "Riproduci sigle" nel tuo profilo utente: la migrazione a Jellyfin 10.11 potrebbe averlo resettato.',
             tabFailed: 'Non risolti',
             failedTitle: 'Elementi che non hanno fetchato',
-            failedNote: 'Questi elementi non sono stati abbinati a nessun anime, oppure il download è fallito. Riprovali, o metti in blacklist quelli che non esistono su AnimeThemes così non vengono più cercati.',
+            failedNote: 'Questi elementi non sono stati abbinati a nessun anime, oppure il download è fallito. Cerca e abbina uno a mano, riprova l’abbinamento automatico, o metti in blacklist quelli che non esistono su AnimeThemes così non vengono più cercati.',
             failedEmpty: 'Niente qui — tutti gli elementi hanno fetchato correttamente.',
             failedReasonUnresolved: 'Non abbinato', failedReasonDownload: 'Download fallito',
-            failedRetry: 'Riprova', failedBlacklist: 'Blacklist', failedDismiss: 'Ignora',
+            failedSearch: 'Cerca e abbina', failedRetry: 'Riprova', failedBlacklist: 'Blacklist', failedDismiss: 'Ignora',
             failedClearAll: 'Svuota lista',
             failedConfirmBlacklist: 'Mettere "{name}" in blacklist? Non verrà mai più cercato. Potrai ripristinarlo dalla tab Libreria.',
             failedConfirmClear: 'Svuotare tutta la lista dei non risolti? Gli elementi ricompariranno se falliscono di nuovo al prossimo sync.',
@@ -379,6 +381,24 @@
             renderField({ path: 'ForceSync', type: 'check', label: 'forceSyncOpt' }),
             renderField({ path: 'DryRunMode', type: 'check', label: 'dryRun', desc: 'dryRunDesc' })
         ]));
+
+        var playlistActions = util.el('div', 'kt-row');
+        var btnRefresh = util.el('button', 'kt-btn', KT.t('refreshPlaylist'));
+        btnRefresh.type = 'button';
+        btnRefresh.addEventListener('click', refreshPlaylist);
+        var btnExport = util.el('button', 'kt-btn kt-btn-ghost', KT.t('exportM3u'));
+        btnExport.type = 'button';
+        btnExport.addEventListener('click', exportPlaylist);
+        playlistActions.appendChild(btnRefresh);
+        playlistActions.appendChild(btnExport);
+        panel.appendChild(card('playlistTitle', [
+            renderField({ path: 'EnablePlaylist', type: 'check', label: 'enablePlaylist' }),
+            grid([
+                renderField({ path: 'PlaylistName', type: 'text', label: 'playlistName' }),
+                renderField({ path: 'PlaylistExportRoot', type: 'text', label: 'playlistRoot' })
+            ]),
+            playlistActions
+        ], 'playlistNote'));
     }
 
     function buildProvidersPanel(panel) {
@@ -419,24 +439,6 @@
         var tableWrap = util.el('div', 'kt-table-wrap');
         tableWrap.id = 'ktSkippedWrap';
         panel.appendChild(card('skippedTitle', [search, tableWrap], 'skippedNote'));
-
-        var actions = util.el('div', 'kt-row');
-        var btnRefresh = util.el('button', 'kt-btn', KT.t('refreshPlaylist'));
-        btnRefresh.type = 'button';
-        btnRefresh.addEventListener('click', refreshPlaylist);
-        var btnExport = util.el('button', 'kt-btn kt-btn-ghost', KT.t('exportM3u'));
-        btnExport.type = 'button';
-        btnExport.addEventListener('click', exportPlaylist);
-        actions.appendChild(btnRefresh);
-        actions.appendChild(btnExport);
-        panel.appendChild(card('playlistTitle', [
-            renderField({ path: 'EnablePlaylist', type: 'check', label: 'enablePlaylist' }),
-            grid([
-                renderField({ path: 'PlaylistName', type: 'text', label: 'playlistName' }),
-                renderField({ path: 'PlaylistExportRoot', type: 'text', label: 'playlistRoot' })
-            ]),
-            actions
-        ]));
     }
 
     function buildFailedPanel(panel) {
@@ -491,6 +493,7 @@
             row.appendChild(util.el('td', null, item.lastAttemptUtc ? new Date(item.lastAttemptUtc).toLocaleString() : '-'));
             var actionCell = util.el('td');
             var actionRow = util.el('div', 'kt-row');
+            actionRow.appendChild(failedSearchButton(item));
             actionRow.appendChild(failedRetryButton(item));
             actionRow.appendChild(failedBlacklistButton(item));
             actionRow.appendChild(failedDismissButton(item));
@@ -500,6 +503,18 @@
         });
         table.appendChild(tbody);
         wrap.appendChild(table);
+    }
+
+    function openThemeFinder(itemId) {
+        var url = 'configurationpage?name=KometaThemesSearch&itemId=' + encodeURIComponent(itemId);
+        try { Dashboard.navigate(url); } catch (e) { window.location.hash = '#!/' + url; }
+    }
+
+    function failedSearchButton(item) {
+        var btn = util.el('button', 'kt-btn kt-btn-sm kt-btn-primary', '🔍 ' + KT.t('failedSearch'));
+        btn.type = 'button';
+        btn.addEventListener('click', function () { openThemeFinder(item.itemId); });
+        return btn;
     }
 
     function failedRetryButton(item) {
