@@ -5,6 +5,8 @@
     var BTN_ID = 'kometaThemesBtn';
     var BTN_CLASS = 'button-flat btnKometaThemes detailButton';
     var PAGE_NAME = 'KometaThemesSearch';
+    var MENU_PAGE = 'KometaThemesItem'; // the main-menu drawer entry (Plugin.GetPages)
+    var DRAWER_STYLE_ID = 'kometathemes-drawer-style';
 
     if (window[STATE_KEY] && typeof window[STATE_KEY].destroy === 'function') {
         window[STATE_KEY].destroy();
@@ -221,6 +223,10 @@
     // navigation events. Never tears down in-flight work for the same item —
     // a lookup slower than the 1.5s fallback tick must still land the button.
     function ensureButton() {
+        // The drawer entry exists on every page, independent of the detail-page
+        // button logic below, so decorate it before any early return.
+        decorateDrawer();
+
         if (!isDetailPage()) {
             removeButton();
             state.currentItemId = null;
@@ -285,6 +291,41 @@
                 state.pending = null;
             }
         });
+    }
+
+    // ---- Sidebar (dashboard drawer) brand icon -----------------------------
+    // Replaces the generic Folder icon next to the "KometaThemes" entry in the
+    // dashboard's Plugins drawer section with the brand "planet" mark — a CSS
+    // gradient orb mirroring the .kt-comet logo on the plugin pages.
+    //
+    // Jellyfin 10.11's dashboard drawer (PluginDrawerSection) renders each
+    // EnableInMainMenu page as a MUI ListItemLink whose href carries
+    // name=KometaThemesItem, with a hardcoded MUI <Folder/> <svg> for the icon
+    // (MenuIcon is ignored there). So this is done purely with a scoped <style>
+    // — no DOM mutation — which keeps it stable across React re-renders and
+    // independent of kometa.css (not loaded in the web client).
+    function ensureDrawerStyle() {
+        if (document.getElementById(DRAWER_STYLE_ID)) {
+            return;
+        }
+
+        var sel = 'a[href*="name=' + MENU_PAGE + '"] .MuiListItemIcon-root';
+        var style = document.createElement('style');
+        style.id = DRAWER_STYLE_ID;
+        style.textContent =
+            sel + ' svg{display:none!important;}' +
+            sel + '{position:relative;}' +
+            sel + '::before{content:"";display:inline-block;box-sizing:border-box;' +
+            'width:24px;height:24px;border-radius:50%;' +
+            'background:radial-gradient(circle at 33% 33%,rgba(255,255,255,.92) 0 16%,rgba(255,255,255,0) 26%),' +
+            'linear-gradient(135deg,#7c5cff 0%,#00a4dc 100%);' +
+            'box-shadow:0 0 8px rgba(124,92,255,.55);}';
+        (document.head || document.documentElement).appendChild(style);
+    }
+
+    function decorateDrawer() {
+        // The scoped CSS does the work; we just make sure it is present once.
+        ensureDrawerStyle();
     }
 
     function scheduleEnsure(delay) {

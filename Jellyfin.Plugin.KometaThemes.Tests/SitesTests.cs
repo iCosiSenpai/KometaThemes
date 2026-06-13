@@ -43,4 +43,19 @@ public class SitesTests
         var result = Sites.NormalizeProviderPriority(input);
         Assert.Equal(5, result.Distinct().Count());
     }
+
+    [Fact]
+    public void NormalizeProviderPriority_Collapses_AccumulatedDuplicates()
+    {
+        // Regression: the XmlSerializer collection-append bug grew the saved list by
+        // the full default sequence on every load/save cycle (observed: 35 = 5 x 7).
+        // Normalization must collapse it back to exactly the five canonical providers
+        // in first-seen order.
+        var bloated = Enumerable.Range(0, 7).SelectMany(_ => Sites.DefaultPriority).ToList();
+        Assert.Equal(35, bloated.Count);
+
+        var result = Sites.NormalizeProviderPriority(bloated);
+
+        Assert.Equal(Sites.DefaultPriority, result);
+    }
 }

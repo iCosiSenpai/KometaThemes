@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using Jellyfin.Plugin.KometaThemes.Api;
 using Jellyfin.Plugin.KometaThemes.Models;
 using MediaBrowser.Model.Plugins;
 
@@ -48,7 +47,11 @@ public class PluginConfiguration : BasePluginConfiguration
 
         // KometaThemes extensions
         UiLanguage = "en";
-        ProviderPriority = Sites.NormalizeProviderPriority(null);
+        // NOTE: do NOT seed ProviderPriority here. XmlSerializer appends to a
+        // pre-populated collection on deserialize (it never clears it), so seeding
+        // defaults in the constructor makes the saved list grow by 5 every load/save
+        // cycle. Defaults are seeded — and any accumulated duplicates repaired — once
+        // at load time by Plugin.NormalizeProviderPriorityConfig().
         EnableTitleFallback = true;
         TitleMatchThreshold = 0.80;
         RateLimitPerMinute = 60;

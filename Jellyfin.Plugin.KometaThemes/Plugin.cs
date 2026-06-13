@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using Jellyfin.Plugin.KometaThemes.Api;
 using Jellyfin.Plugin.KometaThemes.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
@@ -25,6 +27,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         Instance = this;
         MigrateMutedVideoDefault();
+        NormalizeProviderPriorityConfig();
     }
 
     /// <inheritdoc />
@@ -47,7 +50,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             // Pages (cache-busting is handled by the in-page bootstrap via ?v=, not by duplicate names)
             new PluginPageInfo { Name = this.Name, EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", ns) },
             new PluginPageInfo { Name = "KometaThemesSearch", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.SearchPage.html", ns) },
-            new PluginPageInfo { Name = "KometaThemesItem", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.itemPage.html", ns), EnableInMainMenu = true },
+            new PluginPageInfo { Name = "KometaThemesItem", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.itemPage.html", ns), EnableInMainMenu = true, DisplayName = "KometaThemes" },
 
             // Shared assets, served through /web/configurationpage?name=...
             new PluginPageInfo { Name = "KometaThemesCss", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.kometa.css", ns) },
@@ -56,6 +59,28 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             new PluginPageInfo { Name = "KometaThemesSearchJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.search.js", ns) },
             new PluginPageInfo { Name = "KometaThemesItemJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.item.js", ns) }
         ];
+    }
+
+    /// <summary>
+    /// Repairs and seeds the provider priority list once at load. Earlier builds seeded
+    /// defaults in the configuration constructor, which — combined with XmlSerializer
+    /// appending to (never clearing) collection properties on deserialize — made the
+    /// saved list grow by five entries on every load/save cycle. This dedupes any such
+    /// accumulation back to the canonical order and seeds the defaults on a fresh install.
+    /// </summary>
+    private void NormalizeProviderPriorityConfig()
+    {
+        var configuration = Configuration;
+        var normalized = Sites.NormalizeProviderPriority(configuration.ProviderPriority);
+
+        if (configuration.ProviderPriority.Count == normalized.Count
+            && configuration.ProviderPriority.SequenceEqual(normalized, StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        configuration.ProviderPriority = normalized;
+        SaveConfiguration();
     }
 
     private void MigrateMutedVideoDefault()
