@@ -22,6 +22,7 @@
             seasonGroup: 'Season {n}', seasonEpisodes: 'ep. {range}', otherThemes: 'Other themes',
             creditless: 'creditless', overlap: 'overlap',
             selCount: '{n} selected',
+            selReviewTitle: 'Selected themes', selReviewEmpty: 'Nothing selected yet.', selRemove: 'Remove',
             bulkOpAudio: 'All OP audio', bulkEdAudio: 'All ED audio', bulkVideo: 'All video', bulkClear: 'Clear',
             download: 'Download', downloading: 'Downloading…',
             downloadDone: 'Download finished: {ok} ok, {fail} failed',
@@ -44,6 +45,7 @@
             seasonGroup: 'Stagione {n}', seasonEpisodes: 'ep. {range}', otherThemes: 'Altri temi',
             creditless: 'creditless', overlap: 'overlap',
             selCount: '{n} selezionati',
+            selReviewTitle: 'Temi selezionati', selReviewEmpty: 'Niente selezionato.', selRemove: 'Rimuovi',
             bulkOpAudio: 'Tutti OP audio', bulkEdAudio: 'Tutte ED audio', bulkVideo: 'Tutti video', bulkClear: 'Svuota',
             download: 'Scarica', downloading: 'Download in corso…',
             downloadDone: 'Download completato: {ok} ok, {fail} falliti',
@@ -60,8 +62,11 @@
         results: [],
         broadResults: [],
         selectedAnimeId: null,
+        selectedAnimeName: null,
         themes: [],
         seasonGroups: [],
+        /* selection keyed by media URL (stable + globally unique across anime/seasons),
+           value = {url, mediaType, themeName, animeId, animeName}. Persists across results. */
         selected: {},
         downloading: false
     };
@@ -199,6 +204,9 @@
         if (sub) { body.appendChild(util.el('div', 'kt-result-sub', sub)); }
         body.appendChild(confidenceBadge(result));
         btn.appendChild(body);
+        var badge = util.el('span', 'kt-result-badge');
+        badge.style.display = 'none';
+        btn.appendChild(badge);
         btn.addEventListener('click', function () { selectAnime(result); });
         return btn;
     }
@@ -221,15 +229,18 @@
         } else {
             broadWrap.style.display = 'none';
         }
+        updateResultBadges();
     }
 
     /* ---- anime detail + themes ---- */
 
     function clearDetail() {
+        /* clears the currently-shown anime detail but NOT state.selected —
+           selections persist across results so the user can pick from multiple seasons. */
         state.selectedAnimeId = null;
+        state.selectedAnimeName = null;
         state.themes = [];
         state.seasonGroups = [];
-        state.selected = {};
         q('ktAnimeCard').style.display = 'none';
         q('ktDetailEmpty').style.display = '';
         util.clear(q('ktSeasonGroups'));
@@ -254,10 +265,13 @@
 
         KT.api.get(url).then(function (data) {
             if (state.selectedAnimeId !== result.id) { return; }
-            renderAnime(data.anime || result);
+            var anime = data.anime || result;
+            state.selectedAnimeName = anime.name || result.name || '';
+            renderAnime(anime);
             state.themes = data.themes || [];
             state.seasonGroups = data.seasonGroups || [];
             renderSeasonGroups();
+            updateSelBar();
             setStep(3);
         }).catch(function (error) {
             util.clear(groupsHost);
@@ -290,7 +304,12 @@
         }
     }
 
-    /* Selection model: key = themeIndex|mediaType → {url, mediaType, themeName}. */
+    /* Selection model: key = media URL → {url, mediaType, themeName, animeId, animeName}.
+       URLs are globally unique, so selections survive switching between results/seasons. */
+
+    function mediaUrl(theme, mediaType) {
+        return mediaType === 'video' ? theme.videoUrl : theme.audioUrl;
+    }
 
     function themeName(theme) {
         var name = theme.label || ((theme.type || 'Theme') + (theme.sequence || ''));
@@ -305,18 +324,20 @@
         return !!theme.videoUrl && !theme.videoDownloaded;
     }
 
-    function setSelected(index, mediaType, selected) {
-        var theme = state.themes[index];
+    function setSelected(theme, mediaType, selected) {
         if (!theme || !isAvailable(theme, mediaType)) { return false; }
-        var key = index + '|' + mediaType;
+        var url = mediaUrl(theme, mediaType);
+        if (!url) { return false; }
         if (selected) {
-            state.selected[key] = {
-                url: mediaType === 'video' ? theme.videoUrl : theme.audioUrl,
+            state.selected[url] = {
+                url: url,
                 mediaType: mediaType,
-                themeName: themeName(theme)
+                themeName: themeName(theme),
+                animeId: state.selectedAnimeId,
+                animeName: state.selectedAnimeName || ''
             };
         } else {
-            delete state.selected[key];
+            delete state.selected[url];
         }
         return true;
     }
@@ -354,16 +375,17 @@
 
             var toggle = util.el('button', 'kt-media-toggle ' + mediaType, KT.t(mediaType));
             toggle.type = 'button';
+            toggle.dataset.url = url;
             if (downloaded) {
                 toggle.classList.add('downloaded');
                 toggle.textContent = KT.t(mediaType) + ' ✓';
                 toggle.title = KT.t('alreadyDownloaded');
                 toggle.disabled = true;
             } else {
+                if (state.selected[url]) { toggle.classList.add('on'); }
                 toggle.addEventListener('click', function () {
-                    var key = index + '|' + mediaType;
-                    var nowSelected = !state.selected[key];
-                    if (setSelected(index, mediaType, nowSelected)) {
+                    var nowSelected = !state.selected[url];
+                    if (setSelected(theme, mediaType, nowSelected)) {
                         toggle.classList.toggle('on', nowSelected);
                         updateSelBar();
                     }
@@ -433,62 +455,97 @@
 
     /* ---- selection bar + download ---- */
 
+    function selectedValues() {
+        return Object.keys(state.selected).map(function (key) { return state.selected[key]; });
+    }
+
     function updateSelBar() {
         var count = Object.keys(state.selected).length;
         var bar = q('ktSelBar');
-        bar.style.display = state.themes.length ? '' : 'none';
+        bar.style.display = (count > 0 || state.themes.length) ? '' : 'none';
         q('ktSelCount').textContent = KT.t('selCount', { n: count });
         q('ktBtnDownload').disabled = count === 0 || state.downloading;
+        renderSelReview();
+        updateResultBadges();
+    }
+
+    /* Re-sync the on/off look of theme toggles from state.selected, keyed by data-url. */
+    function syncToggleVisuals() {
+        state.page.querySelectorAll('#ktSeasonGroups .kt-media-toggle[data-url]').forEach(function (toggle) {
+            if (toggle.disabled) { return; }
+            toggle.classList.toggle('on', !!state.selected[toggle.dataset.url]);
+        });
+    }
+
+    /* Expandable list of every selected theme, grouped by anime, each removable. */
+    function renderSelReview() {
+        var review = q('ktSelReview');
+        var body = q('ktSelReviewBody');
+        var entries = selectedValues();
+        q('ktSelReviewTitle').textContent = KT.t('selReviewTitle') + ' · ' + entries.length;
+        review.style.display = entries.length ? '' : 'none';
+        util.clear(body);
+        if (!entries.length) { return; }
+
+        var groups = {};
+        var order = [];
+        entries.forEach(function (entry) {
+            var key = entry.animeName || String(entry.animeId || '—');
+            if (!groups[key]) { groups[key] = []; order.push(key); }
+            groups[key].push(entry);
+        });
+        order.forEach(function (key) {
+            var group = util.el('div', 'kt-sel-group');
+            group.appendChild(util.el('div', 'kt-sel-group-title', key));
+            groups[key].forEach(function (entry) {
+                var row = util.el('div', 'kt-sel-item');
+                row.appendChild(util.el('span', 'kt-badge neutral', KT.t(entry.mediaType)));
+                row.appendChild(util.el('span', 'kt-sel-item-name', entry.themeName));
+                var remove = util.el('button', 'kt-sel-remove', '✕');
+                remove.type = 'button';
+                remove.title = KT.t('selRemove');
+                remove.setAttribute('aria-label', KT.t('selRemove'));
+                remove.addEventListener('click', function () {
+                    delete state.selected[entry.url];
+                    syncToggleVisuals();
+                    updateSelBar();
+                });
+                row.appendChild(remove);
+                group.appendChild(row);
+            });
+            body.appendChild(group);
+        });
+    }
+
+    /* Badge on each search result showing how many themes were picked from that anime. */
+    function updateResultBadges() {
+        var counts = {};
+        Object.keys(state.selected).forEach(function (url) {
+            var id = String(state.selected[url].animeId || '');
+            if (id) { counts[id] = (counts[id] || 0) + 1; }
+        });
+        state.page.querySelectorAll('.kt-result').forEach(function (node) {
+            var badge = node.querySelector('.kt-result-badge');
+            if (!badge) { return; }
+            var n = counts[node.dataset.animeId] || 0;
+            badge.textContent = n ? String(n) : '';
+            badge.style.display = n ? '' : 'none';
+        });
     }
 
     function bulkSelect(kind) {
         if (kind === 'clear') {
             state.selected = {};
         } else {
-            state.themes.forEach(function (theme, index) {
+            state.themes.forEach(function (theme) {
                 var type = String(theme.type || '').toUpperCase();
-                if (kind === 'op-audio' && type === 'OP') { setSelected(index, 'audio', true); }
-                if (kind === 'ed-audio' && type === 'ED') { setSelected(index, 'audio', true); }
-                if (kind === 'video') { setSelected(index, 'video', true); }
+                if (kind === 'op-audio' && type === 'OP') { setSelected(theme, 'audio', true); }
+                if (kind === 'ed-audio' && type === 'ED') { setSelected(theme, 'audio', true); }
+                if (kind === 'video') { setSelected(theme, 'video', true); }
             });
         }
-        /* re-sync toggle visuals */
-        state.page.querySelectorAll('.kt-media-toggle').forEach(function (node) { node.classList.remove('on'); });
-        renderSeasonGroupsSelectionState();
+        syncToggleVisuals();
         updateSelBar();
-    }
-
-    function renderSeasonGroupsSelectionState() {
-        /* simplest reliable approach: re-render the groups, restoring open state */
-        var host = q('ktSeasonGroups');
-        var openStates = Array.prototype.map.call(host.querySelectorAll('details'), function (d) { return d.open; });
-        renderSeasonGroups();
-        Array.prototype.forEach.call(host.querySelectorAll('details'), function (d, i) {
-            if (openStates[i] != null) { d.open = openStates[i]; }
-        });
-        Array.prototype.forEach.call(host.querySelectorAll('.kt-theme'), function () { /* no-op */ });
-        /* mark selected toggles */
-        Object.keys(state.selected).forEach(function (key) {
-            var parts = key.split('|');
-            markToggle(parseInt(parts[0], 10), parts[1], true);
-        });
-    }
-
-    function markToggle(index, mediaType, on) {
-        /* toggles are re-created by renderSeasonGroups; find by position */
-        var theme = state.themes[index];
-        if (!theme) { return; }
-        var rows = state.page.querySelectorAll('#ktSeasonGroups .kt-theme');
-        rows.forEach(function (row) {
-            var title = row.querySelector('.kt-theme-title');
-            var chip = row.querySelector('.kt-type-chip');
-            if (!title || !chip) { return; }
-            var expectChip = theme.label || (String(theme.type).toUpperCase() + (theme.sequence || ''));
-            if (title.textContent === (theme.title || theme.slug) && chip.textContent === expectChip) {
-                var toggle = row.querySelector('.kt-media-toggle.' + mediaType);
-                if (toggle && !toggle.disabled) { toggle.classList.toggle('on', on); }
-            }
-        });
     }
 
     function logLine(message, level) {
@@ -499,7 +556,7 @@
     }
 
     function download() {
-        var items = Object.keys(state.selected).map(function (key) { return state.selected[key]; });
+        var items = selectedValues();
         if (!items.length || state.downloading) { return; }
         state.downloading = true;
         var btn = q('ktBtnDownload');
@@ -515,13 +572,14 @@
                 if (result.success) {
                     ok++;
                     logLine('✓ ' + result.name, 'success');
+                    /* drop only successful items; failures stay selected for an easy retry */
+                    if (result.url) { delete state.selected[result.url]; }
                 } else {
                     fail++;
                     logLine('✗ ' + result.name + (result.error ? ' — ' + result.error : ''), 'error');
                 }
             });
             KT.ui.toast(KT.t('downloadDone', { ok: ok, fail: fail }), fail ? 'error' : 'success', 5000);
-            state.selected = {};
             /* refresh theme list so downloaded badges flip */
             var current = state.results.concat(state.broadResults).filter(function (result) {
                 return result.id === state.selectedAnimeId;
@@ -572,6 +630,7 @@
             }
 
             if (hasItem && itemChanged) {
+                state.selected = {};
                 clearDetail();
                 setStep(1);
                 loadItemContext();

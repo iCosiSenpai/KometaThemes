@@ -21,7 +21,7 @@
                                     <div class="kt-comet" aria-hidden="true"></div>
                                     <div class="kt-wordmark"><strong>Kometa</strong><span data-kt="finderKicker"></span></div>
                                 </div>
-                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version">v1.0.0.4</span></span>
+                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version">v1.0.0.5</span></span>
                             </div>
                             <div class="kt-row" style="gap:16px; align-items:flex-start;">
                                 <div class="kt-poster" id="ktFinderPoster" style="width:84px;"><div class="kt-poster-ph">♪</div></div>
@@ -103,6 +103,12 @@
                         </div>
                     </div>
 
+                    <!-- selection review panel (selections persist across results) -->
+                    <details class="kt-sel-review" id="ktSelReview" style="display:none;">
+                        <summary><span id="ktSelReviewTitle"></span></summary>
+                        <div class="kt-sel-review-body" id="ktSelReviewBody"></div>
+                    </details>
+
                     <!-- sticky selection / download bar -->
                     <div class="kt-stickybar" id="ktSelBar" style="display:none;">
                         <span class="kt-state" id="ktSelCount"></span>
@@ -126,7 +132,7 @@
         </div>
         <script>
         (function () {
-            var V = '1.0.0.4';
+            var V = '1.0.0.5';
             function asset(name) { return 'configurationpage?name=' + name + '&v=' + V; }
             function ensureCss() {
                 var id = 'kt-css-' + V;
