@@ -307,10 +307,10 @@
     border-top: 1px solid var(--kt-border);
 }
 .kt-support-label { color: var(--kt-text-faint); font-size: 0.9em; margin-right: 4px; }
-.kt-btn-bmc { border: none; color: #0d0c0b; background: #ffdd00; }
-.kt-btn-bmc:hover { border: none; color: #0d0c0b; box-shadow: 0 6px 22px rgba(255, 221, 0, 0.38); }
-.kt-btn-paypal { border: none; color: #fff; background: #0070ba; }
-.kt-btn-paypal:hover { border: none; box-shadow: 0 6px 22px rgba(0, 112, 186, 0.40); }
+/* official Buy Me a Coffee / PayPal image buttons */
+.kt-support-btn { display: inline-flex; align-items: center; line-height: 0; border-radius: 10px; transition: transform var(--kt-fast), box-shadow var(--kt-fast); }
+.kt-support-btn:hover { transform: translateY(-1px); box-shadow: var(--kt-shadow-1); }
+.kt-support-btn img { height: 40px; width: auto; display: block; border-radius: 10px; }
 
 /* ---- chips & badges ---------------------------------------------------------- */
 

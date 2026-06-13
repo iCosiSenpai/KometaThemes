@@ -10,8 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-iCosiSenpai-ffdd00?logo=buymeacoffee&logoColor=black"></a>
-  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://img.shields.io/badge/Donate-PayPal-0070ba?logo=paypal&logoColor=white"></a>
+  <a href="https://www.buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="46"></a>
+  &nbsp;
+  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif"></a>
 </p>
 
 Anime openings and endings for [Jellyfin](https://jellyfin.org/), fetched automatically from [animethemes.moe](https://animethemes.moe). Multi-provider matching, multi-season handling, a guided Theme Finder UI, and first-class support for the Jellyfin 10.11.x theme playback quirks.
@@ -163,8 +164,11 @@ Requires the .NET 9.0 SDK. Local end-to-end testing: run `jellyfin/jellyfin:10.1
 
 KometaThemes is free and open source. If it saves you time, consider supporting development:
 
-- ☕ **Buy me a coffee:** [buymeacoffee.com/iCosiSenpai](https://buymeacoffee.com/iCosiSenpai)
-- 💙 **PayPal:** [donate here](https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ)
+<p>
+  <a href="https://www.buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="46"></a>
+  &nbsp;
+  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif"></a>
+</p>
 
 ## Credits & License
 
@@ -200,7 +204,13 @@ Per il pulsante ♪ nelle pagine degli item, punta il tuo injector JS (es. plugi
 
 ### ❤️ Sostieni il progetto
 
-Se KometaThemes ti è utile, puoi offrirmi un caffè: ☕ [buymeacoffee.com/iCosiSenpai](https://buymeacoffee.com/iCosiSenpai) · 💙 [Dona con PayPal](https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ)
+Se KometaThemes ti è utile, puoi offrirmi un caffè o fare una donazione:
+
+<p>
+  <a href="https://www.buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="46"></a>
+  &nbsp;
+  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif"></a>
+</p>
 
 ---
 
