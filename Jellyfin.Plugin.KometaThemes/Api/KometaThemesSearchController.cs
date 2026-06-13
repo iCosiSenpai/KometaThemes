@@ -1,0 +1,1084 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Jellyfin.Plugin.KometaThemes.Api;
+using Jellyfin.Plugin.KometaThemes.Models;
+using Jellyfin.Plugin.KometaThemes.Resolving;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using VideoModel = Jellyfin.Plugin.KometaThemes.Models.Video;
+
+#pragma warning disable SA1611, SA1615, CS1591, CA3003
+
+namespace Jellyfin.Plugin.KometaThemes.Search;
+
+[ApiController]
+[Authorize(Policy = "RequiresElevation")]
+[Route("Plugins/KometaThemes")]
+public sealed class KometaThemesSearchController : ControllerBase, IDisposable
+{
+    private const string ThemeMusicDirectory = "theme-music";
+    private const string ThemeVideoDirectory = "backdrops";
+    private const int MaxThemeNameLength = 80;
+    private const int MaxSearchResults = 8;
+    private const int MinimumConfidentScore = 62;
+    private const int StrongMatchScore = 78;
+    private const int ExactMatchScore = 100;
+    private const int ManualDownloadParallelism = 2;
+
+    private static readonly HashSet<string> SearchNoiseWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a",
+        "an",
+        "and",
+        "cour",
+        "episode",
+        "movie",
+        "no",
+        "ova",
+        "part",
+        "season",
+        "special",
+        "the",
+        "tv"
+    };
+
+    private static readonly HashSet<string> ReservedWindowsNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+
+    private readonly AnimeThemesApi _api;
+    private readonly AnimeThemesDownloader _downloader;
+    private readonly ILibraryManager _libraryManager;
+    private readonly ILogger<KometaThemesSearchController> _logger;
+    private SemaphoreSlim _downloadSemaphore = new(ManualDownloadParallelism, ManualDownloadParallelism);
+
+    public KometaThemesSearchController(
+        AnimeThemesApi api,
+        AnimeThemesDownloader downloader,
+        ILibraryManager libraryManager,
+        ILogger<KometaThemesSearchController> logger)
+    {
+        _api = api;
+        _downloader = downloader;
+        _libraryManager = libraryManager;
+        _logger = logger;
+    }
+
+    [HttpGet("Search")]
+    public async Task<IActionResult> Search([FromQuery] string title, [FromQuery] int? year = null, [FromQuery] string? itemId = null)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return BadRequest(new { error = "Title is required." });
+        }
+
+        var queryTitle = title.Trim();
+        var item = TryGetSearchItem(itemId);
+        var trustedKeys = BuildTrustedSearchKeys(queryTitle, item);
+        var results = await _api.SearchByTitleAsync(queryTitle, year, HttpContext.RequestAborted).ConfigureAwait(false);
+        var scoredResults = results
+            .Select(result => ScoreSearchCandidate(result, trustedKeys, year))
+            .OrderByDescending(result => result.Score)
+            .ThenByDescending(result => result.YearMatches)
+            .ThenBy(result => result.TitleLengthDelta)
+            .ToArray();
+        var filteredResults = scoredResults
+            .Where(result => result.Score >= MinimumConfidentScore)
+            .Take(MaxSearchResults)
+            .ToArray();
+        var retriedTitle = string.Empty;
+
+        if (filteredResults.Length == 0 &&
+            item != null &&
+            ShouldRetryWithItemName(queryTitle, item.Name))
+        {
+            var retryTitle = CleanTitle(item.Name);
+            if (!string.IsNullOrWhiteSpace(retryTitle))
+            {
+                retriedTitle = retryTitle;
+                results = await _api.SearchByTitleAsync(retryTitle, year, HttpContext.RequestAborted).ConfigureAwait(false);
+                scoredResults = results
+                    .Select(result => ScoreSearchCandidate(result, trustedKeys, year))
+                    .OrderByDescending(result => result.Score)
+                    .ThenByDescending(result => result.YearMatches)
+                    .ThenBy(result => result.TitleLengthDelta)
+                    .ToArray();
+                filteredResults = scoredResults
+                    .Where(result => result.Score >= MinimumConfidentScore)
+                    .Take(MaxSearchResults)
+                    .ToArray();
+            }
+        }
+
+        var broadResults = filteredResults.Length == 0
+            ? scoredResults.Take(MaxSearchResults).ToArray()
+            : [];
+        filteredResults = await HydrateSearchCandidatesAsync(filteredResults, HttpContext.RequestAborted).ConfigureAwait(false);
+        broadResults = await HydrateSearchCandidatesAsync(broadResults, HttpContext.RequestAborted).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Theme Finder search title='{Title}' year={Year} itemId={ItemId} trustedKeys={TrustedKeys} raw={RawCount} filtered={FilteredCount}",
+            queryTitle,
+            year,
+            itemId,
+            string.Join(" | ", trustedKeys.Select(key => key.Value)),
+            results.Length,
+            filteredResults.Length);
+
+        foreach (var candidate in scoredResults.Take(5))
+        {
+            _logger.LogInformation(
+                "Theme Finder candidate id={Id} name='{Name}' slug='{Slug}' year={Year} score={Score} confidence={Confidence}",
+                candidate.Anime.Id,
+                candidate.Anime.Name,
+                candidate.Anime.Slug,
+                candidate.Anime.Year,
+                candidate.Score,
+                GetConfidence(candidate.Score));
+        }
+
+        return Ok(new
+        {
+            results = filteredResults.Select(candidate => ToSearchResult(candidate, broad: false)),
+            broadResults = broadResults.Select(candidate => ToSearchResult(candidate, broad: true)),
+            rawCount = results.Length,
+            filteredCount = filteredResults.Length,
+            trustedKeys = trustedKeys.Select(key => key.Value),
+            retriedTitle
+        });
+    }
+
+    [HttpGet("Anime/{id}/themes")]
+    public async Task<IActionResult> GetAnimeThemes(int id, [FromQuery] string itemId, [FromQuery] string? slug = null)
+    {
+        if (!Guid.TryParse(itemId, out var gid))
+        {
+            return BadRequest(new { error = "Invalid itemId." });
+        }
+
+        var anime = !string.IsNullOrWhiteSpace(slug)
+            ? await _api.GetAnimeBySlugAsync(slug, HttpContext.RequestAborted).ConfigureAwait(false)
+            : await _api.GetAnimeByIdAsync(id, HttpContext.RequestAborted).ConfigureAwait(false);
+        if (anime == null)
+        {
+            return NotFound(new { error = "Anime not found." });
+        }
+
+        var item = _libraryManager.GetItemById(gid);
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (item != null)
+        {
+            foreach (var s in item.GetThemeSongs())
+            {
+                if (s.Path != null)
+                {
+                    existing.Add(System.IO.Path.GetFileName(s.Path));
+                }
+            }
+
+            foreach (var v in item.GetThemeVideos())
+            {
+                if (v.Path != null)
+                {
+                    existing.Add(System.IO.Path.GetFileName(v.Path));
+                }
+            }
+        }
+
+        var audioVolume = (int)Math.Round(Plugin.Instance?.Configuration?.AudioSettings.Volume * 100 ?? 50);
+        var videoVolume = (int)Math.Round(Plugin.Instance?.Configuration?.VideoSettings.Volume * 100 ?? 50);
+        var audioSuffix = $"__{audioVolume}";
+        var videoSuffix = $"__{videoVolume}";
+
+        var themes = new List<object>();
+        var seenThemeRows = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var theme in anime.Themes ?? new Collection<AnimeTheme>())
+        {
+            foreach (var entry in theme.Entries ?? new Collection<AnimeThemeEntry>())
+            {
+                var entryVideos = entry.Videos;
+                if (entryVideos == null)
+                {
+                    continue;
+                }
+
+                foreach (var video in entryVideos)
+                {
+                    if (video.Audio == null)
+                    {
+                        continue;
+                    }
+
+                    var mediaKey = string.Create(
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        $"{theme.Id}:{entry.Id}:{video.Id}:{video.Audio.Id}");
+                    if (!seenThemeRows.Add(mediaKey))
+                    {
+                        continue;
+                    }
+
+                    var slugValue = theme.Slug ?? "theme";
+                    var label = BuildThemeLabel(theme);
+                    var title = SlugToTitle(slugValue);
+                    var name = BuildThemeDownloadName(label, title);
+                    var audioFile = $"{name}{audioSuffix}.mp3";
+                    var videoFile = $"{name}{videoSuffix}.webm";
+                    var audioOk = existing.Any(e => e.Contains(audioFile, StringComparison.OrdinalIgnoreCase));
+                    var videoOk = existing.Any(e => e.Contains(videoFile, StringComparison.OrdinalIgnoreCase));
+
+                    themes.Add(new
+                    {
+                        type = theme.Type.ToString(),
+                        sequence = theme.Sequence,
+                        label,
+                        slug = slugValue,
+                        title,
+                        episodes = entry.Episodes ?? string.Empty,
+                        version = entry.Version,
+                        source = video.Source?.ToString() ?? string.Empty,
+                        resolution = video.Resolution,
+                        creditless = video.Creditless,
+                        overlap = video.Overlap.ToString(),
+                        videoBasename = video.Basename,
+                        entryId = entry.Id,
+                        videoId = video.Id,
+                        audioUrl = video.Audio.Link,
+                        videoUrl = video.Link,
+                        audioDownloaded = audioOk,
+                        videoDownloaded = videoOk
+                    });
+                }
+            }
+        }
+
+        var seasonGroups = GroupThemesIntoSeasons(themes);
+
+        return Ok(new
+        {
+            anime = new
+            {
+                id = anime.Id,
+                name = anime.Name,
+                slug = anime.Slug,
+                year = anime.Year,
+                season = anime.Season ?? string.Empty,
+                mediaFormat = anime.MediaFormat ?? string.Empty,
+                imageUrl = GetImageUrl(anime, large: false),
+                largeImageUrl = GetImageUrl(anime, large: true),
+                synopsis = anime.Synopsis ?? string.Empty
+            },
+            audioVolume,
+            videoVolume,
+            themes,
+            seasonGroups
+        });
+    }
+
+    [HttpPost("Items/{itemId}/download")]
+    public async Task<IActionResult> DownloadThemes(string itemId, [FromBody] DownloadRequest request, CancellationToken ct)
+    {
+        if (request?.Urls == null || request.Urls.Count == 0)
+        {
+            _logger.LogWarning("Theme Finder download rejected for itemId={ItemId}: no theme URLs were supplied.", itemId);
+            return BadRequest(new { error = "No themes specified." });
+        }
+
+        if (!Guid.TryParse(itemId, out var gid))
+        {
+            return BadRequest(new { error = "Invalid itemId." });
+        }
+
+        var item = _libraryManager.GetItemById(gid);
+        if (item == null)
+        {
+            return NotFound(new { error = "Item not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(item.ContainingFolderPath))
+        {
+            return BadRequest(new { error = "Selected item has no writable media folder." });
+        }
+
+        var validationError = ValidateDownloadRequest(request, item, out var downloadItems);
+        if (validationError != null)
+        {
+            _logger.LogWarning(
+                "Theme Finder download rejected for itemId={ItemId}: invalid selection payload with {Count} requested themes.",
+                itemId,
+                request.Urls.Count);
+            return BadRequest(validationError);
+        }
+
+        var results = new ConcurrentBag<object>();
+        var tasks = downloadItems.Select(async theme =>
+        {
+            await _downloadSemaphore.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var success = await _downloader.DownloadSingle(theme.MediaType, theme.Url, item, theme.RelativePath, theme.Volume, ct).ConfigureAwait(false);
+                results.Add(new { url = theme.Url, name = theme.ThemeName, success });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to download {Url}", theme.Url);
+                results.Add(new { url = theme.Url, name = theme.ThemeName, success = false, error = ex.Message });
+            }
+            finally
+            {
+                _downloadSemaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        try
+        {
+            await item.RefreshMetadata(ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to refresh metadata");
+        }
+
+        return Ok(new { results });
+    }
+
+    [HttpGet("Items/{itemId}/info")]
+    public IActionResult GetItemInfo(string itemId)
+    {
+        if (!Guid.TryParse(itemId, out var gid))
+        {
+            return BadRequest(new { error = "Invalid itemId" });
+        }
+
+        var item = _libraryManager.GetItemById(gid);
+        if (item == null)
+        {
+            return NotFound(new { error = "Item not found" });
+        }
+
+        var songsOnDisk = 0;
+        var videosOnDisk = 0;
+        if (!string.IsNullOrWhiteSpace(item.ContainingFolderPath))
+        {
+            var musicDir = System.IO.Path.Combine(item.ContainingFolderPath, "theme-music");
+            var videoDir = System.IO.Path.Combine(item.ContainingFolderPath, "backdrops");
+            songsOnDisk = System.IO.Directory.Exists(musicDir) ? System.IO.Directory.GetFiles(musicDir, "*.mp3").Length : 0;
+            if (System.IO.File.Exists(System.IO.Path.Combine(item.ContainingFolderPath, "theme.mp3")))
+            {
+                songsOnDisk++;
+            }
+
+            videosOnDisk = System.IO.Directory.Exists(videoDir) ? System.IO.Directory.GetFiles(videoDir, "*.webm").Length : 0;
+        }
+
+        return Ok(new
+        {
+            id = item.Id.ToString(),
+            name = item.Name,
+            originalTitle = item.OriginalTitle ?? string.Empty,
+            productionYear = item.ProductionYear,
+            type = item.GetBaseItemKind().ToString(),
+            directoryPath = item.ContainingFolderPath ?? string.Empty,
+            filePath = item.Path ?? string.Empty,
+            overview = item.Overview ?? string.Empty,
+            themeStatus = new
+            {
+                songsOnDisk,
+                videosOnDisk,
+                registeredSongs = item.GetThemeSongs().Count,
+                registeredVideos = item.GetThemeVideos().Count
+            }
+        });
+    }
+
+    private async Task<ScoredSearchResult[]> HydrateSearchCandidatesAsync(
+        ScoredSearchResult[] candidates,
+        CancellationToken cancellationToken)
+    {
+        var hydrated = new List<ScoredSearchResult>(candidates.Length);
+        foreach (var candidate in candidates)
+        {
+            var detail = !string.IsNullOrWhiteSpace(candidate.Anime.Slug)
+                ? await _api.GetAnimeBySlugAsync(candidate.Anime.Slug, cancellationToken).ConfigureAwait(false)
+                : null;
+            hydrated.Add(detail == null ? candidate : candidate with { Anime = detail });
+        }
+
+        return hydrated.ToArray();
+    }
+
+    private static string? GetImageUrl(Anime anime, bool large)
+    {
+        if (anime.Images == null || anime.Images.Count == 0)
+        {
+            return null;
+        }
+
+        var preferredFacet = large ? "Large Cover" : "Small Cover";
+        return anime.Images
+            .FirstOrDefault(image => string.Equals(image.Facet, preferredFacet, StringComparison.OrdinalIgnoreCase))
+            ?.Link ??
+            anime.Images.FirstOrDefault(image => !string.IsNullOrWhiteSpace(image.Link))?.Link;
+    }
+
+    private static string BuildThemeLabel(AnimeTheme theme)
+    {
+        var slug = theme.Slug ?? string.Empty;
+        if (slug.Length >= 2 &&
+            string.Equals(slug[..2], theme.Type.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            return slug.ToUpperInvariant();
+        }
+
+        return theme.Sequence.HasValue
+            ? string.Create(CultureInfo.InvariantCulture, $"{theme.Type}{theme.Sequence.Value}")
+            : theme.Type.ToString();
+    }
+
+    private static string BuildThemeDownloadName(string label, string title)
+    {
+        if (string.IsNullOrWhiteSpace(title) ||
+            string.Equals(label, title, StringComparison.OrdinalIgnoreCase))
+        {
+            return label;
+        }
+
+        return string.Create(CultureInfo.InvariantCulture, $"{label} - {title}");
+    }
+
+    private static string SlugToTitle(string slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return string.Empty;
+        }
+
+        var words = slug.Split('-');
+        var result = new List<string>();
+        foreach (var word in words)
+        {
+            if (word.Length == 0)
+            {
+                continue;
+            }
+
+            if (word.Length == 1)
+            {
+                result.Add(word.ToUpperInvariant());
+            }
+            else
+            {
+                result.Add(char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant());
+            }
+        }
+
+        return string.Join(" ", result);
+    }
+
+    private static List<object> GroupThemesIntoSeasons(List<object> themeList)
+    {
+        var groups = new List<object>();
+
+        var themesWithRanges = themeList
+            .Select(t => (Theme: t, Ranges: GetEpisodeRanges(t)))
+            .ToList();
+
+        var allRanges = themesWithRanges
+            .SelectMany(t => t.Ranges)
+            .Select(r => (r.StartEpisode, r.EndEpisode))
+            .Distinct()
+            .OrderBy(r => r.StartEpisode)
+            .ToList();
+
+        if (allRanges.Count == 0)
+        {
+            return groups;
+        }
+
+        var seasonNumber = 1;
+        var usedRanges = new HashSet<(int, int)>();
+
+        foreach (var range in allRanges)
+        {
+            if (usedRanges.Contains(range))
+            {
+                continue;
+            }
+
+            usedRanges.Add(range);
+
+            var matching = themesWithRanges
+                .Where(t => t.Ranges.Any(r => r.StartEpisode == range.StartEpisode && r.EndEpisode == range.EndEpisode))
+                .Select(t => t.Theme)
+                .ToList();
+
+            if (matching.Count > 0)
+            {
+                var opCount = matching.Count(t => GetThemeTypeString(t) == "OP");
+                var edCount = matching.Count(t => GetThemeTypeString(t) == "ED");
+                groups.Add(new
+                {
+                    seasonNumber,
+                    startEpisode = (int?)range.StartEpisode,
+                    endEpisode = (int?)range.EndEpisode,
+                    opCount,
+                    edCount,
+                    themes = matching
+                });
+                seasonNumber++;
+            }
+        }
+
+        var unmatched = themesWithRanges
+            .Where(t => t.Ranges.Count == 0)
+            .Select(t => t.Theme)
+            .ToList();
+
+        if (unmatched.Count > 0)
+        {
+            var opCount = unmatched.Count(t => GetThemeTypeString(t) == "OP");
+            var edCount = unmatched.Count(t => GetThemeTypeString(t) == "ED");
+            groups.Add(new
+            {
+                seasonNumber,
+                startEpisode = (int?)null,
+                endEpisode = (int?)null,
+                opCount,
+                edCount,
+                themes = unmatched
+            });
+        }
+
+        return groups;
+    }
+
+    private static List<EpisodeRange> GetEpisodeRanges(object theme)
+    {
+        var episodes = GetPropertyValue<string>(theme, "episodes") ?? string.Empty;
+        return EpisodeRangeParser.Parse(episodes);
+    }
+
+    private static string? GetThemeTypeString(object theme)
+    {
+        return GetPropertyValue<string>(theme, "type");
+    }
+
+    private static T? GetPropertyValue<T>(object obj, string propertyName)
+    {
+        var prop = obj.GetType().GetProperty(propertyName);
+        if (prop == null)
+        {
+            return default;
+        }
+
+        var value = prop.GetValue(obj);
+        return value is T typedValue ? typedValue : default;
+    }
+
+    private static bool ShouldRetryWithItemName(string queryTitle, string? itemName)
+    {
+        return IsMostlyNonLatin(queryTitle) &&
+            !string.IsNullOrWhiteSpace(itemName) &&
+            !string.Equals(NormalizeSearchText(queryTitle), NormalizeSearchText(itemName), StringComparison.Ordinal);
+    }
+
+    private static bool IsMostlyNonLatin(string value)
+    {
+        var letters = 0;
+        var latin = 0;
+        foreach (var character in value)
+        {
+            if (!char.IsLetter(character))
+            {
+                continue;
+            }
+
+            letters++;
+            if ((character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z'))
+            {
+                latin++;
+            }
+        }
+
+        return letters > 0 && latin * 2 < letters;
+    }
+
+    private static string CleanTitle(string title)
+    {
+        return string.IsNullOrWhiteSpace(title) ? string.Empty : title.Trim();
+    }
+
+    private BaseItem? TryGetSearchItem(string? itemId)
+    {
+        if (string.IsNullOrWhiteSpace(itemId))
+        {
+            return null;
+        }
+
+        if (!Guid.TryParse(itemId, out var gid))
+        {
+            _logger.LogWarning("Theme Finder search ignored invalid itemId '{ItemId}'", itemId);
+            return null;
+        }
+
+        return _libraryManager.GetItemById(gid);
+    }
+
+    private static SearchKey[] BuildTrustedSearchKeys(string queryTitle, BaseItem? item)
+    {
+        var keys = new List<SearchKey>();
+        AddTrustedSearchKey(keys, queryTitle);
+
+        if (item != null)
+        {
+            AddTrustedSearchKey(keys, item.Name);
+            AddTrustedSearchKey(keys, item.OriginalTitle);
+            AddTrustedSearchKey(keys, GetProviderValue(item, "TvdbSlug"));
+            AddTrustedSearchKey(keys, ExtractAnimeClickSlug(GetProviderValue(item, "AnimeClick")));
+        }
+
+        return keys.ToArray();
+    }
+
+    private static string? GetProviderValue(BaseItem item, string key)
+    {
+        return item.ProviderIds != null && item.ProviderIds.TryGetValue(key, out var value) ? value : null;
+    }
+
+    private static string? ExtractAnimeClickSlug(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        var lastSlash = trimmed.LastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < trimmed.Length - 1)
+        {
+            trimmed = trimmed[(lastSlash + 1)..];
+        }
+
+        var index = 0;
+        while (index < trimmed.Length && char.IsDigit(trimmed[index]))
+        {
+            index++;
+        }
+
+        while (index < trimmed.Length && (trimmed[index] == '-' || trimmed[index] == '_' || trimmed[index] == '.'))
+        {
+            index++;
+        }
+
+        return index < trimmed.Length ? trimmed[index..] : trimmed;
+    }
+
+    private static void AddTrustedSearchKey(List<SearchKey> keys, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var normalized = NormalizeSearchText(value);
+        if (normalized.Length == 0 || keys.Any(key => key.Normalized == normalized))
+        {
+            return;
+        }
+
+        keys.Add(new SearchKey(value.Trim(), normalized, TokenizeSearchText(value)));
+    }
+
+    private static ScoredSearchResult ScoreSearchCandidate(Anime anime, SearchKey[] trustedKeys, int? year)
+    {
+        var candidateName = NormalizeSearchText(anime.Name);
+        var candidateSlug = NormalizeSearchText(anime.Slug);
+        var candidateTokens = TokenizeSearchText(string.Create(CultureInfo.InvariantCulture, $"{anime.Name} {anime.Slug}"));
+        var bestScore = 0;
+        var bestLengthDelta = int.MaxValue;
+
+        foreach (var key in trustedKeys)
+        {
+            var score = 0;
+            if (candidateName == key.Normalized || candidateSlug == key.Normalized)
+            {
+                score = ExactMatchScore;
+            }
+            else
+            {
+                var coverage = CalculateTokenCoverage(key.Tokens, candidateTokens);
+                var orderedCoverage = CalculateOrderedTokenCoverage(key.Tokens, candidateTokens);
+                if (coverage >= 0.95)
+                {
+                    score = 86;
+                }
+                else if (coverage >= 0.80 && orderedCoverage >= 0.60)
+                {
+                    score = 74;
+                }
+                else if (coverage >= 0.65 && orderedCoverage >= 0.50)
+                {
+                    score = 62;
+                }
+                else if (key.Normalized.Length >= 8 && (candidateName.Contains(key.Normalized, StringComparison.Ordinal) || candidateSlug.Contains(key.Normalized, StringComparison.Ordinal)))
+                {
+                    score = 68;
+                }
+            }
+
+            if (year.HasValue && anime.Year.HasValue)
+            {
+                var yearDelta = Math.Abs(anime.Year.Value - year.Value);
+                if (yearDelta == 0)
+                {
+                    score += 8;
+                }
+                else if (yearDelta == 1)
+                {
+                    score += 3;
+                }
+                else if (yearDelta > 3)
+                {
+                    score -= 8;
+                }
+            }
+
+            var lengthDelta = Math.Abs(candidateName.Length - key.Normalized.Length);
+            if (score > bestScore || (score == bestScore && lengthDelta < bestLengthDelta))
+            {
+                bestScore = score;
+                bestLengthDelta = lengthDelta;
+            }
+        }
+
+        return new ScoredSearchResult(anime, Math.Max(0, bestScore), year.HasValue && anime.Year == year.Value, bestLengthDelta);
+    }
+
+    private static object ToSearchResult(ScoredSearchResult candidate, bool broad)
+    {
+        return new
+        {
+            id = candidate.Anime.Id,
+            name = candidate.Anime.Name,
+            slug = candidate.Anime.Slug,
+            year = candidate.Anime.Year,
+            season = candidate.Anime.Season ?? string.Empty,
+            mediaFormat = candidate.Anime.MediaFormat ?? string.Empty,
+            imageUrl = GetImageUrl(candidate.Anime, large: false),
+            largeImageUrl = GetImageUrl(candidate.Anime, large: true),
+            score = broad ? 0 : candidate.Score,
+            confidence = broad ? "Weak" : GetConfidence(candidate.Score),
+            broad
+        };
+    }
+
+    private static string GetConfidence(int score)
+    {
+        if (score >= ExactMatchScore)
+        {
+            return "Exact";
+        }
+
+        if (score >= StrongMatchScore)
+        {
+            return "Strong";
+        }
+
+        return "Weak";
+    }
+
+    private static string NormalizeSearchText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(char.ToLowerInvariant(character));
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static string[] TokenizeSearchText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        var normalized = value.Normalize(NormalizationForm.FormD);
+        var tokens = new List<string>();
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var character in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(char.ToLowerInvariant(character));
+                continue;
+            }
+
+            AddToken(tokens, builder);
+        }
+
+        AddToken(tokens, builder);
+        return tokens.Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    private static void AddToken(List<string> tokens, StringBuilder builder)
+    {
+        if (builder.Length == 0)
+        {
+            return;
+        }
+
+        var token = builder.ToString();
+        builder.Clear();
+        if (token.Length > 1 && !SearchNoiseWords.Contains(token))
+        {
+            tokens.Add(token);
+        }
+    }
+
+    private static double CalculateTokenCoverage(string[] expectedTokens, string[] candidateTokens)
+    {
+        if (expectedTokens.Length == 0)
+        {
+            return 0;
+        }
+
+        var candidateSet = new HashSet<string>(candidateTokens, StringComparer.Ordinal);
+        var matches = expectedTokens.Count(candidateSet.Contains);
+        return (double)matches / expectedTokens.Length;
+    }
+
+    private static double CalculateOrderedTokenCoverage(string[] expectedTokens, string[] candidateTokens)
+    {
+        if (expectedTokens.Length == 0)
+        {
+            return 0;
+        }
+
+        var expectedIndex = 0;
+        foreach (var candidateToken in candidateTokens)
+        {
+            if (expectedIndex < expectedTokens.Length && string.Equals(candidateToken, expectedTokens[expectedIndex], StringComparison.Ordinal))
+            {
+                expectedIndex++;
+            }
+        }
+
+        return (double)expectedIndex / expectedTokens.Length;
+    }
+
+    private static object? ValidateDownloadRequest(DownloadRequest request, BaseItem item, out List<ValidatedDownloadItem> downloadItems)
+    {
+        downloadItems = new List<ValidatedDownloadItem>();
+
+        var config = Plugin.Instance?.Configuration;
+        var audioVolume = config?.AudioSettings.Volume ?? 0.5;
+        var videoVolume = config?.VideoSettings.Volume ?? 0.5;
+
+        for (var i = 0; i < request.Urls.Count; i++)
+        {
+            var theme = request.Urls[i];
+            if (theme == null)
+            {
+                return new { error = "Invalid theme selection.", index = i };
+            }
+
+            if (!TryParseManualMediaType(theme.MediaType, out var mediaType))
+            {
+                return new { error = "Invalid mediaType. Use audio or video.", index = i };
+            }
+
+            if (!TryCreateAnimeThemesUri(theme.Url, out var uri))
+            {
+                return new { error = "Invalid URL. Only absolute HTTPS animethemes.moe URLs are allowed.", index = i };
+            }
+
+            var themeVolume = mediaType == MediaType.Audio ? audioVolume : videoVolume;
+            if (!TryBuildRelativePath(item, mediaType, theme.ThemeName, out var relativePath, themeVolume))
+            {
+                return new { error = "Invalid themeName.", index = i };
+            }
+
+            downloadItems.Add(new ValidatedDownloadItem(
+                uri.AbsoluteUri,
+                mediaType,
+                relativePath,
+                SanitizeThemeName(theme.ThemeName),
+                themeVolume));
+        }
+
+        return null;
+    }
+
+    private static bool TryParseManualMediaType(string? value, out MediaType mediaType)
+    {
+        if (string.Equals(value, "audio", StringComparison.OrdinalIgnoreCase))
+        {
+            mediaType = MediaType.Audio;
+            return true;
+        }
+
+        if (string.Equals(value, "video", StringComparison.OrdinalIgnoreCase))
+        {
+            mediaType = MediaType.Video;
+            return true;
+        }
+
+        mediaType = MediaType.Audio;
+        return false;
+    }
+
+    private static bool TryCreateAnimeThemesUri(string? value, out Uri uri)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out uri!) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !IsAllowedAnimeThemesHost(uri.Host))
+        {
+            return false;
+        }
+
+        return string.IsNullOrEmpty(uri.UserInfo);
+    }
+
+    private static bool IsAllowedAnimeThemesHost(string host)
+    {
+        return string.Equals(host, "animethemes.moe", StringComparison.OrdinalIgnoreCase) ||
+               host.EndsWith(".animethemes.moe", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryBuildRelativePath(BaseItem item, MediaType mediaType, string themeName, out string relativePath, double volume)
+    {
+        relativePath = string.Empty;
+        var safeName = SanitizeThemeName(themeName);
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            return false;
+        }
+
+        var isVideo = mediaType == MediaType.Video;
+        var directory = isVideo ? ThemeVideoDirectory : ThemeMusicDirectory;
+        var extension = isVideo ? ".webm" : ".mp3";
+        var suffix = $"__{(int)Math.Round(Math.Clamp(volume, 0.0, 1.0) * 100)}";
+        var filename = safeName + suffix + extension;
+
+        var baseDirectory = Path.GetFullPath(Path.Combine(item.ContainingFolderPath, directory));
+        var targetPath = Path.GetFullPath(Path.Combine(baseDirectory, filename));
+        var expectedPrefix = baseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        if (!targetPath.StartsWith(expectedPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        relativePath = Path.Combine(directory, filename);
+        return true;
+    }
+
+    private static string SanitizeThemeName(string? themeName)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars().ToHashSet();
+        var chars = new List<char>();
+        var previousWasSpace = false;
+
+        foreach (var c in themeName ?? string.Empty)
+        {
+            var isInvalid = invalidChars.Contains(c) || c == '/' || c == '\\' || char.IsControl(c);
+            var next = isInvalid ? ' ' : c;
+
+            if (char.IsWhiteSpace(next))
+            {
+                if (!previousWasSpace && chars.Count > 0)
+                {
+                    chars.Add(' ');
+                    previousWasSpace = true;
+                }
+
+                continue;
+            }
+
+            chars.Add(next);
+            previousWasSpace = false;
+        }
+
+        var sanitized = new string(chars.ToArray()).Trim().Trim('.');
+        if (sanitized.Length > MaxThemeNameLength)
+        {
+            sanitized = sanitized[..MaxThemeNameLength].Trim().Trim('.');
+        }
+
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            return "theme";
+        }
+
+        if (ReservedWindowsNames.Contains(sanitized))
+        {
+            sanitized = "_" + sanitized;
+        }
+
+        return sanitized;
+    }
+
+    public void Dispose()
+    {
+        _downloadSemaphore.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    private sealed record SearchKey(
+        string Value,
+        string Normalized,
+        string[] Tokens);
+
+    private sealed record ScoredSearchResult(
+        Anime Anime,
+        int Score,
+        bool YearMatches,
+        int TitleLengthDelta);
+
+    private sealed record ValidatedDownloadItem(
+        string Url,
+        MediaType MediaType,
+        string RelativePath,
+        string ThemeName,
+        double Volume);
+}

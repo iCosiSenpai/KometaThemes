@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>KometaThemes</title>
+</head>
+<body>
+    <div id="KometaThemesItemPage" data-role="page" class="page type-interior pluginConfigurationPage kt-page"
+         data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <div class="kt-shell" id="ktItemShell">
+
+                    <div class="kt-hero kt-reveal">
+                        <div class="kt-hero-backdrop" id="ktItemBackdrop" style="display:none;"></div>
+                        <div class="kt-hero-scrim"></div>
+                        <div class="kt-hero-content">
+                            <div class="kt-row" style="justify-content:space-between;">
+                                <div class="kt-brand">
+                                    <div class="kt-comet" aria-hidden="true"></div>
+                                    <div class="kt-wordmark"><strong>Kometa</strong><span>Themes</span></div>
+                                </div>
+                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version">v1.0.0.0</span></span>
+                            </div>
+                            <div class="kt-row" style="gap:16px; align-items:flex-start;">
+                                <div class="kt-poster" id="ktItemPoster" style="width:84px;">
+                                    <div class="kt-poster-ph">♪</div>
+                                </div>
+                                <div class="kt-stack kt-grow" style="gap:6px;">
+                                    <p class="kt-kicker" data-kt="itemThemes"></p>
+                                    <h2 class="kt-title" id="ktItemTitle"><span class="kt-skel" style="display:inline-block;width:220px;max-width:100%;height:20px;"></span></h2>
+                                    <div class="kt-row" id="ktItemChips" style="gap:6px;"></div>
+                                    <div id="ktRegBanner"></div>
+                                </div>
+                            </div>
+                            <div class="kt-row" id="ktItemActions">
+                                <button type="button" class="kt-btn kt-btn-primary" id="ktBtnSyncItem"></button>
+                                <button type="button" class="kt-btn" id="ktBtnFinder"></button>
+                                <button type="button" class="kt-btn kt-btn-ghost" id="ktBtnRefresh"></button>
+                                <button type="button" class="kt-btn kt-btn-danger" id="ktBtnDeleteAll"></button>
+                            </div>
+                            <div class="kt-state" id="ktItemState"></div>
+                        </div>
+                    </div>
+
+                    <div id="ktNoItem" class="kt-empty" style="display:none;">
+                        <div class="kt-comet" aria-hidden="true"></div>
+                        <h3 class="kt-subtitle" data-kt="noItemTitle"></h3>
+                        <p class="kt-note" data-kt="noItemBody"></p>
+                        <button type="button" class="kt-btn" id="ktBtnGoSettings"></button>
+                    </div>
+
+                    <div class="kt-card kt-card-flush kt-reveal" id="ktThemesCard">
+                        <div class="kt-card-head">
+                            <h3 class="kt-subtitle" data-kt="downloadedThemes"></h3>
+                            <span class="kt-chip" id="ktThemesCount">-</span>
+                        </div>
+                        <div class="kt-themes" id="ktThemesList"></div>
+                    </div>
+
+                    <div class="kt-card kt-reveal" id="ktPresetsCard">
+                        <div class="kt-stack">
+                            <h3 class="kt-subtitle" data-kt="libraryPresets"></h3>
+                            <p class="kt-note" data-kt="libraryPresetsNote"></p>
+                            <div class="kt-row" id="ktPresetRow"></div>
+                            <div class="kt-progress" id="ktSyncProgress" style="display:none;">
+                                <div class="kt-progress-track"><div class="kt-progress-fill"></div></div>
+                                <div class="kt-state" data-kt-sync-text></div>
+                                <div class="kt-counters" data-kt-sync-counters></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <script>
+        (function () {
+            var V = '1.0.0.0';
+            function asset(name) { return 'configurationpage?name=' + name + '&v=' + V; }
+            function ensureCss() {
+                var id = 'kt-css-' + V;
+                if (document.getElementById(id)) { return; }
+                var link = document.createElement('link');
+                link.id = id; link.rel = 'stylesheet'; link.href = asset('KometaThemesCss');
+                document.head.appendChild(link);
+            }
+            function ensureJs(name, done) {
+                var id = 'kt-js-' + name + '-' + V;
+                var existing = document.getElementById(id);
+                if (existing) {
+                    if (existing.dataset.loaded) { done(); }
+                    else { existing.addEventListener('load', done); }
+                    return;
+                }
+                var script = document.createElement('script');
+                script.id = id; script.src = asset(name);
+                script.addEventListener('load', function () { script.dataset.loaded = '1'; done(); });
+                document.head.appendChild(script);
+            }
+            var page = document.getElementById('KometaThemesItemPage');
+            page.addEventListener('pageshow', function () {
+                ensureCss();
+                ensureJs('KometaThemesCoreJs', function () {
+                    ensureJs('KometaThemesItemJs', function () {
+                        window.KT.pages.item.show(page);
+                    });
+                });
+            });
+        })();
+        </script>
+    </div>
+</body>
+</html>

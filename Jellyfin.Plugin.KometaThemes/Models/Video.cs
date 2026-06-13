@@ -1,0 +1,43 @@
+using System.Text.Json.Serialization;
+
+namespace Jellyfin.Plugin.KometaThemes.Models;
+
+/// <summary>
+/// A video API resource represents a WebM of an anime theme.
+///
+/// For example, the video Bakemonogatari-OP1.webm represents the WebM of the Bakemonogatari OP1 theme.
+/// </summary>
+/// <param name="Id">The primary key of the resource.</param>
+/// <param name="Basename">The basename of the file in storage.</param>
+/// <param name="Filename">The filename of the file in storage.</param>
+/// <param name="Source">Where did this video come from? [WEB, RAW, BD, DVD, VHS, LD].</param>
+/// <param name="Overlap">The degree to which the sequence and episode content overlap [None, Transition, Over].</param>
+/// <param name="Link">The URL to stream the file from storage.</param>
+/// <param name="Creditless">Whether the video is creditless.</param>
+/// <param name="Audio">Audio for the video.</param>
+public record Video(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("basename")]
+    string Basename,
+    [property: JsonPropertyName("filename")]
+    string Filename,
+    [property: JsonPropertyName("source")] VideoSource? Source,
+    [property: JsonPropertyName("overlap")]
+    OverlapType Overlap,
+    [property: JsonPropertyName("link")] string Link,
+    [property: JsonPropertyName("nc")] bool Creditless,
+    [property: JsonPropertyName("audio")] Audio Audio
+)
+{
+    /// <summary>
+    /// Gets the encoded video resolution.
+    /// </summary>
+    [JsonPropertyName("resolution")]
+    public int? Resolution { get; init; }
+
+    /// <summary>
+    /// Gets any free-form AnimeThemes tags for the video.
+    /// </summary>
+    [JsonPropertyName("tags")]
+    public string? Tags { get; init; }
+}

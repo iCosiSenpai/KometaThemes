@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>KometaThemes</title>
+</head>
+<body>
+    <div id="KometaThemesConfigPage" data-role="page" class="page type-interior pluginConfigurationPage kt-page"
+         data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <div class="kt-shell" id="ktConfigShell">
+
+                    <!-- status hero -->
+                    <div class="kt-hero kt-reveal">
+                        <div class="kt-hero-scrim"></div>
+                        <div class="kt-hero-content">
+                            <div class="kt-row" style="justify-content:space-between;">
+                                <div class="kt-brand">
+                                    <div class="kt-comet" aria-hidden="true"></div>
+                                    <div class="kt-wordmark"><strong>Kometa</strong><span>Themes</span></div>
+                                </div>
+                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version" id="ktVersion">v1.0.0.0</span></span>
+                            </div>
+                            <div class="kt-stats" id="ktHeroStats">
+                                <div class="kt-stat"><span class="kt-stat-label" data-kt="statHealth"></span><span class="kt-stat-value" id="ktStatHealth">…</span><span class="kt-stat-sub" id="ktStatHealthSub"></span></div>
+                                <div class="kt-stat"><span class="kt-stat-label" data-kt="statLastSync"></span><span class="kt-stat-value" id="ktStatLastSync">…</span><span class="kt-stat-sub" id="ktStatLastSyncSub"></span></div>
+                                <div class="kt-stat"><span class="kt-stat-label" data-kt="statCache"></span><span class="kt-stat-value" id="ktStatCache">…</span><span class="kt-stat-sub" id="ktStatCacheSub"></span></div>
+                                <div class="kt-stat"><span class="kt-stat-label" data-kt="statSkipped"></span><span class="kt-stat-value" id="ktStatSkipped">…</span><span class="kt-stat-sub" data-kt="statSkippedSub"></span></div>
+                            </div>
+                            <div class="kt-row">
+                                <button type="button" class="kt-btn kt-btn-primary" id="ktBtnSyncNow"></button>
+                                <button type="button" class="kt-btn" id="ktBtnForceSync"></button>
+                                <button type="button" class="kt-btn kt-btn-ghost" id="ktBtnToggleLog"></button>
+                            </div>
+                            <div class="kt-progress" id="ktSyncProgress" style="display:none;">
+                                <div class="kt-progress-track"><div class="kt-progress-fill"></div></div>
+                                <div class="kt-state" data-kt-sync-text></div>
+                                <div class="kt-counters" data-kt-sync-counters></div>
+                            </div>
+                            <div class="kt-log" id="ktLog" style="display:none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- section tabs -->
+                    <nav class="kt-tabs kt-reveal" id="ktTabs" role="tablist">
+                        <button type="button" class="kt-tab" role="tab" data-panel="general" aria-selected="true"><span data-kt="tabGeneral"></span></button>
+                        <button type="button" class="kt-tab" role="tab" data-panel="themes" aria-selected="false"><span data-kt="tabThemes"></span></button>
+                        <button type="button" class="kt-tab" role="tab" data-panel="providers" aria-selected="false"><span data-kt="tabProviders"></span></button>
+                        <button type="button" class="kt-tab" role="tab" data-panel="library" aria-selected="false"><span data-kt="tabLibrary"></span></button>
+                        <button type="button" class="kt-tab" role="tab" data-panel="failed" aria-selected="false"><span data-kt="tabFailed"></span><span class="kt-tab-badge" id="ktFailedBadge" style="display:none;"></span></button>
+                    </nav>
+
+                    <!-- panels are populated by config.js -->
+                    <div class="kt-panel active" data-panel="general" id="ktPanelGeneral"></div>
+                    <div class="kt-panel" data-panel="themes" id="ktPanelThemes"></div>
+                    <div class="kt-panel" data-panel="providers" id="ktPanelProviders"></div>
+                    <div class="kt-panel" data-panel="library" id="ktPanelLibrary"></div>
+                    <div class="kt-panel" data-panel="failed" id="ktPanelFailed"></div>
+
+                    <!-- sticky save bar (visible only when dirty) -->
+                    <div class="kt-stickybar" id="ktSaveBar" style="display:none;">
+                        <span class="kt-state" data-kt="unsavedChanges"></span>
+                        <button type="button" class="kt-btn kt-btn-ghost" id="ktBtnDiscard"></button>
+                        <button type="button" class="kt-btn kt-btn-primary" id="ktBtnSave"></button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <script>
+        (function () {
+            var V = '1.0.0.0';
+            function asset(name) { return 'configurationpage?name=' + name + '&v=' + V; }
+            function ensureCss() {
+                var id = 'kt-css-' + V;
+                if (document.getElementById(id)) { return; }
+                var link = document.createElement('link');
+                link.id = id; link.rel = 'stylesheet'; link.href = asset('KometaThemesCss');
+                document.head.appendChild(link);
+            }
+            function ensureJs(name, done) {
+                var id = 'kt-js-' + name + '-' + V;
+                var existing = document.getElementById(id);
+                if (existing) {
+                    if (existing.dataset.loaded) { done(); }
+                    else { existing.addEventListener('load', done); }
+                    return;
+                }
+                var script = document.createElement('script');
+                script.id = id; script.src = asset(name);
+                script.addEventListener('load', function () { script.dataset.loaded = '1'; done(); });
+                document.head.appendChild(script);
+            }
+            var page = document.getElementById('KometaThemesConfigPage');
+            page.addEventListener('pageshow', function () {
+                ensureCss();
+                ensureJs('KometaThemesCoreJs', function () {
+                    ensureJs('KometaThemesConfigJs', function () {
+                        window.KT.pages.config.show(page);
+                    });
+                });
+            });
+        })();
+        </script>
+    </div>
+</body>
+</html>

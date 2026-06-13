@@ -1,0 +1,88 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using Jellyfin.Plugin.KometaThemes.Configuration;
+using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.Plugins;
+using MediaBrowser.Model.Plugins;
+using MediaBrowser.Model.Serialization;
+
+namespace Jellyfin.Plugin.KometaThemes;
+
+/// <summary>
+/// The main plugin.
+/// </summary>
+public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Plugin"/> class.
+    /// </summary>
+    /// <param name="applicationPaths">Instance of the <see cref="IApplicationPaths"/> interface.</param>
+    /// <param name="xmlSerializer">Instance of the <see cref="IXmlSerializer"/> interface.</param>
+    /// <param name="syncHandler">The <see cref="LibrarySyncHandler"/> — injected to force construction so it subscribes to library events.</param>
+    public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer, LibrarySyncHandler syncHandler)
+        : base(applicationPaths, xmlSerializer)
+    {
+        Instance = this;
+        MigrateMutedVideoDefault();
+    }
+
+    /// <inheritdoc />
+    public override string Name => "KometaThemes";
+
+    /// <inheritdoc />
+    public override Guid Id => Guid.Parse("48c98707-45d1-43ac-94b8-f74d875ad29c");
+
+    /// <summary>
+    /// Gets the current plugin instance.
+    /// </summary>
+    public static Plugin? Instance { get; private set; }
+
+    /// <inheritdoc />
+    public IEnumerable<PluginPageInfo> GetPages()
+    {
+        var ns = GetType().Namespace;
+        return
+        [
+            // Pages (cache-busting is handled by the in-page bootstrap via ?v=, not by duplicate names)
+            new PluginPageInfo { Name = this.Name, EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", ns) },
+            new PluginPageInfo { Name = "KometaThemesSearch", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.SearchPage.html", ns) },
+            new PluginPageInfo { Name = "KometaThemesItem", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.itemPage.html", ns), EnableInMainMenu = true },
+
+            // Shared assets, served through /web/configurationpage?name=...
+            new PluginPageInfo { Name = "KometaThemesCss", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.kometa.css", ns) },
+            new PluginPageInfo { Name = "KometaThemesCoreJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.kometa-core.js", ns) },
+            new PluginPageInfo { Name = "KometaThemesConfigJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.config.js", ns) },
+            new PluginPageInfo { Name = "KometaThemesSearchJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.search.js", ns) },
+            new PluginPageInfo { Name = "KometaThemesItemJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.item.js", ns) }
+        ];
+    }
+
+    private void MigrateMutedVideoDefault()
+    {
+        var configuration = Configuration;
+        if (configuration.VideoVolumeDefaultMigrated)
+        {
+            return;
+        }
+
+        var changed = false;
+        if (configuration.VideoSettings?.Volume <= 0.01)
+        {
+            configuration.VideoSettings.Volume = 0.5;
+            changed = true;
+        }
+
+        if (configuration.MovieSettings?.VideoSettings?.Volume <= 0.01)
+        {
+            configuration.MovieSettings.VideoSettings.Volume = 0.5;
+            changed = true;
+        }
+
+        configuration.VideoVolumeDefaultMigrated = true;
+        if (changed)
+        {
+            SaveConfiguration();
+        }
+    }
+}

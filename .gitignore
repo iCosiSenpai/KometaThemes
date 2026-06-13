@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+.idea/
+artifacts
+tmp/
+*.DotSettings.user
+.DS_Store
+iCosiSenpai-Plugins/
+*.zip
