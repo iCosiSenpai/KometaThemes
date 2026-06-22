@@ -276,6 +276,13 @@ public class AnimeThemesDownloader : IDisposable
                 RemoveFile(item, ThemeMusicFileName);
             }
 
+            // Remove existing targets so they are actually re-downloaded,
+            // not skipped because File.Exists still matches the new name.
+            foreach (var link in links)
+            {
+                RemoveFile(item, link.Filepath);
+            }
+
             CleanDirectory(item, type, links.Select(it => Path.GetFileName(it.Filepath)));
         }
         else

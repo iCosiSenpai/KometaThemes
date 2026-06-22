@@ -55,4 +55,21 @@ public class KometaThemesSyncController : ControllerBase
 
         return Accepted(new { message = "KometaThemes sync started.", preset = request.Preset.ToString() });
     }
+
+    /// <summary>
+    /// Starts a forced full sync run. Existing themes are removed and re-downloaded
+    /// according to the current settings. This does not persist ForceSync to the config.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Accepted status, or conflict if another sync is running.</returns>
+    [HttpPost("force")]
+    public IActionResult Force(CancellationToken cancellationToken)
+    {
+        if (!_runner.TryStartForcedRun())
+        {
+            return Conflict(new { error = "A KometaThemes sync is already running." });
+        }
+
+        return Accepted(new { message = "KometaThemes forced sync started." });
+    }
 }

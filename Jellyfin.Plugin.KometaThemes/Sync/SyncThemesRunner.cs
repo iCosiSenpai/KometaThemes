@@ -77,6 +77,41 @@ public sealed class SyncThemesRunner
         return true;
     }
 
+    /// <summary>
+    /// Starts a forced full sync without persisting ForceSync to the configuration.
+    /// This avoids the race condition where the scheduled task reads the config before
+    /// the temporary ForceSync=true save has been applied.
+    /// </summary>
+    /// <returns><c>true</c> if the sync was started; <c>false</c> if another sync is already running.</returns>
+    public bool TryStartForcedRun()
+    {
+        if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
+        {
+            return false;
+        }
+
+        var configuration = CloneConfiguration(Plugin.Instance?.Configuration ?? new PluginConfiguration());
+        configuration.ForceSync = true;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await RunWithOwnedLockAsync(configuration, new Progress<double>(), "forced", CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "KometaThemes forced sync failed.");
+            }
+            finally
+            {
+                Volatile.Write(ref _isRunning, 0);
+            }
+        });
+
+        return true;
+    }
+
     public Task RunPresetAsync(SyncRunPreset preset, IProgress<double> progress, CancellationToken cancellationToken)
     {
         var configuration = CloneConfiguration(Plugin.Instance?.Configuration ?? new PluginConfiguration());

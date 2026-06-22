@@ -868,31 +868,28 @@
         var confirmKey = force ? 'confirmForceSync' : 'confirmSyncNow';
         KT.ui.confirm(KT.t(confirmKey)).then(function (ok) {
             if (!ok) { return; }
-            var restore = null;
-            var chain = Promise.resolve();
             if (force) {
-                chain = ApiClient.getPluginConfiguration(KT.GUID).then(function (config) {
-                    config.ForceSync = true;
-                    return KT.config.save(config);
-                }).then(function () {
-                    restore = function () {
-                        ApiClient.getPluginConfiguration(KT.GUID).then(function (config) {
-                            config.ForceSync = false;
-                            return KT.config.save(config);
-                        }).catch(function () { /* best effort */ });
-                    };
+                // Server-side forced run: avoids the ForceSync config race condition
+                // and guarantees existing themes are re-downloaded/overwritten.
+                KT.api.post('Plugins/KometaThemes/Sync/force').then(function () {
+                    log(KT.t('syncRunning'), 'info');
+                    showSyncProgress();
+                }).catch(function (error) {
+                    log(error.message || KT.t('syncStartFailed'), 'error');
+                    KT.ui.toast(error.message || KT.t('syncStartFailed'), 'error');
                 });
+                return;
             }
-            chain.then(findSyncTaskId).then(function (taskId) {
+
+            findSyncTaskId().then(function (taskId) {
                 // Jellyfin 10.11 quirk: the run endpoint needs the numeric task GUID, not the key.
                 return KT.api.post('ScheduledTasks/Running/' + taskId);
             }).then(function () {
                 log(KT.t('syncRunning'), 'info');
-                showSyncProgress(restore);
+                showSyncProgress();
             }).catch(function (error) {
                 log(error.message || KT.t('syncStartFailed'), 'error');
                 KT.ui.toast(error.message || KT.t('syncStartFailed'), 'error');
-                if (restore) { restore(); }
             });
         });
     }
