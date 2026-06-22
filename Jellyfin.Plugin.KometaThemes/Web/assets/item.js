@@ -22,6 +22,7 @@
             repaired: 'Links repaired: {repaired} fixed, {songs} songs / {videos} videos now registered',
             repairNeedsScan: '{count} files are not in the library yet — run a library scan, then repair again',
             syncItem: 'Sync this item',
+            manualBinding: 'Manual binding: {anime}',
             confirmDeleteAll: 'Delete ALL downloaded themes for this item?',
             confirmDelete: 'Delete {name}?',
             confirmPreset: 'Run "{name}" on all matching libraries now?',
@@ -45,6 +46,7 @@
             repaired: 'Collegamenti riparati: {repaired} corretti, ora {songs} sigle / {videos} video registrati',
             repairNeedsScan: '{count} file non sono ancora in libreria — esegui una scansione, poi ripara di nuovo',
             syncItem: 'Sincronizza elemento',
+            manualBinding: 'Binding manuale: {anime}',
             confirmDeleteAll: 'Eliminare TUTTI i temi scaricati per questo elemento?',
             confirmDelete: 'Eliminare {name}?',
             confirmPreset: 'Eseguire "{name}" su tutte le librerie corrispondenti?',
@@ -147,6 +149,21 @@
             KT.ui.loading(false);
             KT.ui.toast(error.message || KT.t('error'), 'error');
         });
+    }
+
+    function loadBinding() {
+        var existing = state.page.querySelector('.kt-binding-banner');
+        if (existing) { existing.remove(); }
+        if (!state.itemId) { return; }
+        KT.api.get('Plugins/KometaThemes/Items/' + state.itemId + '/binding').then(function (data) {
+            if (!data || !data.hasBinding) { return; }
+            var banner = util.el('div', 'kt-binding-banner');
+            banner.appendChild(util.el('span', 'kt-badge success', KT.t('manualBinding', { anime: data.animeName })));
+            var title = q('ktItemTitle');
+            if (title && title.parentElement) {
+                title.parentElement.insertBefore(banner, title.nextSibling);
+            }
+        }).catch(function () { /* optional */ });
     }
 
     /* ---- theme list ---- */
@@ -322,6 +339,7 @@
             if (hasItem) {
                 loadIdentity();
                 loadRegistration();
+                loadBinding();
                 loadThemes();
             } else {
                 q('ktItemTitle').textContent = KT.t('noItemTitle');

@@ -238,11 +238,27 @@ public class PluginConfiguration : BasePluginConfiguration
 #pragma warning restore CA2227
 
     /// <summary>
+    /// Gets the list of manual item-to-anime bindings.
+    /// </summary>
+#pragma warning disable CA2227
+    public Collection<ManualBindingEntry> ManualBindings { get; } = new();
+#pragma warning restore CA2227
+
+    /// <summary>
     /// Gets a dictionary of skipped item IDs for fast lookup.
     /// </summary>
     /// <returns>Dictionary keyed by item ID.</returns>
     public Dictionary<string, SkippedItemEntry> GetSkippedItemsDictionary()
     {
         return SkippedItems.ToDictionary(i => i.ItemId, i => i);
+    }
+
+    /// <summary>
+    /// Gets a dictionary of manual bindings keyed by item ID.
+    /// </summary>
+    /// <returns>Dictionary keyed by item ID.</returns>
+    public Dictionary<string, ManualBindingEntry> GetManualBindingsDictionary()
+    {
+        return ManualBindings.ToDictionary(i => i.ItemId, i => i);
     }
 }

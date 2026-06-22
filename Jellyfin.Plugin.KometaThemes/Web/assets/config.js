@@ -9,7 +9,7 @@
 
     KT.i18n.extend({
         en: {
-            tabGeneral: 'General', tabThemes: 'Themes & Download', tabProviders: 'Providers & Matching', tabLibrary: 'Excluded',
+            tabGeneral: 'General', tabThemes: 'Themes & Download', tabProviders: 'Providers & Matching', tabLibrary: 'Excluded', tabBindings: 'Bindings',
             statHealth: 'Status', statLastSync: 'Last sync', statCache: 'Cache hit rate', statSkipped: 'Skipped items',
             statSkippedSub: 'excluded from sync', healthOk: 'Ready', healthRunning: 'Syncing', healthDown: 'Unreachable',
             syncNow: 'Sync now', forceSync: 'Force sync', toggleLog: 'Activity log',
@@ -82,12 +82,25 @@
             failedAttempts: 'Attempts', failedLastAttempt: 'Last attempt',
             failedRetryDone: 'Retry finished for "{name}"', failedRetryNothing: 'Still nothing found for "{name}"',
             failedBlacklisted: '"{name}" blacklisted',
+            failedResolveManually: 'Manually resolved',
+            failedResolved: '"{name}" marked as manually resolved',
+            bindingsTitle: 'Manual bindings',
+            bindingsNote: 'Items you manually bound through the Theme Finder. Automatic sync always uses these bindings first. Remove a binding to let the resolver try again, or unlock it to allow automatic matching without deleting files.',
+            bindingsEmpty: 'No manual bindings yet.',
+            bindingsSearch: 'Filter by name…',
+            colAnime: 'Bound anime', colBound: 'Bound',
+            removeBinding: 'Remove binding',
+            unlockBinding: 'Unlock / recalculate',
+            bindingRemoved: 'Binding removed',
+            bindingUnlocked: 'Binding unlocked — next sync will use automatic resolution',
+            confirmRemoveBinding: 'Remove the manual binding for "{name}"?',
+            confirmRemoveBindingDelete: 'Also delete downloaded theme files',
             logServer: 'Server', logSession: 'Session', logRefresh: 'Refresh',
             logEmpty: 'No plugin entries in the current server log.',
             logLoadFailed: 'Could not load the server log'
         },
         it: {
-            tabGeneral: 'Generale', tabThemes: 'Temi & Download', tabProviders: 'Provider & Matching', tabLibrary: 'Esclusi',
+            tabGeneral: 'Generale', tabThemes: 'Temi & Download', tabProviders: 'Provider & Matching', tabLibrary: 'Esclusi', tabBindings: 'Binding',
             statHealth: 'Stato', statLastSync: 'Ultimo sync', statCache: 'Cache hit rate', statSkipped: 'Elementi esclusi',
             statSkippedSub: 'esclusi dal sync', healthOk: 'Pronto', healthRunning: 'Sync in corso', healthDown: 'Non raggiungibile',
             syncNow: 'Sync ora', forceSync: 'Forza sync', toggleLog: 'Log attività',
@@ -160,6 +173,19 @@
             failedAttempts: 'Tentativi', failedLastAttempt: 'Ultimo tentativo',
             failedRetryDone: 'Retry completato per "{name}"', failedRetryNothing: 'Ancora nessun risultato per "{name}"',
             failedBlacklisted: '"{name}" in blacklist',
+            failedResolveManually: 'Risolto manualmente',
+            failedResolved: '"{name}" marcato come risolto manualmente',
+            bindingsTitle: 'Binding manuali',
+            bindingsNote: 'Elementi che hai abbinato a mano tramite il Theme Finder. Il sync automatico usa sempre questi binding per primi. Rimuovi un binding per far riprovare il resolver, o sbloccali per permettere il matching automatico senza cancellare i file.',
+            bindingsEmpty: 'Nessun binding manuale.',
+            bindingsSearch: 'Filtra per nome…',
+            colAnime: 'Anime bindato', colBound: 'Bindato',
+            removeBinding: 'Rimuovi binding',
+            unlockBinding: 'Sblocca / ricalcola',
+            bindingRemoved: 'Binding rimosso',
+            bindingUnlocked: 'Binding sbloccato — il prossimo sync userà la risoluzione automatica',
+            confirmRemoveBinding: 'Rimuovere il binding manuale per "{name}"?',
+            confirmRemoveBindingDelete: 'Cancella anche i file dei temi scaricati',
             logServer: 'Server', logSession: 'Sessione', logRefresh: 'Aggiorna',
             logEmpty: 'Nessuna riga del plugin nel log server corrente.',
             logLoadFailed: 'Impossibile caricare il log del server'
@@ -224,6 +250,7 @@
         fields: [],
         skipped: [],
         failed: [],
+        bindings: [],
         poller: null,
         logTab: 'server',
         logFetchedAt: 0
@@ -459,6 +486,16 @@
         panel.appendChild(card('failedTitle', [actions, wrap], 'failedNote'));
     }
 
+    function buildBindingsPanel(panel) {
+        var search = util.el('input', 'kt-input kt-search-input');
+        search.type = 'text';
+        search.placeholder = KT.t('bindingsSearch');
+        search.addEventListener('input', util.debounce(function () { renderBindings(search.value); }, 150));
+        var tableWrap = util.el('div', 'kt-table-wrap');
+        tableWrap.id = 'ktBindingsWrap';
+        panel.appendChild(card('bindingsTitle', [search, tableWrap], 'bindingsNote'));
+    }
+
     /* ---- failed / unresolved items ---- */
 
     function reasonChip(item) {
@@ -498,6 +535,7 @@
             var actionRow = util.el('div', 'kt-row');
             actionRow.appendChild(failedSearchButton(item));
             actionRow.appendChild(failedRetryButton(item));
+            actionRow.appendChild(failedResolveManuallyButton(item));
             actionRow.appendChild(failedBlacklistButton(item));
             actionRow.appendChild(failedDismissButton(item));
             actionCell.appendChild(actionRow);
@@ -536,6 +574,18 @@
                 btn.disabled = false;
                 btn.textContent = KT.t('failedRetry');
             });
+        });
+        return btn;
+    }
+
+    function failedResolveManuallyButton(item) {
+        var btn = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', KT.t('failedResolveManually'));
+        btn.type = 'button';
+        btn.addEventListener('click', function () {
+            KT.api.post('Plugins/KometaThemes/Failed/items/' + encodeURIComponent(item.itemId) + '/resolve-manually').then(function () {
+                KT.ui.toast(KT.t('failedResolved', { name: item.name }), 'success');
+                loadFailed();
+            }).catch(function (error) { KT.ui.toast(error.message || KT.t('error'), 'error'); });
         });
         return btn;
     }
@@ -588,6 +638,104 @@
             badge.style.display = state.failed.length ? '' : 'none';
             renderFailed();
         }).catch(function () { renderFailed(); });
+    }
+
+    /* ---- manual bindings ---- */
+
+    function renderBindings(filter) {
+        var wrap = q('ktBindingsWrap');
+        util.clear(wrap);
+        var items = state.bindings || [];
+        if (filter) {
+            var needle = filter.toLowerCase();
+            items = items.filter(function (item) {
+                return (item.itemName + ' ' + item.animeName).toLowerCase().indexOf(needle) > -1;
+            });
+        }
+        if (!items.length) {
+            wrap.appendChild(util.el('p', 'kt-note', KT.t('bindingsEmpty'))).style.padding = '14px';
+            return;
+        }
+
+        var table = util.el('table', 'kt-table');
+        var thead = util.el('thead');
+        var headRow = util.el('tr');
+        ['colName', 'colAnime', 'colBound', 'colActions'].forEach(function (key) {
+            headRow.appendChild(util.el('th', null, KT.t(key)));
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+        var tbody = util.el('tbody');
+        items.forEach(function (item) {
+            var row = util.el('tr');
+            row.appendChild(util.el('td', null, item.itemName || item.itemId));
+            row.appendChild(util.el('td', null, item.animeName || '-'));
+            row.appendChild(util.el('td', null, item.boundAt ? new Date(item.boundAt).toLocaleString() : '-'));
+            var actionCell = util.el('td');
+            var actionRow = util.el('div', 'kt-row');
+
+            var openFinder = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', '🔍 ' + KT.t('failedSearch'));
+            openFinder.type = 'button';
+            openFinder.addEventListener('click', function () {
+                util.navigate('configurationpage?name=KometaThemesSearch&itemId=' + encodeURIComponent(item.itemId));
+            });
+            actionRow.appendChild(openFinder);
+
+            var unlock = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', KT.t('unlockBinding'));
+            unlock.type = 'button';
+            unlock.addEventListener('click', function () {
+                KT.ui.confirm(KT.t('confirmRemoveBinding', { name: item.itemName || item.itemId })).then(function (ok) {
+                    if (!ok) { return; }
+                    KT.api.post('Plugins/KometaThemes/Bindings/' + encodeURIComponent(item.itemId) + '/unlock').then(function () {
+                        KT.ui.toast(KT.t('bindingUnlocked'), 'success');
+                        loadBindings();
+                    }).catch(function (error) { KT.ui.toast(error.message || KT.t('error'), 'error'); });
+                });
+            });
+            actionRow.appendChild(unlock);
+
+            var remove = util.el('button', 'kt-btn kt-btn-sm kt-btn-danger', KT.t('removeBinding'));
+            remove.type = 'button';
+            remove.addEventListener('click', function () {
+                var deleteCheckbox = util.el('input', 'kt-checkbox');
+                deleteCheckbox.type = 'checkbox';
+                deleteCheckbox.checked = true;
+                var label = util.el('label', null, KT.t('confirmRemoveBindingDelete'));
+                label.style.display = 'flex';
+                label.style.gap = '8px';
+                label.style.alignItems = 'center';
+                label.insertBefore(deleteCheckbox, label.firstChild);
+
+                KT.ui.confirm([
+                    util.el('p', null, KT.t('confirmRemoveBinding', { name: item.itemName || item.itemId })),
+                    label
+                ]).then(function (ok) {
+                    if (!ok) { return; }
+                    var deleteFiles = deleteCheckbox.checked;
+                    KT.api.del('Plugins/KometaThemes/Bindings/' + encodeURIComponent(item.itemId) + '?deleteFiles=' + deleteFiles).then(function () {
+                        KT.ui.toast(KT.t('bindingRemoved'), deleteFiles ? 'success' : 'success');
+                        loadBindings();
+                    }).catch(function (error) { KT.ui.toast(error.message || KT.t('error'), 'error'); });
+                });
+            });
+            actionRow.appendChild(remove);
+
+            actionCell.appendChild(actionRow);
+            row.appendChild(actionCell);
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+    }
+
+    function loadBindings() {
+        KT.api.get('Plugins/KometaThemes/Bindings').then(function (items) {
+            state.bindings = items || [];
+            var badge = q('ktBindingsBadge');
+            badge.textContent = String(state.bindings.length);
+            badge.style.display = state.bindings.length ? '' : 'none';
+            renderBindings('');
+        }).catch(function () { renderBindings(''); });
     }
 
     /* ---- provider priority list ---- */
@@ -971,7 +1119,7 @@
         state.fields = [];
         [['ktPanelGeneral', buildGeneralPanel], ['ktPanelThemes', buildThemesPanel],
          ['ktPanelProviders', buildProvidersPanel], ['ktPanelLibrary', buildLibraryPanel],
-         ['ktPanelFailed', buildFailedPanel]].forEach(function (pair) {
+         ['ktPanelBindings', buildBindingsPanel], ['ktPanelFailed', buildFailedPanel]].forEach(function (pair) {
             var host = q(pair[0]);
             util.clear(host);
             pair[1](host);
@@ -1032,6 +1180,7 @@
             loadHero();
             loadSkipped();
             loadFailed();
+            loadBindings();
             KT.ui.loading(false);
         }).catch(function (error) {
             KT.ui.loading(false);

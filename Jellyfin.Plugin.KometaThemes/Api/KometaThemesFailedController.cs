@@ -76,6 +76,25 @@ public class KometaThemesFailedController : ControllerBase
     }
 
     /// <summary>
+    /// Marks a failed item as manually resolved without retrying or blacklisting it.
+    /// </summary>
+    /// <param name="itemId">The Jellyfin item ID to mark as resolved.</param>
+    /// <returns>A success message or 404 when not tracked.</returns>
+    [HttpPost("items/{itemId}/resolve-manually")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult ResolveManually([FromRoute, Required] string itemId)
+    {
+        if (!_failedItems.Remove(itemId))
+        {
+            return NotFound(new { error = "Failed item not found" });
+        }
+
+        _logger.LogInformation("Marked failed item {Id} as manually resolved", itemId);
+        return Ok(new { message = "Failed item marked as manually resolved" });
+    }
+
+    /// <summary>
     /// Clears the entire failed items list.
     /// </summary>
     /// <returns>A success message with cleared count.</returns>

@@ -21,7 +21,7 @@
                                     <div class="kt-comet" aria-hidden="true"></div>
                                     <div class="kt-wordmark"><strong>Kometa</strong><span data-kt="finderKicker"></span></div>
                                 </div>
-                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version">v1.0.0.8</span></span>
+                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version">v1.0.1.0</span></span>
                             </div>
                             <div class="kt-row" style="gap:16px; align-items:flex-start;">
                                 <div class="kt-poster" id="ktFinderPoster" style="width:84px;"><div class="kt-poster-ph">♪</div></div>
@@ -116,6 +116,7 @@
                         <button type="button" class="kt-btn kt-btn-sm kt-btn-ghost" data-bulk="ed-audio"></button>
                         <button type="button" class="kt-btn kt-btn-sm kt-btn-ghost" data-bulk="video"></button>
                         <button type="button" class="kt-btn kt-btn-sm kt-btn-ghost" data-bulk="clear"></button>
+                        <button type="button" class="kt-btn kt-btn-ghost" id="ktBtnSaveBinding"></button>
                         <button type="button" class="kt-btn kt-btn-primary" id="ktBtnDownload"></button>
                     </div>
                     <div class="kt-log" id="ktDownloadLog" style="display:none;"></div>
@@ -132,7 +133,7 @@
         </div>
         <script>
         (function () {
-            var V = '1.0.0.8';
+            var V = '1.0.1.0';
             function asset(name) { return 'configurationpage?name=' + name + '&v=' + V; }
             function ensureCss() {
                 var id = 'kt-css-' + V;

@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.KometaThemes.Api;
 using Jellyfin.Plugin.KometaThemes.Models;
 using Jellyfin.Plugin.KometaThemes.Resolving;
+using Jellyfin.Plugin.KometaThemes.Sync;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -63,6 +64,7 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
     private readonly AnimeThemesApi _api;
     private readonly AnimeThemesDownloader _downloader;
     private readonly ILibraryManager _libraryManager;
+    private readonly FailedItemsStore _failedItems;
     private readonly ILogger<KometaThemesSearchController> _logger;
     private SemaphoreSlim _downloadSemaphore = new(ManualDownloadParallelism, ManualDownloadParallelism);
 
@@ -70,11 +72,13 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         AnimeThemesApi api,
         AnimeThemesDownloader downloader,
         ILibraryManager libraryManager,
+        FailedItemsStore failedItems,
         ILogger<KometaThemesSearchController> logger)
     {
         _api = api;
         _downloader = downloader;
         _libraryManager = libraryManager;
+        _failedItems = failedItems;
         _logger = logger;
     }
 
@@ -346,6 +350,13 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
 
         await Task.WhenAll(tasks).ConfigureAwait(false);
 
+        // Persist the manual binding so automatic syncs never re-resolve this item.
+        if (request.AnimeId.HasValue)
+        {
+            SaveManualBinding(item, request.AnimeId.Value, request.AnimeName, request.AnimeSlug);
+            _failedItems.Remove(item.Id);
+        }
+
         try
         {
             await item.RefreshMetadata(ct).ConfigureAwait(false);
@@ -356,6 +367,37 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         }
 
         return Ok(new { results });
+    }
+
+    private static void SaveManualBinding(BaseItem item, int animeId, string animeName, string animeSlug)
+    {
+        var plugin = Plugin.Instance;
+        if (plugin == null)
+        {
+            return;
+        }
+
+        var config = plugin.Configuration;
+        var itemId = item.Id.ToString();
+        var existing = config.ManualBindings.FirstOrDefault(b =>
+            string.Equals(b.ItemId, itemId, StringComparison.OrdinalIgnoreCase));
+
+        if (existing != null)
+        {
+            config.ManualBindings.Remove(existing);
+        }
+
+        config.ManualBindings.Add(new Models.ManualBindingEntry
+        {
+            ItemId = itemId,
+            AnimeId = animeId,
+            AnimeName = animeName ?? item.Name,
+            Slug = animeSlug,
+            BoundAt = DateTime.UtcNow,
+            Source = "ThemeFinder"
+        });
+
+        plugin.SaveConfiguration();
     }
 
     [HttpGet("Items/{itemId}/info")]

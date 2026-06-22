@@ -245,7 +245,13 @@
             var veil = util.el('div', 'kt-modal-veil');
             var modal = util.el('div', 'kt-modal kt-page');
             modal.appendChild(util.el('h3', null, title || KT.t('confirmTitle')));
-            modal.appendChild(util.el('p', null, message));
+            if (typeof message === 'string') {
+                modal.appendChild(util.el('p', null, message));
+            } else if (Array.isArray(message)) {
+                message.forEach(function (node) { modal.appendChild(node); });
+            } else if (message && message.nodeType) {
+                modal.appendChild(message);
+            }
             var row = util.el('div', 'kt-row');
             var btnCancel = util.el('button', 'kt-btn kt-btn-ghost', KT.t('cancel'));
             var btnOk = util.el('button', 'kt-btn kt-btn-primary', KT.t('confirm'));

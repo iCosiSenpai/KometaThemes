@@ -28,7 +28,13 @@
             downloadDone: 'Download finished: {ok} ok, {fail} failed',
             alreadyDownloaded: 'Already downloaded',
             previewFailedHint: 'Preview failed — open on animethemes.moe',
-            noItemTitle: 'No item selected'
+            noItemTitle: 'No item selected',
+            bindingSaved: 'Manual binding saved',
+            saveBinding: 'Save binding only',
+            bindingExists: 'Bound to: {anime}',
+            removeBinding: 'Remove binding',
+            bindingRemoved: 'Binding removed',
+            saveBindingFailed: 'Failed to save binding'
         },
         it: {
             finderKicker: 'Theme Finder',
@@ -51,7 +57,13 @@
             downloadDone: 'Download completato: {ok} ok, {fail} falliti',
             alreadyDownloaded: 'Già scaricato',
             previewFailedHint: 'Anteprima non riuscita — apri su animethemes.moe',
-            noItemTitle: 'Nessun elemento selezionato'
+            noItemTitle: 'Nessun elemento selezionato',
+            bindingSaved: 'Binding manuale salvato',
+            saveBinding: 'Salva solo binding',
+            bindingExists: 'Bindato a: {anime}',
+            removeBinding: 'Rimuovi binding',
+            bindingRemoved: 'Binding rimosso',
+            saveBindingFailed: 'Salvataggio binding fallito'
         }
     });
 
@@ -63,11 +75,13 @@
         broadResults: [],
         selectedAnimeId: null,
         selectedAnimeName: null,
+        selectedAnimeSlug: null,
         themes: [],
         seasonGroups: [],
         /* selection keyed by media URL (stable + globally unique across anime/seasons),
            value = {url, mediaType, themeName, animeId, animeName}. Persists across results. */
         selected: {},
+        currentBinding: null,
         downloading: false
     };
 
@@ -116,28 +130,82 @@
 
             q('ktSearchInput').value = info.name || '';
             if (info.productionYear) { q('ktSearchYear').value = info.productionYear; }
+            loadBinding();
             runSearch();
+
+            ApiClient.getItem(ApiClient.getCurrentUserId(), state.itemId).then(function (item) {
+                if (item.ImageTags && item.ImageTags.Primary) {
+                    var poster = q('ktFinderPoster');
+                    util.clear(poster);
+                    var img = util.el('img');
+                    img.alt = item.Name;
+                    img.src = ApiClient.getScaledImageUrl(item.Id, { type: 'Primary', maxWidth: 200, tag: item.ImageTags.Primary });
+                    poster.appendChild(img);
+                }
+                if (item.BackdropImageTags && item.BackdropImageTags.length) {
+                    var backdrop = q('ktFinderBackdrop');
+                    backdrop.style.display = '';
+                    backdrop.style.backgroundImage = 'url("' +
+                        ApiClient.getScaledImageUrl(item.Id, { type: 'Backdrop', maxWidth: 1280, tag: item.BackdropImageTags[0] }) + '")';
+                }
+            }).catch(function () { /* poster is optional */ });
         }).catch(function (error) {
             q('ktFinderTitle').textContent = state.itemId;
             setSearchState(error.message || KT.t('error'), 'error');
         });
+    }
 
-        ApiClient.getItem(ApiClient.getCurrentUserId(), state.itemId).then(function (item) {
-            if (item.ImageTags && item.ImageTags.Primary) {
-                var poster = q('ktFinderPoster');
-                util.clear(poster);
-                var img = util.el('img');
-                img.alt = item.Name;
-                img.src = ApiClient.getScaledImageUrl(item.Id, { type: 'Primary', maxWidth: 200, tag: item.ImageTags.Primary });
-                poster.appendChild(img);
-            }
-            if (item.BackdropImageTags && item.BackdropImageTags.length) {
-                var backdrop = q('ktFinderBackdrop');
-                backdrop.style.display = '';
-                backdrop.style.backgroundImage = 'url("' +
-                    ApiClient.getScaledImageUrl(item.Id, { type: 'Backdrop', maxWidth: 1280, tag: item.BackdropImageTags[0] }) + '")';
-            }
-        }).catch(function () { /* poster is optional */ });
+    function loadBinding() {
+        KT.api.get('Plugins/KometaThemes/Items/' + state.itemId + '/binding').then(function (data) {
+            state.currentBinding = data && data.hasBinding ? data : null;
+            renderBinding();
+        }).catch(function () {
+            state.currentBinding = null;
+            renderBinding();
+        });
+    }
+
+    function renderBinding() {
+        var existing = state.page.querySelector('.kt-binding-banner');
+        if (existing) { existing.remove(); }
+        if (!state.currentBinding) { return; }
+
+        var banner = util.el('div', 'kt-binding-banner');
+        banner.appendChild(util.el('span', 'kt-badge success', KT.t('bindingExists', { anime: state.currentBinding.animeName })));
+        var remove = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', KT.t('removeBinding'));
+        remove.type = 'button';
+        remove.addEventListener('click', function () {
+            KT.api.del('Plugins/KometaThemes/Bindings/' + state.itemId).then(function () {
+                state.currentBinding = null;
+                renderBinding();
+                KT.ui.toast(KT.t('bindingRemoved'), 'success');
+            }).catch(function (error) { KT.ui.toast(error.message || KT.t('error'), 'error'); });
+        });
+        banner.appendChild(remove);
+
+        var title = q('ktFinderTitle');
+        if (title && title.parentElement) {
+            title.parentElement.insertBefore(banner, title.nextSibling);
+        }
+    }
+
+    function saveBindingOnly() {
+        if (!state.selectedAnimeId) {
+            KT.ui.toast(KT.t('noItemTitle'), 'error');
+            return;
+        }
+
+        KT.api.post('Plugins/KometaThemes/Bindings/' + state.itemId, {
+            animeId: state.selectedAnimeId,
+            animeName: state.selectedAnimeName || '',
+            slug: state.selectedAnimeSlug || '',
+            source: 'ThemeFinder'
+        }).then(function () {
+            KT.ui.toast(KT.t('bindingSaved'), 'success');
+            loadBinding();
+        }).catch(function (error) {
+            KT.ui.toast(error.message || KT.t('saveBindingFailed'), 'error');
+        });
     }
 
     /* ---- search ---- */
@@ -267,6 +335,7 @@
             if (state.selectedAnimeId !== result.id) { return; }
             var anime = data.anime || result;
             state.selectedAnimeName = anime.name || result.name || '';
+            state.selectedAnimeSlug = anime.slug || result.slug || '';
             renderAnime(anime);
             state.themes = data.themes || [];
             state.seasonGroups = data.seasonGroups || [];
@@ -465,6 +534,7 @@
         bar.style.display = (count > 0 || state.themes.length) ? '' : 'none';
         q('ktSelCount').textContent = KT.t('selCount', { n: count });
         q('ktBtnDownload').disabled = count === 0 || state.downloading;
+        q('ktBtnSaveBinding').disabled = !state.selectedAnimeId;
         renderSelReview();
         updateResultBadges();
     }
@@ -564,7 +634,12 @@
         btn.textContent = KT.t('downloading');
         logLine(KT.t('downloading'), 'info');
 
-        KT.api.post('Plugins/KometaThemes/Items/' + state.itemId + '/download', { urls: items }).then(function (data) {
+        KT.api.post('Plugins/KometaThemes/Items/' + state.itemId + '/download', {
+            urls: items,
+            animeId: state.selectedAnimeId,
+            animeName: state.selectedAnimeName || '',
+            animeSlug: state.selectedAnimeSlug || ''
+        }).then(function (data) {
             var results = (data && data.results) || [];
             var ok = 0;
             var fail = 0;
@@ -607,6 +682,7 @@
             KT.i18n.apply(page);
             q('ktBtnSearch').textContent = KT.t('searchBtn');
             q('ktBtnDownload').textContent = KT.t('download');
+            q('ktBtnSaveBinding').textContent = KT.t('saveBinding');
             var bulkLabels = { 'op-audio': 'bulkOpAudio', 'ed-audio': 'bulkEdAudio', video: 'bulkVideo', clear: 'bulkClear' };
             page.querySelectorAll('[data-bulk]').forEach(function (btn) {
                 btn.textContent = KT.t(bulkLabels[btn.dataset.bulk]);
@@ -624,6 +700,7 @@
                     if (event.key === 'Enter') { event.preventDefault(); runSearch(); }
                 });
                 q('ktBtnDownload').addEventListener('click', download);
+                q('ktBtnSaveBinding').addEventListener('click', saveBindingOnly);
                 page.querySelectorAll('[data-bulk]').forEach(function (btn) {
                     btn.addEventListener('click', function () { bulkSelect(btn.dataset.bulk); });
                 });

@@ -21,6 +21,7 @@ public class CompositeResolver : IAnimeResolver
 {
     private readonly ExternalIdResolver _externalIdResolver;
     private readonly TitleSearchResolver _titleSearchResolver;
+    private readonly AnimeThemesApi _api;
     private readonly FailedItemsStore _failedItems;
     private readonly ILogger<CompositeResolver> _logger;
 
@@ -29,16 +30,19 @@ public class CompositeResolver : IAnimeResolver
     /// </summary>
     /// <param name="externalIdResolver">External ID resolver.</param>
     /// <param name="titleSearchResolver">Title search resolver.</param>
+    /// <param name="api">AnimeThemes API client.</param>
     /// <param name="failedItems">Failed items store for tracking unresolved items.</param>
     /// <param name="logger">Logger.</param>
     public CompositeResolver(
         ExternalIdResolver externalIdResolver,
         TitleSearchResolver titleSearchResolver,
+        AnimeThemesApi api,
         FailedItemsStore failedItems,
         ILogger<CompositeResolver> logger)
     {
         _externalIdResolver = externalIdResolver;
         _titleSearchResolver = titleSearchResolver;
+        _api = api;
         _failedItems = failedItems;
         _logger = logger;
     }
@@ -67,6 +71,41 @@ public class CompositeResolver : IAnimeResolver
 
         // Track which items have been resolved
         var resolved = new HashSet<Guid>();
+
+        // Manual bindings take precedence over automatic resolution.
+        // Normalize keys so D/GUID-N formats and casing differences all match.
+        var manualBindings = config.ManualBindings.ToDictionary(
+            b => NormalizeId(b.ItemId),
+            b => b,
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var item in eligible)
+        {
+            if (manualBindings.TryGetValue(NormalizeId(item.Id.ToString()), out var binding))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                _logger.LogInformation(
+                    "[{Id}] Resolving via manual binding to AnimeThemes ID {AnimeId} ({Name})",
+                    item.Id,
+                    binding.AnimeId,
+                    binding.AnimeName);
+
+                var anime = await _api.GetAnimeByIdAsync(binding.AnimeId, cancellationToken).ConfigureAwait(false);
+                if (anime != null)
+                {
+                    resolved.Add(item.Id);
+                    _failedItems.RemoveIfUnresolved(item.Id);
+                    yield return new ItemWithAnime(item, new System.Collections.ObjectModel.ReadOnlyCollection<Anime>(new[] { anime }));
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "[{Id}] Manual binding to AnimeThemes ID {AnimeId} could not be resolved; falling back to automatic resolution",
+                        item.Id,
+                        binding.AnimeId);
+                }
+            }
+        }
 
         // Get provider priority from config
         var priority = Sites.NormalizeProviderPriority(config.ProviderPriority);

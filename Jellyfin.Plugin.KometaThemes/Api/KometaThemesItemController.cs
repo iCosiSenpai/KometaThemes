@@ -92,6 +92,40 @@ public class KometaThemesItemController : ControllerBase
     }
 
     /// <summary>
+    /// Gets the manual binding for a specific item, if any.
+    /// </summary>
+    [HttpGet("{itemId}/binding")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult GetItemBinding([FromRoute, Required] Guid itemId)
+    {
+        var configuration = Plugin.Instance?.Configuration;
+        if (configuration == null)
+        {
+            return NotFound(new { error = "Plugin configuration not available" });
+        }
+
+        var itemIdString = itemId.ToString();
+        var binding = configuration.ManualBindings
+            .FirstOrDefault(b => string.Equals(b.ItemId, itemIdString, StringComparison.OrdinalIgnoreCase));
+
+        if (binding == null)
+        {
+            return Ok(new { hasBinding = false });
+        }
+
+        return Ok(new
+        {
+            hasBinding = true,
+            binding.AnimeId,
+            binding.AnimeName,
+            binding.Slug,
+            binding.BoundAt,
+            binding.Source
+        });
+    }
+
+    /// <summary>
     /// Triggers a theme sync for a specific item. With <paramref name="force"/> the
     /// already-satisfied check is bypassed (used by the Unresolved tab retry button).
     /// </summary>
