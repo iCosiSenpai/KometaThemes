@@ -88,7 +88,8 @@
         // Active filters for step 3 (type + creditless)
         filters: { audio: true, video: true, op: true, ed: true, creditless: false },
         // For keyboard nav in results
-        resultsActiveIndex: -1
+        resultsActiveIndex: -1,
+        broadActiveIndex: -1
     };
 
     function q(id) { return state.page.querySelector('#' + id); }
@@ -309,6 +310,7 @@
         updateResultBadges();
         // reset keyboard state (setup is attached once in show)
         state.resultsActiveIndex = -1;
+        state.broadActiveIndex = -1;
         var listEl = q('ktResults');
         if (listEl) {
             listEl.removeAttribute('aria-activedescendant');
@@ -327,13 +329,19 @@
 
     /* ---- keyboard nav for results (arrow/Home/End/Enter/Esc + ARIA) ---- */
 
-    function highlightResult(index) {
-        var list = q('ktResults');
+    function highlightResult(index, isBroad) {
+        isBroad = !!isBroad;
+        var list = isBroad ? q('ktBroadResults') : q('ktResults');
         if (!list) return;
         var items = list.querySelectorAll('.kt-result');
-        state.resultsActiveIndex = Math.max(-1, Math.min(index, items.length - 1));
+        if (isBroad) {
+            state.broadActiveIndex = Math.max(-1, Math.min(index, items.length - 1));
+        } else {
+            state.resultsActiveIndex = Math.max(-1, Math.min(index, items.length - 1));
+        }
+        var activeIdx = isBroad ? state.broadActiveIndex : state.resultsActiveIndex;
         items.forEach(function (el, i) {
-            var isActive = (i === state.resultsActiveIndex);
+            var isActive = (i === activeIdx);
             el.classList.toggle('active', isActive);
             el.setAttribute('aria-selected', isActive ? 'true' : 'false');
             if (isActive) {
@@ -342,7 +350,7 @@
                 try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
             }
         });
-        if (state.resultsActiveIndex < 0) {
+        if (activeIdx < 0) {
             list.removeAttribute('aria-activedescendant');
         }
     }
@@ -363,16 +371,16 @@
             var idx = state.resultsActiveIndex;
             if (ev.key === 'ArrowDown') {
                 ev.preventDefault();
-                highlightResult(idx < 0 ? 0 : idx + 1);
+                highlightResult(idx < 0 ? 0 : idx + 1, false);
             } else if (ev.key === 'ArrowUp') {
                 ev.preventDefault();
-                highlightResult(idx <= 0 ? items.length - 1 : idx - 1);
+                highlightResult(idx <= 0 ? items.length - 1 : idx - 1, false);
             } else if (ev.key === 'Home') {
                 ev.preventDefault();
-                highlightResult(0);
+                highlightResult(0, false);
             } else if (ev.key === 'End') {
                 ev.preventDefault();
-                highlightResult(items.length - 1);
+                highlightResult(items.length - 1, false);
             } else if (ev.key === 'Enter' || ev.key === ' ') {
                 ev.preventDefault();
                 if (idx >= 0 && items[idx]) {
@@ -383,7 +391,7 @@
                 }
             } else if (ev.key === 'Escape') {
                 ev.preventDefault();
-                highlightResult(-1);
+                highlightResult(-1, false);
             }
         });
 
@@ -391,7 +399,7 @@
         list.addEventListener('focus', function () {
             if (state.resultsActiveIndex < 0) {
                 var items = list.querySelectorAll('.kt-result');
-                if (items.length) highlightResult(0);
+                if (items.length) highlightResult(0, false);
             }
         });
 
@@ -403,7 +411,69 @@
                 for (var i = 0; i < items.length; i++) {
                     if (items[i] === btn) {
                         state.resultsActiveIndex = i;
-                        highlightResult(i);
+                        highlightResult(i, false);
+                        break;
+                    }
+                }
+            }
+        }, true);
+    }
+
+    function setupBroadKeyboard() {
+        var list = q('ktBroadResults');
+        if (!list || list.dataset.ktKeys === '1') return;
+        list.dataset.ktKeys = '1';
+
+        list.setAttribute('role', 'listbox');
+        list.setAttribute('aria-label', KT.t('broadResults') || 'Broad results');
+        list.setAttribute('aria-multiselectable', 'false');
+        list.setAttribute('tabindex', '0');
+
+        list.addEventListener('keydown', function (ev) {
+            var items = list.querySelectorAll('.kt-result');
+            if (!items.length) return;
+            var idx = state.broadActiveIndex;
+            if (ev.key === 'ArrowDown') {
+                ev.preventDefault();
+                highlightResult(idx < 0 ? 0 : idx + 1, true);
+            } else if (ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                highlightResult(idx <= 0 ? items.length - 1 : idx - 1, true);
+            } else if (ev.key === 'Home') {
+                ev.preventDefault();
+                highlightResult(0, true);
+            } else if (ev.key === 'End') {
+                ev.preventDefault();
+                highlightResult(items.length - 1, true);
+            } else if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                if (idx >= 0 && items[idx]) {
+                    var id = items[idx].dataset.animeId;
+                    var all = (state.results || []).concat(state.broadResults || []);
+                    var res = all.find(function (r) { return String(r.id) === id; });
+                    if (res) selectAnime(res);
+                }
+            } else if (ev.key === 'Escape') {
+                ev.preventDefault();
+                highlightResult(-1, true);
+            }
+        });
+
+        list.addEventListener('focus', function () {
+            if (state.broadActiveIndex < 0) {
+                var items = list.querySelectorAll('.kt-result');
+                if (items.length) highlightResult(0, true);
+            }
+        });
+
+        list.addEventListener('click', function (ev) {
+            var btn = ev.target.closest('.kt-result');
+            if (btn) {
+                var items = list.querySelectorAll('.kt-result');
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i] === btn) {
+                        state.broadActiveIndex = i;
+                        highlightResult(i, true);
                         break;
                     }
                 }
@@ -968,6 +1038,7 @@
                 }
                 // keyboard nav for results (attach once; containers persist across re-renders)
                 setupResultsKeyboard();
+                setupBroadKeyboard();
                 q('ktBtnDownload').addEventListener('click', download);
                 q('ktBtnSaveBinding').addEventListener('click', saveBindingOnly);
                 page.querySelectorAll('[data-bulk]').forEach(function (btn) {

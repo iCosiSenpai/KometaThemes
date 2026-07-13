@@ -177,7 +177,7 @@ public sealed class SyncThemesRunner
             return;
         }
 
-        if (!_downloader.ShouldUpdate(item, configuration) && !configuration.ForceSync)
+        if (!_downloader.ShouldUpdate(item, configuration, configuration.ForceSync) && !configuration.ForceSync)
         {
             _logger.LogInformation("Item {Name} ({Id}) already satisfied, skipping async theme sync", item.Name, item.Id);
             return;
@@ -404,7 +404,7 @@ public sealed class SyncThemesRunner
         }
     }
 
-    private static PluginConfiguration CloneConfiguration(PluginConfiguration source)
+    internal static PluginConfiguration CloneConfiguration(PluginConfiguration source)
     {
         var clone = new PluginConfiguration
         {
@@ -453,7 +453,7 @@ public sealed class SyncThemesRunner
         return clone;
     }
 
-    private static CollectionTypeConfiguration CloneCollection(CollectionTypeConfiguration? source)
+    internal static CollectionTypeConfiguration CloneCollection(CollectionTypeConfiguration? source)
     {
         source ??= new CollectionTypeConfiguration();
         return new CollectionTypeConfiguration
@@ -464,7 +464,7 @@ public sealed class SyncThemesRunner
         };
     }
 
-    private static MediaTypeConfiguration CloneMediaType(MediaTypeConfiguration? source)
+    internal static MediaTypeConfiguration CloneMediaType(MediaTypeConfiguration? source)
     {
         source ??= new MediaTypeConfiguration();
         return new MediaTypeConfiguration

@@ -192,15 +192,17 @@ public class KometaThemesItemController : ControllerBase
             return err!;
         }
 
-        var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
-        var originalForceSync = configuration.ForceSync;
+        // Always work on a clone. Never mutate the live singleton config (avoids races with scheduled tasks, concurrent ops, persistence).
+        var baseConfig = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var configuration = SyncThemesRunner.CloneConfiguration(baseConfig);
+        bool effectiveForce = force || configuration.ForceSync;
 
-        if (!force && !_downloader.ShouldUpdate(item!, configuration) && !configuration.ForceSync)
+        if (!force && !_downloader.ShouldUpdate(item!, configuration) && !effectiveForce)
         {
             return Ok(new { message = "Item already has themes and ForceSync is off", downloaded = false });
         }
 
-        if (force)
+        if (effectiveForce)
         {
             configuration.ForceSync = true;
         }
@@ -234,10 +236,6 @@ public class KometaThemesItemController : ControllerBase
             _logger.LogError(ex, "Error syncing themes for item {Id}", itemId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
         }
-        finally
-        {
-            configuration.ForceSync = originalForceSync;
-        }
     }
 
     /// <summary>
@@ -255,8 +253,9 @@ public class KometaThemesItemController : ControllerBase
             return err!;
         }
 
-        var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
-        var originalForceSync = configuration.ForceSync;
+        // Clone only; preview always forces to show candidates without side effects on live config.
+        var baseConfig = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var configuration = SyncThemesRunner.CloneConfiguration(baseConfig);
         configuration.ForceSync = true;
 
         try
@@ -293,10 +292,6 @@ public class KometaThemesItemController : ControllerBase
         {
             _logger.LogError(ex, "Error previewing themes for item {Id}", itemId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
-        }
-        finally
-        {
-            configuration.ForceSync = originalForceSync;
         }
     }
 

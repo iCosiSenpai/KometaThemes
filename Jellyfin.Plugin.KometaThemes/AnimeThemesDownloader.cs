@@ -82,7 +82,7 @@ public class AnimeThemesDownloader : IDisposable
     /// <summary>
     /// Checks if this item should be processed.
     /// </summary>
-    public bool ShouldUpdate(BaseItem item, PluginConfiguration configuration)
+    public bool ShouldUpdate(BaseItem item, PluginConfiguration configuration, bool? forceOverride = null)
     {
         if (item.GetBaseItemKind() != BaseItemKind.Series &&
             item.GetBaseItemKind() != BaseItemKind.Movie &&
@@ -91,7 +91,8 @@ public class AnimeThemesDownloader : IDisposable
             return false;
         }
 
-        return configuration.ForceSync || !IsSatisfied(item, configuration);
+        bool force = forceOverride ?? configuration.ForceSync;
+        return force || !IsSatisfied(item, configuration);
     }
 
     /// <summary>
