@@ -70,7 +70,8 @@ public class KometaThemesItemController : ControllerBase
         var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
         {
-            errorResult = BadRequest(new { error = "Item is not in a library matching the configured Library Pattern (e.g. 'Anime')." });
+            var errorMsg = LibrarySelection.GetNotEligibleErrorMessage(config);
+            errorResult = BadRequest(new { error = errorMsg });
             return false;
         }
 
@@ -93,10 +94,19 @@ public class KometaThemesItemController : ControllerBase
         var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         bool eligible = LibrarySelection.IsItemEligible(item, _libraryManager, config);
 
+        string? reason = null;
+        if (!eligible)
+        {
+            var lang = (config?.UiLanguage ?? "en").Trim().ToLowerInvariant();
+            reason = lang.StartsWith("it", StringComparison.Ordinal)
+                ? "Questo elemento non appartiene a una libreria che corrisponde al Library Pattern configurato."
+                : "This item does not belong to a library matching the configured Library Pattern.";
+        }
+
         return Ok(new
         {
             eligible,
-            reason = eligible ? null : "This item does not belong to a library matching the configured Library Pattern."
+            reason
         });
     }
 

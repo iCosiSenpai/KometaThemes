@@ -101,7 +101,8 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
             if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
             {
                 _logger.LogWarning("Theme Finder search rejected for non-eligible item {ItemId}", itemId);
-                return BadRequest(new { error = "Item is not in a library matching the configured Library Pattern." });
+                var errorMsg = LibrarySelection.GetNotEligibleErrorMessage(config);
+                return BadRequest(new { error = errorMsg });
             }
         }
 
@@ -335,7 +336,8 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
         {
             _logger.LogWarning("Theme Finder action rejected for non-eligible item {ItemId}", itemId);
-            return BadRequest(new { error = "Item is not in a library matching the configured Library Pattern." });
+            var errorMsg = LibrarySelection.GetNotEligibleErrorMessage(config);
+            return BadRequest(new { error = errorMsg });
         }
 
         if (string.IsNullOrWhiteSpace(item.ContainingFolderPath))
@@ -442,7 +444,8 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
         {
-            return BadRequest(new { error = "Item is not in a library matching the configured Library Pattern." });
+            var errorMsg = LibrarySelection.GetNotEligibleErrorMessage(config);
+            return BadRequest(new { error = errorMsg });
         }
 
         var songsOnDisk = 0;
