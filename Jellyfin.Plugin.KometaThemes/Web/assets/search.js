@@ -34,7 +34,8 @@
             bindingExists: 'Bound to: {anime}',
             removeBinding: 'Remove binding',
             bindingRemoved: 'Binding removed',
-            saveBindingFailed: 'Failed to save binding'
+            saveBindingFailed: 'Failed to save binding',
+            filterAudio: 'Audio', filterVideo: 'Video', filterOP: 'OP', filterED: 'ED', filterCreditless: 'Creditless only', filterClear: 'Clear filters', filterAllVisible: 'Select visible'
         },
         it: {
             finderKicker: 'Theme Finder',
@@ -63,7 +64,8 @@
             bindingExists: 'Bindato a: {anime}',
             removeBinding: 'Rimuovi binding',
             bindingRemoved: 'Binding rimosso',
-            saveBindingFailed: 'Salvataggio binding fallito'
+            saveBindingFailed: 'Salvataggio binding fallito',
+            filterAudio: 'Audio', filterVideo: 'Video', filterOP: 'OP', filterED: 'ED', filterCreditless: 'Solo creditless', filterClear: 'Pulisci filtri', filterAllVisible: 'Seleziona visibili'
         }
     });
 
@@ -82,7 +84,9 @@
            value = {url, mediaType, themeName, animeId, animeName}. Persists across results. */
         selected: {},
         currentBinding: null,
-        downloading: false
+        downloading: false,
+        // Active filters for step 3 (type + creditless)
+        filters: { audio: true, video: true, op: true, ed: true, creditless: false }
     };
 
     function q(id) { return state.page.querySelector('#' + id); }
@@ -312,6 +316,8 @@
         q('ktAnimeCard').style.display = 'none';
         q('ktDetailEmpty').style.display = '';
         util.clear(q('ktSeasonGroups'));
+        // reset filters for new selection or clear
+        state.filters = { audio: true, video: true, op: true, ed: true, creditless: false };
         updateSelBar();
     }
 
@@ -339,6 +345,7 @@
             renderAnime(anime);
             state.themes = data.themes || [];
             state.seasonGroups = data.seasonGroups || [];
+            renderFiltersBar();
             renderSeasonGroups();
             updateSelBar();
             setStep(3);
@@ -438,7 +445,8 @@
             previewBtn.type = 'button';
             previewBtn.title = KT.t('preview') + ' ' + KT.t(mediaType);
             previewBtn.addEventListener('click', function () {
-                KT.ui.player.toggle(url, mediaType, themeName(theme));
+                var vol = (mediaType === 'audio' ? (state.audioVolume || 50) : (state.videoVolume || 50)) / 100;
+                KT.ui.player.toggle(url, mediaType, themeName(theme), vol);
             });
             actions.appendChild(previewBtn);
 
@@ -466,9 +474,108 @@
         return row;
     }
 
+    function matchesFilters(theme) {
+        var f = state.filters || { audio: true, video: true, op: true, ed: true, creditless: false };
+        var t = String(theme.type || '').toUpperCase();
+        var isAudio = true; // theme rows contain both; we filter at display level by type buttons
+        // For simplicity, the filters control which type rows are shown. The row itself decides.
+        if (f.creditless && !theme.creditless) return false;
+        if (!f.op && t === 'OP') return false;
+        if (!f.ed && t === 'ED') return false;
+        return true;
+    }
+
+    function getFilteredThemesForGroup(groupThemes) {
+        if (!groupThemes) return [];
+        return groupThemes.filter(function (gt) {
+            // gt is the raw from season group; find full theme for filter check
+            var full = state.themes.find(function (t) {
+                return t.entryId === gt.entryId && t.videoId === gt.videoId && t.slug === gt.slug;
+            });
+            return full ? matchesFilters(full) : true;
+        });
+    }
+
+    function renderFiltersBar() {
+        var host = q('ktSeasonGroups');
+        // Remove old bar if present
+        var old = host.querySelector('#ktFiltersBar');
+        if (old) old.remove();
+
+        var bar = util.el('div', 'kt-filters-bar');
+        bar.id = 'ktFiltersBar';
+
+        // Create toggles
+        var types = [
+            { key: 'audio', label: KT.t('filterAudio') },
+            { key: 'video', label: KT.t('filterVideo') },
+            { key: 'op', label: KT.t('filterOP') },
+            { key: 'ed', label: KT.t('filterED') }
+        ];
+
+        types.forEach(function (item) {
+            var btn = util.el('button', 'kt-btn kt-btn-sm kt-filter-btn', item.label);
+            btn.dataset.filterKey = item.key;
+            if (state.filters[item.key]) btn.classList.add('on');
+            btn.addEventListener('click', function () {
+                state.filters[item.key] = !state.filters[item.key];
+                btn.classList.toggle('on', state.filters[item.key]);
+                renderSeasonGroups();
+            });
+            bar.appendChild(btn);
+        });
+
+        var credit = util.el('button', 'kt-btn kt-btn-sm kt-filter-btn', KT.t('filterCreditless'));
+        credit.dataset.filterKey = 'creditless';
+        if (state.filters.creditless) credit.classList.add('on');
+        credit.addEventListener('click', function () {
+            state.filters.creditless = !state.filters.creditless;
+            credit.classList.toggle('on', state.filters.creditless);
+            renderSeasonGroups();
+        });
+        bar.appendChild(credit);
+
+        var clear = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', KT.t('filterClear'));
+        clear.addEventListener('click', function () {
+            state.filters = { audio: true, video: true, op: true, ed: true, creditless: false };
+            renderFiltersBar();
+            renderSeasonGroups();
+        });
+        bar.appendChild(clear);
+
+        var selVis = util.el('button', 'kt-btn kt-btn-sm', KT.t('filterAllVisible'));
+        selVis.addEventListener('click', function () {
+            // Select all currently visible
+            var visible = [];
+            state.seasonGroups.forEach(function (g) {
+                (g.themes || []).forEach(function (gt) {
+                    var full = state.themes.find(function (t) { return t.entryId === gt.entryId && t.videoId === gt.videoId && t.slug === gt.slug; });
+                    if (full && matchesFilters(full)) visible.push(full);
+                });
+            });
+            visible.forEach(function (th) {
+                setSelected(th, 'audio', true);
+                setSelected(th, 'video', true);
+            });
+            syncToggleVisuals();
+            updateSelBar();
+        });
+        bar.appendChild(selVis);
+
+        // Insert at top of host
+        if (host.firstChild) {
+            host.insertBefore(bar, host.firstChild);
+        } else {
+            host.appendChild(bar);
+        }
+    }
+
     function renderSeasonGroups() {
         var host = q('ktSeasonGroups');
+        // keep filters bar
+        var bar = host.querySelector('#ktFiltersBar');
         util.clear(host);
+        if (bar) host.appendChild(bar);
 
         var rendered = new Set();
         var groups = state.seasonGroups.length
@@ -489,10 +596,22 @@
             var counts = util.el('span', 'kt-chip kt-season-count',
                 'OP ' + (group.opCount != null ? group.opCount : '·') + ' / ED ' + (group.edCount != null ? group.edCount : '·'));
             summary.appendChild(counts);
+
+            // Per-group bulk actions (enhancement for season grouping UX)
+            var bulk = util.el('span', 'kt-group-bulk');
+            var ba = util.el('button', 'kt-btn kt-btn-xs', 'audio');
+            ba.addEventListener('click', function (e) { e.stopPropagation(); selectGroup(group, 'audio'); });
+            bulk.appendChild(ba);
+            var bv = util.el('button', 'kt-btn kt-btn-xs', 'video');
+            bv.addEventListener('click', function (e) { e.stopPropagation(); selectGroup(group, 'video'); });
+            bulk.appendChild(bv);
+            summary.appendChild(bulk);
+
             details.appendChild(summary);
 
             var list = util.el('div', 'kt-themes');
-            (group.themes || []).forEach(function (groupTheme) {
+            var filteredGroupThemes = getFilteredThemesForGroup(group.themes || []);
+            filteredGroupThemes.forEach(function (groupTheme) {
                 var index = state.themes.findIndex(function (candidate, candidateIndex) {
                     return !rendered.has(candidateIndex) &&
                         candidate.entryId === groupTheme.entryId &&
@@ -509,7 +628,7 @@
 
         /* themes that didn't land in any group */
         var leftovers = state.themes.map(function (_, index) { return index; })
-            .filter(function (index) { return !rendered.has(index); });
+            .filter(function (index) { return !rendered.has(index) && matchesFilters(state.themes[index]); });
         if (leftovers.length && state.seasonGroups.length) {
             var extra = util.el('details', 'kt-season');
             extra.open = false;
@@ -614,6 +733,20 @@
                 if (kind === 'video') { setSelected(theme, 'video', true); }
             });
         }
+        syncToggleVisuals();
+        updateSelBar();
+    }
+
+    function selectGroup(group, mediaType) {
+        if (!group || !group.themes) return;
+        (group.themes || []).forEach(function (gt) {
+            var th = state.themes.find(function (t) {
+                return t.entryId === gt.entryId && t.videoId === gt.videoId && t.slug === gt.slug;
+            });
+            if (th) {
+                setSelected(th, mediaType, true);
+            }
+        });
         syncToggleVisuals();
         updateSelBar();
     }

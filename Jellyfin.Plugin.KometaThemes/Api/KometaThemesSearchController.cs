@@ -6,12 +6,14 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.KometaThemes.Api;
 using Jellyfin.Plugin.KometaThemes.Models;
 using Jellyfin.Plugin.KometaThemes.Resolving;
 using Jellyfin.Plugin.KometaThemes.Sync;
+using MediaBrowser.Common.Api;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -24,7 +26,7 @@ using VideoModel = Jellyfin.Plugin.KometaThemes.Models.Video;
 namespace Jellyfin.Plugin.KometaThemes.Search;
 
 [ApiController]
-[Authorize(Policy = "RequiresElevation")]
+[Authorize(Policy = Policies.RequiresElevation)]
 [Route("Plugins/KometaThemes")]
 public sealed class KometaThemesSearchController : ControllerBase, IDisposable
 {
@@ -209,7 +211,7 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         var audioSuffix = $"__{audioVolume}";
         var videoSuffix = $"__{videoVolume}";
 
-        var themes = new List<object>();
+        var themes = new List<ThemeRow>();
         var seenThemeRows = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var theme in anime.Themes ?? new Collection<AnimeTheme>())
         {
@@ -245,27 +247,25 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
                     var audioOk = existing.Any(e => e.Contains(audioFile, StringComparison.OrdinalIgnoreCase));
                     var videoOk = existing.Any(e => e.Contains(videoFile, StringComparison.OrdinalIgnoreCase));
 
-                    themes.Add(new
-                    {
-                        type = theme.Type.ToString(),
-                        sequence = theme.Sequence,
-                        label,
-                        slug = slugValue,
-                        title,
-                        episodes = entry.Episodes ?? string.Empty,
-                        version = entry.Version,
-                        source = video.Source?.ToString() ?? string.Empty,
-                        resolution = video.Resolution,
-                        creditless = video.Creditless,
-                        overlap = video.Overlap.ToString(),
-                        videoBasename = video.Basename,
-                        entryId = entry.Id,
-                        videoId = video.Id,
-                        audioUrl = video.Audio.Link,
-                        videoUrl = video.Link,
-                        audioDownloaded = audioOk,
-                        videoDownloaded = videoOk
-                    });
+                    themes.Add(new ThemeRow(
+                        Type: theme.Type.ToString(),
+                        Sequence: theme.Sequence,
+                        Label: label,
+                        Slug: slugValue,
+                        Title: title,
+                        Episodes: entry.Episodes ?? string.Empty,
+                        Version: entry.Version?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        Source: video.Source?.ToString() ?? string.Empty,
+                        Resolution: video.Resolution?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        Creditless: video.Creditless,
+                        Overlap: video.Overlap.ToString(),
+                        VideoBasename: video.Basename,
+                        EntryId: entry.Id,
+                        VideoId: video.Id,
+                        AudioUrl: video.Audio.Link,
+                        VideoUrl: video.Link,
+                        AudioDownloaded: audioOk,
+                        VideoDownloaded: videoOk));
                 }
             }
         }
@@ -300,6 +300,13 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         {
             _logger.LogWarning("Theme Finder download rejected for itemId={ItemId}: no theme URLs were supplied.", itemId);
             return BadRequest(new { error = "No themes specified." });
+        }
+
+        const int MaxManualDownloadBatch = 64;
+        if (request.Urls.Count > MaxManualDownloadBatch)
+        {
+            _logger.LogWarning("Theme Finder download rejected for itemId={ItemId}: batch too large ({Count} > {Max}).", itemId, request.Urls.Count, MaxManualDownloadBatch);
+            return BadRequest(new { error = $"Too many themes requested (max {MaxManualDownloadBatch})." });
         }
 
         if (!Guid.TryParse(itemId, out var gid))
@@ -533,12 +540,12 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         return string.Join(" ", result);
     }
 
-    private static List<object> GroupThemesIntoSeasons(List<object> themeList)
+    private static List<object> GroupThemesIntoSeasons(List<ThemeRow> themeList)
     {
         var groups = new List<object>();
 
         var themesWithRanges = themeList
-            .Select(t => (Theme: t, Ranges: GetEpisodeRanges(t)))
+            .Select(t => (Theme: t, Ranges: EpisodeRangeParser.Parse(t.Episodes)))
             .ToList();
 
         var allRanges = themesWithRanges
@@ -567,13 +574,13 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
 
             var matching = themesWithRanges
                 .Where(t => t.Ranges.Any(r => r.StartEpisode == range.StartEpisode && r.EndEpisode == range.EndEpisode))
-                .Select(t => t.Theme)
+                .Select(t => (object)t.Theme) // keep previous response shape (ThemeRow serializes with correct names)
                 .ToList();
 
             if (matching.Count > 0)
             {
-                var opCount = matching.Count(t => GetThemeTypeString(t) == "OP");
-                var edCount = matching.Count(t => GetThemeTypeString(t) == "ED");
+                var opCount = matching.Count(t => ((ThemeRow)t).Type == "OP");
+                var edCount = matching.Count(t => ((ThemeRow)t).Type == "ED");
                 groups.Add(new
                 {
                     seasonNumber,
@@ -589,13 +596,13 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
 
         var unmatched = themesWithRanges
             .Where(t => t.Ranges.Count == 0)
-            .Select(t => t.Theme)
+            .Select(t => (object)t.Theme)
             .ToList();
 
         if (unmatched.Count > 0)
         {
-            var opCount = unmatched.Count(t => GetThemeTypeString(t) == "OP");
-            var edCount = unmatched.Count(t => GetThemeTypeString(t) == "ED");
+            var opCount = unmatched.Count(t => ((ThemeRow)t).Type == "OP");
+            var edCount = unmatched.Count(t => ((ThemeRow)t).Type == "ED");
             groups.Add(new
             {
                 seasonNumber,
@@ -608,29 +615,6 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         }
 
         return groups;
-    }
-
-    private static List<EpisodeRange> GetEpisodeRanges(object theme)
-    {
-        var episodes = GetPropertyValue<string>(theme, "episodes") ?? string.Empty;
-        return EpisodeRangeParser.Parse(episodes);
-    }
-
-    private static string? GetThemeTypeString(object theme)
-    {
-        return GetPropertyValue<string>(theme, "type");
-    }
-
-    private static T? GetPropertyValue<T>(object obj, string propertyName)
-    {
-        var prop = obj.GetType().GetProperty(propertyName);
-        if (prop == null)
-        {
-            return default;
-        }
-
-        var value = prop.GetValue(obj);
-        return value is T typedValue ? typedValue : default;
     }
 
     private static bool ShouldRetryWithItemName(string queryTitle, string? itemName)
@@ -1123,4 +1107,27 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         string RelativePath,
         string ThemeName,
         double Volume);
+
+    // Strongly-typed row for theme data passed to UI + grouping.
+    // JsonPropertyName keeps the wire shape identical to the previous anonymous objects.
+    private sealed record ThemeRow(
+        [property: JsonPropertyName("type")] string Type,
+        [property: JsonPropertyName("sequence")] int? Sequence,
+        [property: JsonPropertyName("label")] string Label,
+        [property: JsonPropertyName("slug")] string Slug,
+        [property: JsonPropertyName("title")] string Title,
+        [property: JsonPropertyName("episodes")] string Episodes,
+        [property: JsonPropertyName("version")] string? Version,
+        [property: JsonPropertyName("source")] string Source,
+        [property: JsonPropertyName("resolution")] string? Resolution,
+        [property: JsonPropertyName("creditless")] bool Creditless,
+        [property: JsonPropertyName("overlap")] string Overlap,
+        [property: JsonPropertyName("videoBasename")] string? VideoBasename,
+        [property: JsonPropertyName("entryId")] int EntryId,
+        [property: JsonPropertyName("videoId")] int VideoId,
+        [property: JsonPropertyName("audioUrl")] string AudioUrl,
+        [property: JsonPropertyName("videoUrl")] string VideoUrl,
+        [property: JsonPropertyName("audioDownloaded")] bool AudioDownloaded,
+        [property: JsonPropertyName("videoDownloaded")] bool VideoDownloaded
+    );
 }

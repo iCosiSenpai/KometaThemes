@@ -261,4 +261,48 @@ public class PluginConfiguration : BasePluginConfiguration
     {
         return ManualBindings.ToDictionary(i => i.ItemId, i => i);
     }
+
+    /// <summary>
+    /// Clamps configuration values to documented safe ranges. Called at load time.
+    /// </summary>
+    public void NormalizeBounds()
+    {
+        // Sync interval 1-168 hours
+        SyncIntervalHours = Math.Clamp(SyncIntervalHours, 1, 168);
+
+        // Download timeout 15-300 seconds
+        DownloadTimeoutSeconds = Math.Clamp(DownloadTimeoutSeconds, 15, 300);
+
+        // Max themes per season 1-50
+        MaxThemesPerSeason = Math.Clamp(MaxThemesPerSeason, 1, 50);
+
+        // Degree of parallelism 1-8
+        DegreeOfParallelism = Math.Clamp(DegreeOfParallelism, 1, 8);
+
+        // Rate limit 1-300 req/min (generous upper for CDN)
+        RateLimitPerMinute = Math.Clamp(RateLimitPerMinute, 1, 300);
+
+        // TTLs reasonable bounds
+        PositiveCacheTtlDays = Math.Clamp(PositiveCacheTtlDays, 0, 365);
+        NegativeCacheTtlHours = Math.Clamp(NegativeCacheTtlHours, 0, 24 * 30);
+
+        // Title threshold 0.5 - 1.0
+        TitleMatchThreshold = Math.Clamp(TitleMatchThreshold, 0.5, 1.0);
+
+        // Volume 0.0 - 1.0 for audio/video settings
+        if (AudioSettings != null)
+        {
+            AudioSettings.Volume = Math.Clamp(AudioSettings.Volume, 0.0, 1.0);
+        }
+
+        if (VideoSettings != null)
+        {
+            VideoSettings.Volume = Math.Clamp(VideoSettings.Volume, 0.0, 1.0);
+        }
+
+        if (MovieSettings?.VideoSettings != null)
+        {
+            MovieSettings.VideoSettings.Volume = Math.Clamp(MovieSettings.VideoSettings.Volume, 0.0, 1.0);
+        }
+    }
 }

@@ -5,10 +5,13 @@
 (function () {
     'use strict';
 
-    if (window.KT && window.KT.VERSION === '1.0.0.8') { return; }
+    // Guard against double-loading the exact same version of core.
+    // Bump this string on every meaningful change to kometa-core.js (keeps in sync with Directory.Build.props + HTML V=).
+    var CURRENT_VERSION = '1.0.2.0';
+    if (window.KT && window.KT.VERSION === CURRENT_VERSION) { return; }
 
     var KT = {
-        VERSION: '1.0.0.8',
+        VERSION: CURRENT_VERSION,
         GUID: '48c98707-45d1-43ac-94b8-f74d875ad29c',
         pages: (window.KT && window.KT.pages) || {}
     };
@@ -385,10 +388,21 @@
     /* Shared click-to-load media preview (one floating player at a time). */
     ui.player = (function () {
         var current = null;
+        var lastVolume = 0.5;
+
         function close() {
-            if (current) { current.remove(); current = null; }
+            if (current) {
+                // Persist volume choice for next preview
+                try {
+                    var m = current.querySelector('audio,video');
+                    if (m) lastVolume = m.volume;
+                } catch (e) {}
+                current.remove();
+                current = null;
+            }
         }
-        function open(url, mediaType, title) {
+
+        function open(url, mediaType, title, preferredVolume) {
             close();
             var panel = util.el('div', 'kt-player kt-page');
             var head = util.el('div', 'kt-player-head');
@@ -399,28 +413,68 @@
             btnClose.type = 'button';
             btnClose.setAttribute('aria-label', KT.t('close'));
             btnClose.addEventListener('click', close);
+
+            // Optional external link hint (animethemes source is in the calling context title or we just show host)
+            var link = util.el('a', 'kt-player-link', '↗');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.title = 'Open on source';
+            link.addEventListener('click', function (ev) { ev.stopImmediatePropagation(); });
+
             head.appendChild(badge);
             head.appendChild(label);
+            head.appendChild(link);
             head.appendChild(btnClose);
             panel.appendChild(head);
+
             var media = document.createElement(mediaType === 'video' ? 'video' : 'audio');
             media.controls = true;
             media.autoplay = true;
-            media.preload = 'none';
+            media.preload = 'metadata';
             media.src = url;
-            media.volume = 0.65;
-            media.addEventListener('error', function () {
-                ui.toast(KT.t('error'), 'error');
+            var vol = (typeof preferredVolume === 'number' && preferredVolume > 0) ? preferredVolume : lastVolume;
+            media.volume = Math.min(1, Math.max(0, vol));
+            media.addEventListener('volumechange', function () {
+                lastVolume = media.volume;
             });
+            media.addEventListener('error', function () {
+                ui.toast(KT.t('error') + ' — ' + KT.t('previewFailedHint'), 'error');
+            });
+
+            // Keyboard support while player is open
+            var onKey = function (ev) {
+                if (ev.key === 'Escape') {
+                    ev.preventDefault();
+                    doClose();
+                    document.removeEventListener('keydown', onKey, true);
+                }
+            };
+            document.addEventListener('keydown', onKey, true);
+
+            function doClose() {
+                document.removeEventListener('keydown', onKey, true);
+                if (current) { current.remove(); current = null; }
+            }
+
             panel.appendChild(media);
             document.body.appendChild(panel);
             current = panel;
+            panel.dataset.url = url;
+            panel.dataset.mediaType = mediaType;
+
+            // Override local close for this instance
+            close = doClose;
         }
-        return { open: open, close: close, toggle: function (url, mediaType, title) {
-            if (current && current.dataset.url === url) { close(); return; }
-            open(url, mediaType, title);
-            if (current) { current.dataset.url = url; }
-        } };
+
+        return {
+            open: open,
+            close: close,
+            toggle: function (url, mediaType, title, preferredVolume) {
+                if (current && current.dataset.url === url) { close(); return; }
+                open(url, mediaType, title, preferredVolume);
+            }
+        };
     })();
 
     KT.util = util;

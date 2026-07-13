@@ -28,6 +28,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         Instance = this;
         MigrateMutedVideoDefault();
         NormalizeProviderPriorityConfig();
+        Configuration.NormalizeBounds();
     }
 
     /// <inheritdoc />

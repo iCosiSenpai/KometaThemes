@@ -786,6 +786,31 @@
     .kt-theme-actions { grid-column: 1 / -1; justify-content: flex-start; }
     .kt-path { grid-template-columns: minmax(0, 1fr) auto; }
     .kt-path-label { display: none; }
+    .kt-stickybar { gap: 6px; padding: 8px 10px; }
+    .kt-stickybar .kt-btn { font-size: 12px; padding: 4px 8px; }
+    .kt-season summary { font-size: 13px; }
+}
+
+.kt-group-bulk { margin-left: 8px; display: inline-flex; gap: 4px; }
+.kt-group-bulk .kt-btn { font-size: 10px; padding: 1px 4px; line-height: 1; }
+
+.kt-filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 6px 8px;
+    background: var(--kt-surface-1);
+    border: 1px solid var(--kt-border);
+    border-radius: var(--kt-r-s);
+}
+.kt-filters-bar .kt-filter-btn.on {
+    background: var(--kt-accent-bg);
+    border-color: var(--kt-accent);
+}
+.kt-filters-bar .kt-btn {
+    font-size: 12px;
+    padding: 3px 8px;
 }
 @media (max-width: 420px) {
     .kt-hero-content { padding: 12px; gap: 12px; }

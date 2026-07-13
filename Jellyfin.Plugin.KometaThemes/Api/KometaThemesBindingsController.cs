@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Mime;
 using Jellyfin.Plugin.KometaThemes.Models;
+using MediaBrowser.Common.Api;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -20,7 +21,7 @@ namespace Jellyfin.Plugin.KometaThemes.Api;
 /// REST API for managing manual item-to-anime bindings.
 /// </summary>
 [ApiController]
-[Authorize(Policy = "RequiresElevation")]
+[Authorize(Policy = Policies.RequiresElevation)]
 [Route("Plugins/KometaThemes/Bindings")]
 [Produces(MediaTypeNames.Application.Json)]
 public class KometaThemesBindingsController : ControllerBase

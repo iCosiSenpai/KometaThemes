@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.KometaThemes.Configuration;
+using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 
 #pragma warning disable CA2007, SA1611, SA1615, CS1591
@@ -20,7 +21,7 @@ namespace Jellyfin.Plugin.KometaThemes.Api;
 /// REST API for playlist management.
 /// </summary>
 [ApiController]
-[Authorize(Policy = "RequiresElevation")]
+[Authorize(Policy = Policies.RequiresElevation)]
 [Route("Plugins/KometaThemes/Playlist")]
 [Produces(MediaTypeNames.Application.Json)]
 public class KometaThemesPlaylistController : ControllerBase

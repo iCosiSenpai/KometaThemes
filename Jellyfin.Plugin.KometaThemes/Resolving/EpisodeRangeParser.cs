@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-#pragma warning disable CA1002, CA1305, CS1591
+#pragma warning disable CA1002, CA1305, CS1591, SA1513
 
 namespace Jellyfin.Plugin.KometaThemes.Resolving;
 
@@ -28,15 +28,35 @@ public static class EpisodeRangeParser
                 continue;
             }
 
-            var start = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
-            int? end = match.Groups[2].Success
-                ? int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)
-                : null;
+            if (!int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.None, CultureInfo.InvariantCulture, out var start) || start < 0)
+            {
+                continue;
+            }
+
+            int? end = null;
+            if (match.Groups[2].Success)
+            {
+                if (int.TryParse(match.Groups[2].Value, System.Globalization.NumberStyles.None, CultureInfo.InvariantCulture, out var e) && e >= start)
+                {
+                    end = e;
+                }
+            }
 
             ranges.Add(new EpisodeRange(start, end ?? start));
         }
 
-        return ranges;
+        // Deduplicate while preserving order
+        var seen = new HashSet<(int, int)>();
+        var deduped = new List<EpisodeRange>();
+        foreach (var r in ranges)
+        {
+            var key = (r.StartEpisode, r.EndEpisode);
+            if (seen.Add(key))
+            {
+                deduped.Add(r);
+            }
+        }
+        return deduped;
     }
 
     public static (int Start, int? End) GetBounds(List<EpisodeRange> ranges)

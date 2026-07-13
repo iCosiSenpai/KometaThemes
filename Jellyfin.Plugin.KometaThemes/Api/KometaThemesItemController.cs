@@ -10,6 +10,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.KometaThemes.Configuration;
 using Jellyfin.Plugin.KometaThemes.Models;
 using Jellyfin.Plugin.KometaThemes.Sync;
+using MediaBrowser.Common.Api;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
@@ -26,7 +27,7 @@ namespace Jellyfin.Plugin.KometaThemes.Api;
 /// REST API for per-item theme management.
 /// </summary>
 [ApiController]
-[Authorize(Policy = "RequiresElevation")]
+[Authorize(Policy = Policies.RequiresElevation)]
 [Route("Plugins/KometaThemes/Items")]
 [Produces(MediaTypeNames.Application.Json)]
 public class KometaThemesItemController : ControllerBase
