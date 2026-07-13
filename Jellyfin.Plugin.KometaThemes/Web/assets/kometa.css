@@ -651,6 +651,16 @@
 .kt-result:hover { border-color: var(--kt-accent); background: var(--kt-accent-bg); transform: translateY(-1px); }
 .kt-result:active { transform: scale(0.985); }
 .kt-result.selected { border-color: var(--kt-accent); background: var(--kt-accent-bg); box-shadow: 0 0 0 1px var(--kt-accent); }
+.kt-result.active,
+.kt-result[aria-selected="true"] {
+    border-color: var(--kt-accent);
+    background: var(--kt-accent-bg);
+    box-shadow: 0 0 0 2px var(--kt-focus);
+}
+.kt-result:focus-visible {
+    outline: 2px solid var(--kt-focus);
+    outline-offset: 3px;
+}
 .kt-result.broad { opacity: 0.78; }
 .kt-result .kt-poster { width: 52px; }
 .kt-result-body { display: grid; gap: 4px; min-width: 0; }
@@ -664,6 +674,33 @@
     background: var(--kt-brand); color: #fff;
     font-size: 0.72em; font-weight: 800; line-height: 1;
     box-shadow: 0 0 10px rgba(0, 164, 220, 0.5);
+}
+
+/* search input clear button (inside kt-field) */
+#ktSearchInput { padding-right: 30px; }
+.kt-search-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px; height: 22px;
+    min-height: 22px; padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--kt-border);
+    border-radius: 999px;
+    background: var(--kt-surface-2);
+    color: var(--kt-text-muted);
+    font-size: 13px; line-height: 1;
+    cursor: pointer;
+    z-index: 2;
+    transition: background var(--kt-fast), color var(--kt-fast), border-color var(--kt-fast);
+}
+.kt-search-clear:hover {
+    background: var(--kt-surface-3);
+    color: inherit;
+    border-color: var(--kt-accent);
 }
 
 /* ---- selection review panel (theme finder) ----------------------------------------------------------- */
@@ -723,7 +760,11 @@
     transition: background var(--kt-fast);
 }
 .kt-theme:last-child { border-bottom: 0; }
-.kt-theme:hover { background: var(--kt-surface-1); }
+.kt-theme:hover { background: var(--kt-surface-2); }
+.kt-theme:focus-visible {
+    outline: 2px solid var(--kt-focus);
+    outline-offset: 2px;
+}
 .kt-theme-main { display: grid; gap: 4px; min-width: 0; }
 .kt-theme-title { font-weight: 700; line-height: 1.25; text-wrap: pretty; }
 .kt-theme-sub { color: var(--kt-text-faint); font-family: var(--kt-mono); font-size: 0.78em; overflow-wrap: anywhere; }

@@ -51,7 +51,9 @@ Anime openings and endings for [Jellyfin](https://jellyfin.org/), fetched automa
 
 ### The ♪ Theme Finder button
 
-Once the **File Transformation** plugin is installed, KometaThemes registers an injection automatically at startup — the ♪ button appears on every Series and Movie detail page (admins only), no manual configuration needed. The button script is served at `/Plugins/KometaThemes/ItemButton.js`; if you prefer to wire it up yourself, you can point any JavaScript injector at that URL instead.
+Once the **File Transformation** plugin is installed, KometaThemes registers an injection automatically at startup — the ♪ button appears **only on Series and Movie detail pages that belong to libraries matching your configured `Library Pattern`** (default: libraries whose name contains "Anime"; admins only). This prevents the UI from showing on non-anime content. The button script is served at `/Plugins/KometaThemes/ItemButton.js`; if you prefer to wire it up yourself, you can point any JavaScript injector at that URL instead.
+
+If the button does not appear for an item you expect, check that the item's library name matches the pattern in the plugin config (General tab).
 
 ## Configuration
 

@@ -151,6 +151,19 @@
         return item && (item.Type === 'Series' || item.Type === 'Movie');
     }
 
+    function fetchEligible(itemId) {
+        if (!itemId) return Promise.resolve({ eligible: false });
+        var path = 'Plugins/KometaThemes/Items/' + encodeURIComponent(itemId) + '/eligible';
+        var headers = { Accept: 'application/json' };
+        if (typeof ApiClient !== 'undefined' && typeof ApiClient.accessToken === 'function') {
+            var token = ApiClient.accessToken();
+            if (token) headers.Authorization = 'MediaBrowser Token="' + token + '"';
+        }
+        return fetch(ApiClient.getUrl ? ApiClient.getUrl(path) : path, { credentials: 'same-origin', headers: headers })
+            .then(function (response) { return response.ok ? response.json() : { eligible: false }; })
+            .catch(function () { return { eligible: false }; });
+    }
+
     function removeButton() {
         var old = document.getElementById(BTN_ID);
         if (old) old.remove();
@@ -255,8 +268,10 @@
         if (cached === 'supported') {
             // The Theme Finder APIs require elevation — admins only. The admin
             // promise is memoized, so this resolves instantly after first check.
-            isAdmin().then(function (admin) {
-                if (admin && isDetailPage()) {
+            Promise.all([isAdmin(), fetchEligible(itemId)]).then(function (results) {
+                var admin = results[0];
+                var eligibility = results[1] || { eligible: true };
+                if (admin && eligibility.eligible && isDetailPage()) {
                     injectButton(itemId);
                 }
             });
@@ -269,18 +284,20 @@
 
         var pending = { itemId: itemId };
         state.pending = pending;
-        pending.promise = Promise.all([fetchItem(itemId), isAdmin()]).then(function (results) {
+        pending.promise = Promise.all([fetchItem(itemId), isAdmin(), fetchEligible(itemId)]).then(function (results) {
             var item = results[0];
             var admin = results[1];
+            var eligibility = results[2] || { eligible: false };
             if (state.pending === pending) {
                 state.pending = null;
             }
 
+            var isSupported = isSupportedItemType(item) && eligibility.eligible;
             if (item) {
                 // Only cache real lookups; network failures stay uncached so
                 // the next tick retries. Admin is evaluated per attempt — a
                 // transient auth failure must not poison the type cache.
-                state.itemTypeCache[itemId] = isSupportedItemType(item) ? 'supported' : 'unsupported';
+                state.itemTypeCache[itemId] = isSupported ? 'supported' : 'unsupported';
             }
 
             if (admin && state.itemTypeCache[itemId] === 'supported' && isDetailPage()) {

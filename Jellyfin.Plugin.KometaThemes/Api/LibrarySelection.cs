@@ -45,4 +45,52 @@ internal static class LibrarySelection
             Recursive = true
         }).Where(item => !skipped.ContainsKey(item.Id.ToString()));
     }
+
+    /// <summary>
+    /// Determines if a specific item is eligible for KometaThemes UI and processing.
+    /// Checks if the item belongs to a library matching the LibraryPattern and is not skipped.
+    /// </summary>
+    /// <param name="item">The item to check.</param>
+    /// <param name="libraryManager">Library manager.</param>
+    /// <param name="configuration">Plugin configuration.</param>
+    /// <returns>True if eligible.</returns>
+    public static bool IsItemEligible(
+        BaseItem item,
+        ILibraryManager libraryManager,
+        PluginConfiguration configuration)
+    {
+        if (item == null)
+        {
+            return false;
+        }
+
+        if (item.GetBaseItemKind() != BaseItemKind.Series &&
+            item.GetBaseItemKind() != BaseItemKind.Movie)
+        {
+            return false;
+        }
+
+        var pattern = string.IsNullOrWhiteSpace(configuration.LibraryPattern)
+            ? "Anime"
+            : configuration.LibraryPattern;
+        var regex = new Regex(pattern, RegexOptions.IgnoreCase);
+
+        // Walk up the parent chain to find the CollectionFolder (library)
+        var current = item;
+        while (current != null)
+        {
+            if (current is CollectionFolder folder && regex.IsMatch(folder.Name))
+            {
+                var skipped = configuration.GetSkippedItemsDictionary();
+                if (!skipped.ContainsKey(item.Id.ToString()))
+                {
+                    return true;
+                }
+            }
+
+            current = current.GetParent();
+        }
+
+        return false;
+    }
 }

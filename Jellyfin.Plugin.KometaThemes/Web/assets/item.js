@@ -28,7 +28,8 @@
             confirmPreset: 'Run "{name}" on all matching libraries now?',
             themesDeleted: 'Themes deleted',
             syncCompleted: 'Sync completed',
-            season: 'Season'
+            season: 'Season',
+            nonAnimeWarning: 'This item does not appear to be in an anime library matching your Library Pattern. KometaThemes features may be limited.'
         },
         it: {
             itemThemes: 'Temi elemento',
@@ -48,6 +49,7 @@
             syncItem: 'Sincronizza elemento',
             manualBinding: 'Binding manuale: {anime}',
             confirmDeleteAll: 'Eliminare TUTTI i temi scaricati per questo elemento?',
+            nonAnimeWarning: 'Questo elemento non sembra appartenere a una libreria anime che corrisponde al tuo Library Pattern. Le funzionalità di KometaThemes potrebbero essere limitate.',
             confirmDelete: 'Eliminare {name}?',
             confirmPreset: 'Eseguire "{name}" su tutte le librerie corrispondenti?',
             themesDeleted: 'Temi eliminati',
@@ -101,6 +103,27 @@
         }).catch(function () {
             q('ktItemTitle').textContent = state.itemId;
         });
+    }
+
+    function checkEligibility() {
+        KT.api.get('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/eligible').then(function (res) {
+            if (res && res.eligible === false) {
+                var warning = q('ktEligibilityWarning');
+                if (!warning) {
+                    warning = util.el('div', 'kt-warning');
+                    warning.id = 'ktEligibilityWarning';
+                    warning.style.margin = '12px 0';
+                    warning.style.padding = '10px';
+                    warning.style.background = 'var(--kt-warn-bg, rgba(251,191,36,.1))';
+                    warning.style.border = '1px solid var(--kt-warn, #fbbf24)';
+                    warning.style.borderRadius = '6px';
+                    var msg = KT.t && KT.t('nonAnimeWarning') || 'This item does not appear to be in an anime library matching your Library Pattern. KometaThemes features may be limited or not apply.';
+                    warning.appendChild(util.el('span', null, msg));
+                    var container = q('ktItemChips').parentNode;
+                    container.insertBefore(warning, container.firstChild);
+                }
+            }
+        }).catch(function () { /* ignore if endpoint fails */ });
     }
 
     /* ---- registration banner (Jellyfin 10.11.x link bug) ---- */
@@ -340,6 +363,7 @@
                 loadIdentity();
                 loadRegistration();
                 loadBinding();
+                checkEligibility();
                 loadThemes();
             } else {
                 q('ktItemTitle').textContent = KT.t('noItemTitle');

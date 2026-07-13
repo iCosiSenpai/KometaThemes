@@ -86,7 +86,9 @@
         currentBinding: null,
         downloading: false,
         // Active filters for step 3 (type + creditless)
-        filters: { audio: true, video: true, op: true, ed: true, creditless: false }
+        filters: { audio: true, video: true, op: true, ed: true, creditless: false },
+        // For keyboard nav in results
+        resultsActiveIndex: -1
     };
 
     function q(id) { return state.page.querySelector('#' + id); }
@@ -258,7 +260,10 @@
     function resultButton(result) {
         var btn = util.el('button', 'kt-result' + (result.broad ? ' broad' : ''));
         btn.type = 'button';
+        btn.id = 'kt-r-' + result.id;
         btn.dataset.animeId = String(result.id);
+        btn.setAttribute('role', 'option');
+        btn.setAttribute('aria-selected', 'false');
         var poster = util.el('div', 'kt-poster');
         if (result.imageUrl) {
             var img = util.el('img');
@@ -302,6 +307,108 @@
             broadWrap.style.display = 'none';
         }
         updateResultBadges();
+        // reset keyboard state (setup is attached once in show)
+        state.resultsActiveIndex = -1;
+        var listEl = q('ktResults');
+        if (listEl) {
+            listEl.removeAttribute('aria-activedescendant');
+            listEl.querySelectorAll('.kt-result').forEach(function (el) {
+                el.classList.remove('active');
+                el.setAttribute('aria-selected', 'false');
+            });
+        }
+        // also ensure broad list has basic a11y attrs (buttons inside already have role from resultButton)
+        var broadList = q('ktBroadResults');
+        if (broadList) {
+            broadList.setAttribute('role', 'listbox');
+            broadList.setAttribute('aria-label', KT.t('broadResults') || 'Broad results');
+        }
+    }
+
+    /* ---- keyboard nav for results (arrow/Home/End/Enter/Esc + ARIA) ---- */
+
+    function highlightResult(index) {
+        var list = q('ktResults');
+        if (!list) return;
+        var items = list.querySelectorAll('.kt-result');
+        state.resultsActiveIndex = Math.max(-1, Math.min(index, items.length - 1));
+        items.forEach(function (el, i) {
+            var isActive = (i === state.resultsActiveIndex);
+            el.classList.toggle('active', isActive);
+            el.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            if (isActive) {
+                list.setAttribute('aria-activedescendant', el.id || '');
+                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+            }
+        });
+        if (state.resultsActiveIndex < 0) {
+            list.removeAttribute('aria-activedescendant');
+        }
+    }
+
+    function setupResultsKeyboard() {
+        var list = q('ktResults');
+        if (!list || list.dataset.ktKeys === '1') return;
+        list.dataset.ktKeys = '1';
+
+        list.setAttribute('role', 'listbox');
+        list.setAttribute('aria-label', KT.t('resultsTitle') || 'Results');
+        list.setAttribute('aria-multiselectable', 'false');
+        list.setAttribute('tabindex', '0');
+
+        list.addEventListener('keydown', function (ev) {
+            var items = list.querySelectorAll('.kt-result');
+            if (!items.length) return;
+            var idx = state.resultsActiveIndex;
+            if (ev.key === 'ArrowDown') {
+                ev.preventDefault();
+                highlightResult(idx < 0 ? 0 : idx + 1);
+            } else if (ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                highlightResult(idx <= 0 ? items.length - 1 : idx - 1);
+            } else if (ev.key === 'Home') {
+                ev.preventDefault();
+                highlightResult(0);
+            } else if (ev.key === 'End') {
+                ev.preventDefault();
+                highlightResult(items.length - 1);
+            } else if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                if (idx >= 0 && items[idx]) {
+                    var id = items[idx].dataset.animeId;
+                    var all = (state.results || []).concat(state.broadResults || []);
+                    var res = all.find(function (r) { return String(r.id) === id; });
+                    if (res) selectAnime(res);
+                }
+            } else if (ev.key === 'Escape') {
+                ev.preventDefault();
+                highlightResult(-1);
+            }
+        });
+
+        // focus list → auto-activate first for immediate arrow UX
+        list.addEventListener('focus', function () {
+            if (state.resultsActiveIndex < 0) {
+                var items = list.querySelectorAll('.kt-result');
+                if (items.length) highlightResult(0);
+            }
+        });
+
+        // click also sets active for consistency (mouse + kbd mix)
+        list.addEventListener('click', function (ev) {
+            var btn = ev.target.closest('.kt-result');
+            if (btn) {
+                var items = list.querySelectorAll('.kt-result');
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i] === btn) {
+                        state.resultsActiveIndex = i;
+                        highlightResult(i);
+                        break;
+                    }
+                }
+            }
+        }, true);
     }
 
     /* ---- anime detail + themes ---- */
@@ -831,7 +938,36 @@
                 q('ktBtnSearch').addEventListener('click', runSearch);
                 q('ktSearchInput').addEventListener('keydown', function (event) {
                     if (event.key === 'Enter') { event.preventDefault(); runSearch(); }
+                    if (event.key === 'Escape') {
+                        q('ktSearchInput').value = '';
+                        var clr = q('ktSearchClear');
+                        if (clr) clr.style.display = 'none';
+                    }
                 });
+                // clear (x) button for search input (polished UX + a11y)
+                var si = q('ktSearchInput');
+                var inputWrap = si ? si.parentNode : null;
+                if (inputWrap && !q('ktSearchClear')) {
+                    var clr = util.el('button', 'kt-search-clear', '✕');
+                    clr.id = 'ktSearchClear';
+                    clr.type = 'button';
+                    clr.setAttribute('aria-label', 'Clear search input');
+                    clr.addEventListener('click', function () {
+                        si.value = '';
+                        si.focus();
+                        clr.style.display = 'none';
+                    });
+                    if (!inputWrap.style.position || inputWrap.style.position === 'static') {
+                        inputWrap.style.position = 'relative';
+                    }
+                    inputWrap.appendChild(clr);
+                    si.addEventListener('input', function () {
+                        clr.style.display = si.value ? '' : 'none';
+                    });
+                    clr.style.display = 'none';
+                }
+                // keyboard nav for results (attach once; containers persist across re-renders)
+                setupResultsKeyboard();
                 q('ktBtnDownload').addEventListener('click', download);
                 q('ktBtnSaveBinding').addEventListener('click', saveBindingOnly);
                 page.querySelectorAll('[data-bulk]').forEach(function (btn) {

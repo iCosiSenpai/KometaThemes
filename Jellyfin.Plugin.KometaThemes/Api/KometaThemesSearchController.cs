@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.KometaThemes.Api;
+using Jellyfin.Plugin.KometaThemes.Configuration;
 using Jellyfin.Plugin.KometaThemes.Models;
 using Jellyfin.Plugin.KometaThemes.Resolving;
 using Jellyfin.Plugin.KometaThemes.Sync;
@@ -94,6 +95,16 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
 
         var queryTitle = title.Trim();
         var item = TryGetSearchItem(itemId);
+        if (item != null)
+        {
+            var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
+            {
+                _logger.LogWarning("Theme Finder search rejected for non-eligible item {ItemId}", itemId);
+                return BadRequest(new { error = "Item is not in a library matching the configured Library Pattern." });
+            }
+        }
+
         var trustedKeys = BuildTrustedSearchKeys(queryTitle, item);
         var results = await _api.SearchByTitleAsync(queryTitle, year, HttpContext.RequestAborted).ConfigureAwait(false);
         var scoredResults = results
@@ -320,6 +331,13 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
             return NotFound(new { error = "Item not found." });
         }
 
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
+        {
+            _logger.LogWarning("Theme Finder action rejected for non-eligible item {ItemId}", itemId);
+            return BadRequest(new { error = "Item is not in a library matching the configured Library Pattern." });
+        }
+
         if (string.IsNullOrWhiteSpace(item.ContainingFolderPath))
         {
             return BadRequest(new { error = "Selected item has no writable media folder." });
@@ -419,6 +437,12 @@ public sealed class KometaThemesSearchController : ControllerBase, IDisposable
         if (item == null)
         {
             return NotFound(new { error = "Item not found" });
+        }
+
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
+        {
+            return BadRequest(new { error = "Item is not in a library matching the configured Library Pattern." });
         }
 
         var songsOnDisk = 0;

@@ -58,6 +58,48 @@ public class KometaThemesItemController : ControllerBase
         _logger = logger;
     }
 
+    private bool EnsureEligible(BaseItem? item, out ActionResult? errorResult)
+    {
+        errorResult = null;
+        if (item == null)
+        {
+            errorResult = NotFound(new { error = "Item not found" });
+            return false;
+        }
+
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
+        {
+            errorResult = BadRequest(new { error = "Item is not in a library matching the configured Library Pattern (e.g. 'Anime')." });
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Checks if the given item is eligible for KometaThemes (i.e. belongs to a library matching LibraryPattern and not blacklisted).
+    /// Used by the web UI to decide whether to show the ♪ button and enable full features.
+    /// </summary>
+    [HttpGet("{itemId}/eligible")]
+    public ActionResult GetItemEligibility([FromRoute, Required] Guid itemId)
+    {
+        var item = _libraryManager.GetItemById(itemId);
+        if (item == null)
+        {
+            return NotFound(new { eligible = false, reason = "Item not found" });
+        }
+
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        bool eligible = LibrarySelection.IsItemEligible(item, _libraryManager, config);
+
+        return Ok(new
+        {
+            eligible,
+            reason = eligible ? null : "This item does not belong to a library matching the configured Library Pattern."
+        });
+    }
+
     /// <summary>
     /// Repairs the linking between the item and its theme files (Jellyfin 10.11.x workaround).
     /// </summary>
@@ -67,14 +109,15 @@ public class KometaThemesItemController : ControllerBase
     public async Task<ActionResult> RepairItemThemeLinks([FromRoute, Required] Guid itemId)
     {
         var item = _libraryManager.GetItemById(itemId);
-        if (item == null)
+        ActionResult? err;
+        if (!EnsureEligible(item, out err))
         {
-            return NotFound(new { error = "Item not found" });
+            return err!;
         }
 
         try
         {
-            var result = await _linkRepair.RepairAsync(item, CancellationToken.None);
+            var result = await _linkRepair.RepairAsync(item!, CancellationToken.None);
             return Ok(new
             {
                 songsOnDisk = result.SongsOnDisk,
@@ -100,6 +143,13 @@ public class KometaThemesItemController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult GetItemBinding([FromRoute, Required] Guid itemId)
     {
+        var item = _libraryManager.GetItemById(itemId);
+        ActionResult? err;
+        if (!EnsureEligible(item, out err))
+        {
+            return err!;
+        }
+
         var configuration = Plugin.Instance?.Configuration;
         if (configuration == null)
         {
@@ -136,15 +186,16 @@ public class KometaThemesItemController : ControllerBase
     public async Task<ActionResult> SyncItemThemes([FromRoute, Required] Guid itemId, [FromQuery] bool force = false)
     {
         var item = _libraryManager.GetItemById(itemId);
-        if (item == null)
+        ActionResult? err;
+        if (!EnsureEligible(item, out err))
         {
-            return NotFound(new { error = "Item not found" });
+            return err!;
         }
 
         var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var originalForceSync = configuration.ForceSync;
 
-        if (!force && !_downloader.ShouldUpdate(item, configuration) && !configuration.ForceSync)
+        if (!force && !_downloader.ShouldUpdate(item!, configuration) && !configuration.ForceSync)
         {
             return Ok(new { message = "Item already has themes and ForceSync is off", downloaded = false });
         }
@@ -157,7 +208,7 @@ public class KometaThemesItemController : ControllerBase
         try
         {
             var resolvedItems = new List<ItemWithAnime>();
-            await foreach (var resolved in _downloader.ResolveItems(new[] { item }, configuration, CancellationToken.None))
+            await foreach (var resolved in _downloader.ResolveItems(new[] { item! }, configuration, CancellationToken.None))
             {
                 resolvedItems.Add(resolved);
             }
@@ -172,14 +223,14 @@ public class KometaThemesItemController : ControllerBase
 
             if (resolvedItems.Count > 0)
             {
-                _failedItems.Remove(item.Id);
+                _failedItems.Remove(item!.Id);
             }
 
             return Ok(new { message = "Sync completed successfully", downloaded = resolvedItems.Count > 0 });
         }
         catch (Exception ex)
         {
-            _failedItems.Record(item, FailedItemReason.DownloadFailed, ex.Message);
+            _failedItems.Record(item!, FailedItemReason.DownloadFailed, ex.Message);
             _logger.LogError(ex, "Error syncing themes for item {Id}", itemId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { error = ex.Message });
         }
@@ -198,9 +249,10 @@ public class KometaThemesItemController : ControllerBase
     public async Task<ActionResult> PreviewItemThemes([FromRoute, Required] Guid itemId)
     {
         var item = _libraryManager.GetItemById(itemId);
-        if (item == null)
+        ActionResult? err;
+        if (!EnsureEligible(item, out err))
         {
-            return NotFound(new { error = "Item not found" });
+            return err!;
         }
 
         var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
@@ -210,7 +262,7 @@ public class KometaThemesItemController : ControllerBase
         try
         {
             var resolvedItems = new List<ItemWithAnime>();
-            await foreach (var resolved in _downloader.ResolveItems(new[] { item }, configuration, CancellationToken.None))
+            await foreach (var resolved in _downloader.ResolveItems(new[] { item! }, configuration, CancellationToken.None))
             {
                 resolvedItems.Add(resolved);
             }
@@ -257,12 +309,13 @@ public class KometaThemesItemController : ControllerBase
     public async Task<ActionResult> GetItemThemes([FromRoute, Required] Guid itemId)
     {
         var item = _libraryManager.GetItemById(itemId);
-        if (item == null)
+        ActionResult? err;
+        if (!EnsureEligible(item, out err))
         {
-            return NotFound(new { error = "Item not found" });
+            return err!;
         }
 
-        var records = await _downloadTracker.LoadAsync(item.ContainingFolderPath);
+        var records = await _downloadTracker.LoadAsync(item!.ContainingFolderPath);
         var result = records.Select(r => new
         {
             r.ThemeId,
