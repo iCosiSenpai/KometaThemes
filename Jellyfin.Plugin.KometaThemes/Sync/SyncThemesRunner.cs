@@ -201,7 +201,7 @@ public sealed class SyncThemesRunner
             {
                 foreach (var anime in resolved.Anime)
                 {
-                    await _downloader.HandleAsync(resolved.Item, anime, configuration, cancellationToken).ConfigureAwait(false);
+                    await _downloader.HandleAsync(resolved.Item, anime, configuration, cancellationToken, configuration.ForceSync).ConfigureAwait(false);
                 }
             }
 

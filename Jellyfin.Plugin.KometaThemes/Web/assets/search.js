@@ -597,6 +597,9 @@
 
     function themeRow(theme, index) {
         var row = util.el('div', 'kt-theme');
+        row.setAttribute('tabindex', '0');
+        row.setAttribute('role', 'group');
+        row.setAttribute('aria-label', themeName(theme) || 'theme');
         var type = String(theme.type || 'OP').toUpperCase();
         row.appendChild(util.el('span', 'kt-type-chip ' + type.toLowerCase(), theme.label || (type + (theme.sequence || ''))));
 
@@ -648,6 +651,21 @@
             actions.appendChild(toggle);
         });
         row.appendChild(actions);
+
+        // Basic keyboard support for row: Enter/Space toggles first available media
+        row.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                var firstToggle = actions.querySelector('.kt-media-toggle:not([disabled])');
+                if (firstToggle) {
+                    firstToggle.click();
+                } else {
+                    var firstPreview = actions.querySelector('.kt-preview-btn');
+                    if (firstPreview) firstPreview.click();
+                }
+            }
+        });
+
         return row;
     }
 

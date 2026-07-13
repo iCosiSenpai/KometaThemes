@@ -107,29 +107,19 @@
 /* ---- brand -------------------------------------------------------------- */
 
 .kt-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* New SVG-based comet logo for better quality and easier customization.
+   The .kt-comet class is now applied to an inline <svg>. */
 .kt-comet {
-    position: relative;
-    width: 34px; height: 34px; flex-shrink: 0;
-    border-radius: 50%;
-    background: var(--kt-brand);
-    box-shadow: 0 0 18px rgba(124, 92, 255, 0.45), var(--kt-edge);
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: middle;
 }
-.kt-comet::before {
-    content: '';
-    position: absolute; top: 50%; right: 58%;
-    width: 36px; height: 3px;
-    transform: translateY(-50%) rotate(-24deg);
-    transform-origin: right center;
-    border-radius: 999px;
-    background: linear-gradient(270deg, rgba(124, 92, 255, 0.85), transparent);
-}
-.kt-comet::after {
-    content: '';
-    position: absolute; inset: 28% 28% 42% 42%;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.85);
-    filter: blur(1px);
-}
+
+/* Theme the SVG logo parts using design tokens where possible */
+.kt-comet circle { fill: var(--kt-violet, #7c5cff); }
+.kt-comet path { stroke: var(--kt-cyan, #00a4dc); }
 .kt-wordmark { display: flex; flex-direction: column; min-width: 0; }
 .kt-wordmark strong {
     font-size: 1.25em; font-weight: 800; letter-spacing: 0.02em; line-height: 1.15;
@@ -764,6 +754,10 @@
 .kt-theme:focus-visible {
     outline: 2px solid var(--kt-focus);
     outline-offset: 2px;
+    background: var(--kt-surface-2);
+}
+.kt-theme:focus {
+    outline: none;
 }
 .kt-theme-main { display: grid; gap: 4px; min-width: 0; }
 .kt-theme-title { font-weight: 700; line-height: 1.25; text-wrap: pretty; }

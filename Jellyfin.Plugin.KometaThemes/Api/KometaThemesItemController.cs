@@ -207,14 +207,9 @@ public class KometaThemesItemController : ControllerBase
         var configuration = SyncThemesRunner.CloneConfiguration(baseConfig);
         bool effectiveForce = force || configuration.ForceSync;
 
-        if (!force && !_downloader.ShouldUpdate(item!, configuration) && !effectiveForce)
+        if (!force && !_downloader.ShouldUpdate(item!, configuration, effectiveForce) && !effectiveForce)
         {
             return Ok(new { message = "Item already has themes and ForceSync is off", downloaded = false });
-        }
-
-        if (effectiveForce)
-        {
-            configuration.ForceSync = true;
         }
 
         try
@@ -229,7 +224,7 @@ public class KometaThemesItemController : ControllerBase
             {
                 foreach (var anime in resolved.Anime)
                 {
-                    await _downloader.HandleAsync(resolved.Item, anime, configuration, CancellationToken.None);
+                    await _downloader.HandleAsync(resolved.Item, anime, configuration, CancellationToken.None, effectiveForce);
                 }
             }
 
@@ -266,7 +261,6 @@ public class KometaThemesItemController : ControllerBase
         // Clone only; preview always forces to show candidates without side effects on live config.
         var baseConfig = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var configuration = SyncThemesRunner.CloneConfiguration(baseConfig);
-        configuration.ForceSync = true;
 
         try
         {

@@ -107,13 +107,14 @@ public class AnimeThemesDownloader : IDisposable
     /// Processes an item, downloading themes for all applicable seasons.
     /// Returns true if any changes were made.
     /// </summary>
-    public async ValueTask<bool> HandleAsync(BaseItem item, Anime anime, PluginConfiguration configuration, CancellationToken cancellationToken)
+    public async ValueTask<bool> HandleAsync(BaseItem item, Anime anime, PluginConfiguration configuration, CancellationToken cancellationToken, bool? forceOverride = null)
     {
         _logger.LogInformation("[{Id}] Processing themes for: {Name} (AnimeId={AniId})", item.Id, item.Name, anime.Id);
 
         UpdateSemaphore(configuration.DegreeOfParallelism);
 
         var appliedConfiguration = ApplyFallbackMode(item, configuration);
+        bool force = forceOverride ?? appliedConfiguration.ForceSync;
 
         var isMovie = item.GetBaseItemKind() == BaseItemKind.Movie;
 
@@ -122,15 +123,15 @@ public class AnimeThemesDownloader : IDisposable
         if (isMovie)
         {
             var settings = appliedConfiguration.MovieSettings;
-            results.Add(await ProcessMediaType(MediaType.Video, anime, item, appliedConfiguration.ForceSync, settings, null, cancellationToken).ConfigureAwait(false));
-            results.Add(await ProcessMediaType(MediaType.Audio, anime, item, appliedConfiguration.ForceSync, settings, null, cancellationToken).ConfigureAwait(false));
+            results.Add(await ProcessMediaType(MediaType.Video, anime, item, force, settings, null, cancellationToken).ConfigureAwait(false));
+            results.Add(await ProcessMediaType(MediaType.Audio, anime, item, force, settings, null, cancellationToken).ConfigureAwait(false));
         }
         else
         {
-            results.AddRange(await ProcessSeasons(anime, item, appliedConfiguration, cancellationToken).ConfigureAwait(false));
+            results.AddRange(await ProcessSeasons(anime, item, appliedConfiguration, cancellationToken, force).ConfigureAwait(false));
         }
 
-        if (results.Any(r => r) || appliedConfiguration.ForceSync)
+        if (results.Any(r => r) || force)
         {
             _logger.LogInformation("[{Id}] Saving metadata after theme changes with full refresh", item.Id);
             CopyBestThemeToRoot(item);
@@ -199,10 +200,11 @@ public class AnimeThemesDownloader : IDisposable
         }
     }
 
-    private async Task<List<bool>> ProcessSeasons(Anime anime, BaseItem item, PluginConfiguration configuration, CancellationToken cancellationToken)
+    private async Task<List<bool>> ProcessSeasons(Anime anime, BaseItem item, PluginConfiguration configuration, CancellationToken cancellationToken, bool? forceOverride = null)
     {
         var results = new List<bool>();
         var seasonNumber = _seasonDetector.DetectSeason(item, configuration.SeasonDetectionMode);
+        bool force = forceOverride ?? configuration.ForceSync;
 
         if (item is Season season)
         {
@@ -213,8 +215,8 @@ public class AnimeThemesDownloader : IDisposable
             _logger.LogInformation("[{Id}] Processing Series item: {Name} (DetectedSeason={S})", item.Id, item.Name, seasonNumber);
         }
 
-        results.Add(await ProcessMediaType(MediaType.Video, anime, item, configuration.ForceSync, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, seasonNumber, cancellationToken).ConfigureAwait(false));
-        results.Add(await ProcessMediaType(MediaType.Audio, anime, item, configuration.ForceSync, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, seasonNumber, cancellationToken).ConfigureAwait(false));
+        results.Add(await ProcessMediaType(MediaType.Video, anime, item, force, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, seasonNumber, cancellationToken).ConfigureAwait(false));
+        results.Add(await ProcessMediaType(MediaType.Audio, anime, item, force, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, seasonNumber, cancellationToken).ConfigureAwait(false));
 
         if (item is Series series)
         {
@@ -225,8 +227,8 @@ public class AnimeThemesDownloader : IDisposable
                 foreach (var childSeason in childSeasons)
                 {
                     var childSeasonNumber = _seasonDetector.DetectSeason(childSeason, configuration.SeasonDetectionMode);
-                    results.Add(await ProcessMediaType(MediaType.Video, anime, childSeason, configuration.ForceSync, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, childSeasonNumber, cancellationToken).ConfigureAwait(false));
-                    results.Add(await ProcessMediaType(MediaType.Audio, anime, childSeason, configuration.ForceSync, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, childSeasonNumber, cancellationToken).ConfigureAwait(false));
+                    results.Add(await ProcessMediaType(MediaType.Video, anime, childSeason, force, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, childSeasonNumber, cancellationToken).ConfigureAwait(false));
+                    results.Add(await ProcessMediaType(MediaType.Audio, anime, childSeason, force, new CollectionTypeConfiguration { AudioSettings = configuration.AudioSettings, VideoSettings = configuration.VideoSettings, MaxThemesPerSeason = configuration.MaxThemesPerSeason }, childSeasonNumber, cancellationToken).ConfigureAwait(false));
                 }
             }
         }

@@ -312,8 +312,8 @@
 
     // ---- Sidebar (dashboard drawer) brand icon -----------------------------
     // Replaces the generic Folder icon next to the "KometaThemes" entry in the
-    // dashboard's Plugins drawer section with the brand "planet" mark — a CSS
-    // gradient orb mirroring the .kt-comet logo on the plugin pages.
+    // dashboard's Plugins drawer section with a simple gradient orb (approximation
+    // of the main .kt-comet SVG logo used on the plugin pages).
     //
     // Jellyfin 10.11's dashboard drawer (PluginDrawerSection) renders each
     // EnableInMainMenu page as a MUI ListItemLink whose href carries
