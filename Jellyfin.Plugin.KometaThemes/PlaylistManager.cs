@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Jellyfin.Plugin.KometaThemes.Api;
+using Jellyfin.Plugin.KometaThemes.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -51,7 +54,14 @@ public class PlaylistManager
 
             var allFiles = new List<string>();
 
-            var libraries = _libraryManager.GetVirtualFolders();
+            var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+            var pattern = string.IsNullOrWhiteSpace(configuration.LibraryPattern) ? "Anime" : configuration.LibraryPattern;
+            var includeRegex = new Regex(pattern, RegexOptions.IgnoreCase);
+
+            var libraries = _libraryManager.GetVirtualFolders()
+                .Where(lib => includeRegex.IsMatch(lib.Name))
+                .ToList();
+
             foreach (var library in libraries)
             {
                 if (!string.IsNullOrWhiteSpace(library.Locations?.FirstOrDefault()))

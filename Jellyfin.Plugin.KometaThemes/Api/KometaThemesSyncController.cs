@@ -57,6 +57,25 @@ public class KometaThemesSyncController : ControllerBase
     }
 
     /// <summary>
+    /// Starts a normal manual "Sync now" run. This is always incremental
+    /// (only unsatisfied items according to current settings) and ignores
+    /// the persistent ForceSync checkbox. This keeps "Sync now" and "Force sync"
+    /// clearly distinct.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Accepted if started, Conflict if already running.</returns>
+    [HttpPost("sync")]
+    public IActionResult SyncNow(CancellationToken cancellationToken)
+    {
+        if (!_runner.TryStartManualSync())
+        {
+            return Conflict(new { error = "A KometaThemes sync is already running." });
+        }
+
+        return Accepted(new { message = "KometaThemes sync started." });
+    }
+
+    /// <summary>
     /// Starts a forced full sync run. Existing themes are removed and re-downloaded
     /// according to the current settings. This does not persist ForceSync to the config.
     /// </summary>

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
+using Jellyfin.Plugin.KometaThemes.Api;
+using Jellyfin.Plugin.KometaThemes.Configuration;
 using Jellyfin.Plugin.KometaThemes.Sync;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -82,6 +84,13 @@ public sealed class LibrarySyncHandler : IDisposable
 
         var kind = item.GetBaseItemKind();
         if (kind != BaseItemKind.Series && kind != BaseItemKind.Movie)
+        {
+            return;
+        }
+
+        // Gate on library eligibility (LibraryPattern) so non-anime libraries are never queued
+        var config = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        if (!LibrarySelection.IsItemEligible(item, _libraryManager, config))
         {
             return;
         }

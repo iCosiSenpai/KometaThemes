@@ -78,6 +78,41 @@ public sealed class SyncThemesRunner
     }
 
     /// <summary>
+    /// Starts a normal (non-force) manual sync. This always performs an incremental
+    /// sync (only unsatisfied items), ignoring the persistent ForceSync checkbox.
+    /// This makes the "Sync now" button clearly distinct from "Force sync".
+    /// </summary>
+    /// <returns><c>true</c> if the sync was started; <c>false</c> if another sync is already running.</returns>
+    public bool TryStartManualSync()
+    {
+        if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
+        {
+            return false;
+        }
+
+        var configuration = CloneConfiguration(Plugin.Instance?.Configuration ?? new PluginConfiguration());
+        configuration.ForceSync = false; // ensure incremental behavior
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await RunWithOwnedLockAsync(configuration, new Progress<double>(), "manual", CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "KometaThemes manual sync failed.");
+            }
+            finally
+            {
+                Volatile.Write(ref _isRunning, 0);
+            }
+        });
+
+        return true;
+    }
+
+    /// <summary>
     /// Starts a forced full sync without persisting ForceSync to the configuration.
     /// This avoids the race condition where the scheduled task reads the config before
     /// the temporary ForceSync=true save has been applied.
@@ -134,6 +169,13 @@ public sealed class SyncThemesRunner
     public async Task SyncItemAsync(BaseItem item, CancellationToken cancellationToken)
     {
         var configuration = CloneConfiguration(Plugin.Instance?.Configuration ?? new PluginConfiguration());
+
+        // Extra gate: skip items not in libraries matching LibraryPattern (non-anime)
+        if (!LibrarySelection.IsItemEligible(item, _libraryManager, configuration))
+        {
+            _logger.LogInformation("Item {Name} ({Id}) is not in an eligible library (LibraryPattern), skipping sync", item.Name, item.Id);
+            return;
+        }
 
         if (!_downloader.ShouldUpdate(item, configuration) && !configuration.ForceSync)
         {

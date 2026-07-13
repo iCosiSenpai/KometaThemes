@@ -13,7 +13,7 @@
             statHealth: 'Status', statLastSync: 'Last sync', statCache: 'Cache hit rate', statSkipped: 'Skipped items',
             statSkippedSub: 'excluded from sync', healthOk: 'Ready', healthRunning: 'Syncing', healthDown: 'Unreachable',
             syncNow: 'Sync now', forceSync: 'Force sync', toggleLog: 'Activity log',
-            confirmSyncNow: 'Run a full theme sync now?',
+            confirmSyncNow: 'Run an incremental sync now (only missing or unsatisfied items)?',
             confirmForceSync: 'Force a full sync now? Outdated themes are removed and everything is re-checked.',
             syncTaskMissing: 'Sync task not found. Restart Jellyfin and try again.',
             interface: 'Interface', uiLanguage: 'Interface language',
@@ -42,7 +42,7 @@
             fallbackEverything: 'Download everything',
             downloadTitle: 'Download engine', parallelism: 'Parallel downloads',
             timeout: 'ffmpeg timeout (seconds)',
-            forceSyncOpt: 'Force sync (remove outdated themes on every run)',
+            forceSyncOpt: 'Force sync on scheduled runs (remove outdated themes every time)',
             dryRun: 'Dry-run mode (resolve only, never download)',
             dryRunDesc: 'Themes are looked up and logged but NOT downloaded. Useful for testing.',
             providersTitle: 'Provider priority',
@@ -104,7 +104,7 @@
             statHealth: 'Stato', statLastSync: 'Ultimo sync', statCache: 'Cache hit rate', statSkipped: 'Elementi esclusi',
             statSkippedSub: 'esclusi dal sync', healthOk: 'Pronto', healthRunning: 'Sync in corso', healthDown: 'Non raggiungibile',
             syncNow: 'Sync ora', forceSync: 'Forza sync', toggleLog: 'Log attività',
-            confirmSyncNow: 'Eseguire un sync completo dei temi ora?',
+            confirmSyncNow: 'Eseguire un sync incrementale ora (solo item mancanti o non soddisfatti)?',
             confirmForceSync: 'Forzare un sync completo ora? I temi obsoleti vengono rimossi e tutto viene ricontrollato.',
             syncTaskMissing: 'Task di sync non trovato. Riavvia Jellyfin e riprova.',
             interface: 'Interfaccia', uiLanguage: 'Lingua interfaccia',
@@ -133,7 +133,7 @@
             fallbackEverything: 'Scarica tutto',
             downloadTitle: 'Motore di download', parallelism: 'Download paralleli',
             timeout: 'Timeout ffmpeg (secondi)',
-            forceSyncOpt: 'Force sync (rimuovi i temi obsoleti a ogni esecuzione)',
+            forceSyncOpt: 'Forza sync sui run schedulati (rimuovi temi obsoleti ogni volta)',
             dryRun: 'Modalità dry-run (solo risoluzione, nessun download)',
             dryRunDesc: 'I temi vengono cercati e loggati ma NON scaricati. Utile per i test.',
             providersTitle: 'Priorità provider',
@@ -1004,14 +1004,6 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    function findSyncTaskId() {
-        return KT.api.get('ScheduledTasks').then(function (tasks) {
-            var task = (tasks || []).filter(function (candidate) { return candidate.Key === 'KometaThemesSyncThemes'; })[0];
-            if (!task) { throw new Error(KT.t('syncTaskMissing')); }
-            return task.Id;
-        });
-    }
-
     function triggerSync(force) {
         var confirmKey = force ? 'confirmForceSync' : 'confirmSyncNow';
         KT.ui.confirm(KT.t(confirmKey)).then(function (ok) {
@@ -1029,10 +1021,9 @@
                 return;
             }
 
-            findSyncTaskId().then(function (taskId) {
-                // Jellyfin 10.11 quirk: the run endpoint needs the numeric task GUID, not the key.
-                return KT.api.post('ScheduledTasks/Running/' + taskId);
-            }).then(function () {
+            // Normal "Sync now": always incremental (ignores the persistent ForceSync checkbox).
+            // This makes the two buttons have clearly different behavior.
+            KT.api.post('Plugins/KometaThemes/Sync/sync').then(function () {
                 log(KT.t('syncRunning'), 'info');
                 showSyncProgress();
             }).catch(function (error) {
