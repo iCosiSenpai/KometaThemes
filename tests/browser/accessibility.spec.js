@@ -22,9 +22,12 @@ for (const [label, name, pageId, itemId] of pages) {
     test(label + ' (' + language + ') has no serious or critical axe violations', async ({ page }) => {
       const errors = await installJellyfinMocks(page, { UiLanguage: language });
       await openPluginPage(page, name, pageId, itemId);
-      await page.addStyleTag({ content: 'html,body{background:#10131d;color:#f5f7ff}' });
+      await page.addStyleTag({
+        content: 'html,body{background:#10131d;color:#f5f7ff}.kt-page *,.kt-page *::before,.kt-page *::after{animation:none!important;transition:none!important}'
+      });
 
       if (name === 'KometaThemes') {
+        await expect(page.locator('#ktCacheStats .kt-stat')).toHaveCount(4);
         const tabs = page.locator('#ktTabs .kt-tab');
         for (let index = 0; index < await tabs.count(); index += 1) {
           await tabs.nth(index).click();

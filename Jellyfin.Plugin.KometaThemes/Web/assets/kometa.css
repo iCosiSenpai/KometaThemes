@@ -13,7 +13,7 @@
     --kt-border-strong: rgba(255, 255, 255, 0.20);
     --kt-text: inherit;
     --kt-text-muted: rgba(255, 255, 255, 0.68);
-    --kt-text-faint: rgba(255, 255, 255, 0.58);
+    --kt-text-faint: rgba(255, 255, 255, 0.68);
     --kt-scrim: linear-gradient(180deg, rgba(8, 10, 18, 0.30) 0%, rgba(8, 10, 18, 0.86) 78%, rgba(8, 10, 18, 0.96) 100%);
 
     /* brand */
@@ -63,7 +63,7 @@
     --kt-border: rgba(10, 14, 28, 0.12);
     --kt-border-strong: rgba(10, 14, 28, 0.24);
     --kt-text-muted: rgba(10, 14, 28, 0.68);
-    --kt-text-faint: rgba(10, 14, 28, 0.60);
+    --kt-text-faint: rgba(10, 14, 28, 0.68);
     --kt-scrim: linear-gradient(180deg, rgba(244, 246, 252, 0.30) 0%, rgba(244, 246, 252, 0.88) 78%, rgba(244, 246, 252, 0.97) 100%);
     --kt-violet: #6347e0;
     --kt-cyan: #007ba6;
