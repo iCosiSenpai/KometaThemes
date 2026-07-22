@@ -119,19 +119,17 @@
 /* ---- brand -------------------------------------------------------------- */
 
 .kt-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-/* New SVG-based comet logo for better quality and easier customization.
-   The .kt-comet class is now applied to an inline <svg>. */
+/* Shared SVG brand mark. The same embedded asset is used by page heroes,
+   empty states, the item-detail action and Jellyfin's dashboard drawer. */
 .kt-comet {
     width: 34px;
     height: 34px;
     flex-shrink: 0;
     display: inline-block;
+    object-fit: contain;
     vertical-align: middle;
+    filter: drop-shadow(0 3px 8px rgba(40, 93, 210, 0.28));
 }
-
-/* Theme the SVG logo parts using design tokens where possible */
-.kt-comet circle { fill: var(--kt-violet, #7c5cff); }
-.kt-comet path { stroke: var(--kt-cyan, #00a4dc); }
 .kt-wordmark { display: flex; flex-direction: column; min-width: 0; }
 .kt-wordmark strong {
     font-size: 1.25em; font-weight: 800; letter-spacing: 0.02em; line-height: 1.15;

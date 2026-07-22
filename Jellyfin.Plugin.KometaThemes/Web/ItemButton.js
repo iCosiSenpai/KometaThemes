@@ -7,6 +7,8 @@
     var PAGE_NAME = 'KometaThemesSearch';
     var MENU_PAGE = 'KometaThemesItem'; // the main-menu drawer entry (Plugin.GetPages)
     var DRAWER_STYLE_ID = 'kometathemes-drawer-style';
+    var ASSET_VERSION = '1.0.8.0';
+    var ICON_URL = 'configurationpage?name=KometaThemesLogoSvg&v=' + ASSET_VERSION;
 
     if (window[STATE_KEY] && typeof window[STATE_KEY].destroy === 'function') {
         window[STATE_KEY].destroy();
@@ -182,12 +184,16 @@
         var div = document.createElement('div');
         div.className = 'detailButton-content';
 
-        var span = document.createElement('span');
-        span.className = 'material-icons detailButton-icon music_note';
-        span.setAttribute('aria-hidden', 'true');
-        span.style.color = '#00a4dc';
+        var icon = document.createElement('img');
+        icon.className = 'detailButton-icon';
+        icon.src = ICON_URL;
+        icon.alt = '';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.width = 28;
+        icon.height = 28;
+        icon.style.objectFit = 'contain';
 
-        div.appendChild(span);
+        div.appendChild(icon);
         btn.appendChild(div);
 
         btn.addEventListener('click', function (e) {
@@ -311,16 +317,10 @@
     }
 
     // ---- Sidebar (dashboard drawer) brand icon -----------------------------
-    // Replaces the generic Folder icon next to the "KometaThemes" entry in the
-    // dashboard's Plugins drawer section with a simple gradient orb (approximation
-    // of the main .kt-comet SVG logo used on the plugin pages).
-    //
-    // Jellyfin 10.11's dashboard drawer (PluginDrawerSection) renders each
-    // EnableInMainMenu page as a MUI ListItemLink whose href carries
-    // name=KometaThemesItem, with a hardcoded MUI <Folder/> <svg> for the icon
-    // (MenuIcon is ignored there). So this is done purely with a scoped <style>
-    // — no DOM mutation — which keeps it stable across React re-renders and
-    // independent of kometa.css (not loaded in the web client).
+    // Jellyfin 10.11 renders EnableInMainMenu plugin pages with a hardcoded
+    // Folder icon and ignores MenuIcon. A narrowly scoped rule hides that
+    // Folder and displays the same versioned SVG mark used by the plugin pages.
+    // The style survives React drawer re-renders without mutating menu nodes.
     function ensureDrawerStyle() {
         if (document.getElementById(DRAWER_STYLE_ID)) {
             return;
@@ -332,11 +332,9 @@
         style.textContent =
             sel + ' svg{display:none!important;}' +
             sel + '{position:relative;}' +
-            sel + '::before{content:"";display:inline-block;box-sizing:border-box;' +
-            'width:24px;height:24px;border-radius:50%;' +
-            'background:radial-gradient(circle at 33% 33%,rgba(255,255,255,.92) 0 16%,rgba(255,255,255,0) 26%),' +
-            'linear-gradient(135deg,#7c5cff 0%,#00a4dc 100%);' +
-            'box-shadow:0 0 8px rgba(124,92,255,.55);}';
+            sel + '::before{content:"";display:inline-block;flex:0 0 24px;' +
+            'width:24px;height:24px;background:url("' + ICON_URL + '") center/contain no-repeat;' +
+            'filter:drop-shadow(0 2px 4px rgba(40,93,210,.35));}';
         (document.head || document.documentElement).appendChild(style);
     }
 

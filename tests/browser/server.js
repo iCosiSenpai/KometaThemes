@@ -13,13 +13,15 @@ const resources = {
   KometaThemesA11yJs: 'Jellyfin.Plugin.KometaThemes/Web/assets/kometa-a11y.js',
   KometaThemesConfigJs: 'Jellyfin.Plugin.KometaThemes/Web/assets/config.js',
   KometaThemesSearchJs: 'Jellyfin.Plugin.KometaThemes/Web/assets/search.js',
-  KometaThemesItemJs: 'Jellyfin.Plugin.KometaThemes/Web/assets/item.js'
+  KometaThemesItemJs: 'Jellyfin.Plugin.KometaThemes/Web/assets/item.js',
+  KometaThemesLogoSvg: 'Jellyfin.Plugin.KometaThemes/Web/assets/kometa-mark.svg'
 };
 
 function typeFor(file) {
   if (file.endsWith('.html')) return 'text/html; charset=utf-8';
   if (file.endsWith('.css')) return 'text/css; charset=utf-8';
   if (file.endsWith('.js')) return 'text/javascript; charset=utf-8';
+  if (file.endsWith('.svg')) return 'image/svg+xml';
   return 'application/octet-stream';
 }
 
