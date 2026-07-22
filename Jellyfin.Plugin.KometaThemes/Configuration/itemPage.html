@@ -27,7 +27,7 @@
 </svg>
                                     <div class="kt-wordmark"><strong>Kometa</strong><span>Themes</span></div>
                                 </div>
-                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version">v1.0.5.1</span></span>
+                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version">v1.0.6.0</span></span>
                             </div>
                             <div class="kt-row" style="gap:16px; align-items:flex-start;">
                                 <div class="kt-poster" id="ktItemPoster" style="width:84px;">
@@ -46,7 +46,7 @@
                                 <button type="button" class="kt-btn kt-btn-ghost" id="ktBtnRefresh"></button>
                                 <button type="button" class="kt-btn kt-btn-danger" id="ktBtnDeleteAll"></button>
                             </div>
-                            <div class="kt-state" id="ktItemState"></div>
+                            <div class="kt-state" id="ktItemState" role="status" aria-live="polite"></div>
                         </div>
                     </div>
 
@@ -79,7 +79,7 @@
                             <div class="kt-row" id="ktPresetRow"></div>
                             <div class="kt-progress" id="ktSyncProgress" style="display:none;">
                                 <div class="kt-progress-track"><div class="kt-progress-fill"></div></div>
-                                <div class="kt-state" data-kt-sync-text></div>
+                                <div class="kt-state" data-kt-sync-text role="status" aria-live="polite"></div>
                                 <div class="kt-counters" data-kt-sync-counters></div>
                             </div>
                         </div>
@@ -87,9 +87,9 @@
 
                     <!-- support / donate -->
                     <div class="kt-support">
-                        <span class="kt-support-label">KometaThemes ti è utile? Supporta lo sviluppo ❤️</span>
-                        <a class="kt-support-btn" href="https://buymeacoffee.com/iCosiSenpai" target="_blank" rel="noopener noreferrer" aria-label="Buy me a coffee"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="40" /></a>
-                        <a class="kt-support-btn" href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ" target="_blank" rel="noopener noreferrer" aria-label="Donate with PayPal"><img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate with PayPal" height="40" /></a>
+                        <span class="kt-support-label" data-kt="supportLabel"></span>
+                        <a class="kt-support-link" href="https://buymeacoffee.com/iCosiSenpai" target="_blank" rel="noopener noreferrer" data-kt="supportCoffee"></a>
+                        <a class="kt-support-link" href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ" target="_blank" rel="noopener noreferrer" data-kt="supportPayPal"></a>
                     </div>
 
                 </div>
@@ -97,7 +97,7 @@
         </div>
         <script>
         (function () {
-            var V = '1.0.5.1';
+            var V = '1.0.6.0';
             function asset(name) { return 'configurationpage?name=' + name + '&v=' + V; }
             function ensureCss() {
                 var id = 'kt-css-' + V;

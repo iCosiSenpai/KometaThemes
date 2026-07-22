@@ -35,7 +35,8 @@
             removeBinding: 'Remove binding',
             bindingRemoved: 'Binding removed',
             saveBindingFailed: 'Failed to save binding',
-            filterAudio: 'Audio', filterVideo: 'Video', filterOP: 'OP', filterED: 'ED', filterCreditless: 'Creditless only', filterClear: 'Clear filters', filterAllVisible: 'Select visible'
+            filterAudio: 'Audio', filterVideo: 'Video', filterOP: 'OP', filterED: 'ED', filterCreditless: 'Creditless only', filterClear: 'Clear filters', filterAllVisible: 'Select visible',
+            noVisibleThemes: 'No themes match the active filters.'
         },
         it: {
             finderKicker: 'Theme Finder',
@@ -65,7 +66,8 @@
             removeBinding: 'Rimuovi binding',
             bindingRemoved: 'Binding rimosso',
             saveBindingFailed: 'Salvataggio binding fallito',
-            filterAudio: 'Audio', filterVideo: 'Video', filterOP: 'OP', filterED: 'ED', filterCreditless: 'Solo creditless', filterClear: 'Pulisci filtri', filterAllVisible: 'Seleziona visibili'
+            filterAudio: 'Audio', filterVideo: 'Video', filterOP: 'OP', filterED: 'ED', filterCreditless: 'Solo creditless', filterClear: 'Pulisci filtri', filterAllVisible: 'Seleziona visibili',
+            noVisibleThemes: 'Nessun tema corrisponde ai filtri attivi.'
         }
     });
 
@@ -89,7 +91,10 @@
         filters: { audio: true, video: true, op: true, ed: true, creditless: false },
         // For keyboard nav in results
         resultsActiveIndex: -1,
-        broadActiveIndex: -1
+        broadActiveIndex: -1,
+        contextRequestId: 0,
+        searchRequestId: 0,
+        detailRequestId: 0
     };
 
     function q(id) { return state.page.querySelector('#' + id); }
@@ -107,7 +112,10 @@
     /* ---- hero / item context ---- */
 
     function loadItemContext() {
-        KT.api.get('Plugins/KometaThemes/Items/' + state.itemId + '/info').then(function (info) {
+        var itemId = state.itemId;
+        var contextId = ++state.contextRequestId;
+        KT.api.get('Plugins/KometaThemes/Items/' + encodeURIComponent(itemId) + '/info').then(function (info) {
+            if (contextId !== state.contextRequestId || itemId !== state.itemId) { return; }
             state.itemInfo = info;
             q('ktFinderTitle').textContent = info.name;
             var chips = q('ktFinderChips');
@@ -124,49 +132,57 @@
                 var row = util.el('div', 'kt-path');
                 row.appendChild(util.el('span', 'kt-path-label', pair[0]));
                 row.appendChild(util.el('span', 'kt-path-value', pair[1]));
-                var copy = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', 'Copy');
+                var copy = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', KT.t('copy'));
                 copy.type = 'button';
                 copy.addEventListener('click', function () {
-                    navigator.clipboard && navigator.clipboard.writeText(pair[1]);
-                    copy.textContent = '✓';
-                    setTimeout(function () { copy.textContent = 'Copy'; }, 1200);
+                    if (!navigator.clipboard) { return; }
+                    navigator.clipboard.writeText(pair[1]).then(function () {
+                        copy.textContent = KT.t('copied');
+                        setTimeout(function () { copy.textContent = KT.t('copy'); }, 1200);
+                    }).catch(function () { KT.ui.toast(KT.t('error'), 'error'); });
                 });
                 row.appendChild(copy);
                 paths.appendChild(row);
             });
 
             q('ktSearchInput').value = info.name || '';
-            if (info.productionYear) { q('ktSearchYear').value = info.productionYear; }
-            loadBinding();
+            q('ktSearchYear').value = info.productionYear || '';
+            loadBinding(contextId, itemId);
             runSearch();
 
-            ApiClient.getItem(ApiClient.getCurrentUserId(), state.itemId).then(function (item) {
+            ApiClient.getItem(ApiClient.getCurrentUserId(), itemId).then(function (item) {
+                if (contextId !== state.contextRequestId || itemId !== state.itemId) { return; }
                 if (item.ImageTags && item.ImageTags.Primary) {
                     var poster = q('ktFinderPoster');
                     util.clear(poster);
                     var img = util.el('img');
                     img.alt = item.Name;
-                    img.src = ApiClient.getScaledImageUrl(item.Id, { type: 'Primary', maxWidth: 200, tag: item.ImageTags.Primary });
-                    poster.appendChild(img);
+                    var imageUrl = util.safeUrl(ApiClient.getScaledImageUrl(item.Id, { type: 'Primary', maxWidth: 200, tag: item.ImageTags.Primary }));
+                    if (imageUrl) { img.src = imageUrl; poster.appendChild(img); }
                 }
                 if (item.BackdropImageTags && item.BackdropImageTags.length) {
                     var backdrop = q('ktFinderBackdrop');
-                    backdrop.style.display = '';
-                    backdrop.style.backgroundImage = 'url("' +
-                        ApiClient.getScaledImageUrl(item.Id, { type: 'Backdrop', maxWidth: 1280, tag: item.BackdropImageTags[0] }) + '")';
+                    var backdropUrl = ApiClient.getScaledImageUrl(item.Id, { type: 'Backdrop', maxWidth: 1280, tag: item.BackdropImageTags[0] });
+                    backdrop.style.display = util.setBackgroundImage(backdrop, backdropUrl) ? '' : 'none';
                 }
             }).catch(function () { /* poster is optional */ });
         }).catch(function (error) {
-            q('ktFinderTitle').textContent = state.itemId;
+            if (contextId !== state.contextRequestId || itemId !== state.itemId) { return; }
+            q('ktBtnSearch').disabled = false;
+            q('ktFinderTitle').textContent = itemId;
             setSearchState(error.message || KT.t('error'), 'error');
         });
     }
 
-    function loadBinding() {
-        KT.api.get('Plugins/KometaThemes/Items/' + state.itemId + '/binding').then(function (data) {
+    function loadBinding(contextId, itemId) {
+        var expectedContext = contextId == null ? state.contextRequestId : contextId;
+        var expectedItemId = itemId || state.itemId;
+        KT.api.get('Plugins/KometaThemes/Items/' + encodeURIComponent(expectedItemId) + '/binding').then(function (data) {
+            if (expectedContext !== state.contextRequestId || expectedItemId !== state.itemId) { return; }
             state.currentBinding = data && data.hasBinding ? data : null;
             renderBinding();
         }).catch(function () {
+            if (expectedContext !== state.contextRequestId || expectedItemId !== state.itemId) { return; }
             state.currentBinding = null;
             renderBinding();
         });
@@ -182,7 +198,7 @@
         var remove = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', KT.t('removeBinding'));
         remove.type = 'button';
         remove.addEventListener('click', function () {
-            KT.api.del('Plugins/KometaThemes/Bindings/' + state.itemId).then(function () {
+            KT.api.del('Plugins/KometaThemes/Bindings/' + encodeURIComponent(state.itemId)).then(function () {
                 state.currentBinding = null;
                 renderBinding();
                 KT.ui.toast(KT.t('bindingRemoved'), 'success');
@@ -202,7 +218,7 @@
             return;
         }
 
-        KT.api.post('Plugins/KometaThemes/Bindings/' + state.itemId, {
+        KT.api.post('Plugins/KometaThemes/Bindings/' + encodeURIComponent(state.itemId), {
             animeId: state.selectedAnimeId,
             animeName: state.selectedAnimeName || '',
             slug: state.selectedAnimeSlug || '',
@@ -228,16 +244,20 @@
     function runSearch() {
         var title = q('ktSearchInput').value.trim();
         if (!title) { return; }
+        var requestId = ++state.searchRequestId;
+        var itemId = state.itemId;
         var year = q('ktSearchYear').value;
+        q('ktBtnSearch').disabled = true;
         setSearchState(KT.t('searching'), 'loading');
         setStep(1);
         clearDetail();
 
         var url = 'Plugins/KometaThemes/Search?title=' + encodeURIComponent(title) +
             (year ? '&year=' + encodeURIComponent(year) : '') +
-            '&itemId=' + encodeURIComponent(state.itemId);
+            '&itemId=' + encodeURIComponent(itemId);
 
         KT.api.get(url).then(function (data) {
+            if (requestId !== state.searchRequestId || itemId !== state.itemId) { return; }
             state.results = data.results || [];
             state.broadResults = data.broadResults || [];
             renderResults();
@@ -248,7 +268,11 @@
                 setStep(2);
             }
         }).catch(function (error) {
-            setSearchState(KT.t('searchFailed') + ': ' + (error.message || ''), 'error');
+            if (requestId === state.searchRequestId && itemId === state.itemId) {
+                setSearchState(KT.t('searchFailed') + ': ' + (error.message || ''), 'error');
+            }
+        }).finally(function () {
+            if (requestId === state.searchRequestId && itemId === state.itemId) { q('ktBtnSearch').disabled = false; }
         });
     }
 
@@ -266,11 +290,13 @@
         btn.setAttribute('role', 'option');
         btn.setAttribute('aria-selected', 'false');
         var poster = util.el('div', 'kt-poster');
-        if (result.imageUrl) {
+        var imageUrl = util.safeUrl(result.imageUrl);
+        if (imageUrl) {
             var img = util.el('img');
             img.loading = 'lazy';
             img.alt = result.name;
-            img.src = result.imageUrl;
+            img.referrerPolicy = 'no-referrer';
+            img.src = imageUrl;
             poster.appendChild(img);
         } else {
             poster.appendChild(util.el('div', 'kt-poster-ph', '?'));
@@ -486,6 +512,7 @@
     function clearDetail() {
         /* clears the currently-shown anime detail but NOT state.selected —
            selections persist across results so the user can pick from multiple seasons. */
+        state.detailRequestId++;
         state.selectedAnimeId = null;
         state.selectedAnimeName = null;
         state.themes = [];
@@ -503,6 +530,7 @@
             node.classList.toggle('selected', node.dataset.animeId === String(result.id));
         });
         clearDetail();
+        var requestId = ++state.detailRequestId;
         state.selectedAnimeId = result.id;
         q('ktDetailEmpty').style.display = 'none';
         var groupsHost = q('ktSeasonGroups');
@@ -515,7 +543,7 @@
         if (result.slug) { url += '&slug=' + encodeURIComponent(result.slug); }
 
         KT.api.get(url).then(function (data) {
-            if (state.selectedAnimeId !== result.id) { return; }
+            if (requestId !== state.detailRequestId || state.selectedAnimeId !== result.id) { return; }
             var anime = data.anime || result;
             state.selectedAnimeName = anime.name || result.name || '';
             state.selectedAnimeSlug = anime.slug || result.slug || '';
@@ -527,6 +555,7 @@
             updateSelBar();
             setStep(3);
         }).catch(function (error) {
+            if (requestId !== state.detailRequestId) { return; }
             util.clear(groupsHost);
             var fail = util.el('div', 'kt-card');
             fail.appendChild(util.el('p', 'kt-state error', error.message || KT.t('error')));
@@ -546,10 +575,11 @@
         q('ktAnimeSynopsis').textContent = (anime.synopsis || '').replace(/<[^>]*>/g, '');
         var poster = q('ktAnimePoster');
         util.clear(poster);
-        var image = anime.largeImageUrl || anime.imageUrl;
+        var image = util.safeUrl(anime.largeImageUrl || anime.imageUrl);
         if (image) {
             var img = util.el('img');
             img.alt = anime.name;
+            img.referrerPolicy = 'no-referrer';
             img.src = image;
             poster.appendChild(img);
         } else {
@@ -561,7 +591,7 @@
        URLs are globally unique, so selections survive switching between results/seasons. */
 
     function mediaUrl(theme, mediaType) {
-        return mediaType === 'video' ? theme.videoUrl : theme.audioUrl;
+        return util.safeUrl(mediaType === 'video' ? theme.videoUrl : theme.audioUrl);
     }
 
     function themeName(theme) {
@@ -573,8 +603,8 @@
     }
 
     function isAvailable(theme, mediaType) {
-        if (mediaType === 'audio') { return !!theme.audioUrl && !theme.audioDownloaded; }
-        return !!theme.videoUrl && !theme.videoDownloaded;
+        if (mediaType === 'audio') { return !!mediaUrl(theme, mediaType) && !theme.audioDownloaded; }
+        return !!mediaUrl(theme, mediaType) && !theme.videoDownloaded;
     }
 
     function setSelected(theme, mediaType, selected) {
@@ -617,7 +647,8 @@
 
         var actions = util.el('div', 'kt-theme-actions');
         ['audio', 'video'].forEach(function (mediaType) {
-            var url = mediaType === 'audio' ? theme.audioUrl : theme.videoUrl;
+            if (!state.filters[mediaType]) { return; }
+            var url = mediaUrl(theme, mediaType);
             if (!url) { return; }
             var downloaded = mediaType === 'audio' ? theme.audioDownloaded : theme.videoDownloaded;
 
@@ -633,6 +664,7 @@
             var toggle = util.el('button', 'kt-media-toggle ' + mediaType, KT.t(mediaType));
             toggle.type = 'button';
             toggle.dataset.url = url;
+            toggle.setAttribute('aria-pressed', state.selected[url] ? 'true' : 'false');
             if (downloaded) {
                 toggle.classList.add('downloaded');
                 toggle.textContent = KT.t(mediaType) + ' ✓';
@@ -644,6 +676,7 @@
                     var nowSelected = !state.selected[url];
                     if (setSelected(theme, mediaType, nowSelected)) {
                         toggle.classList.toggle('on', nowSelected);
+                        toggle.setAttribute('aria-pressed', nowSelected ? 'true' : 'false');
                         updateSelBar();
                     }
                 });
@@ -671,13 +704,14 @@
 
     function matchesFilters(theme) {
         var f = state.filters || { audio: true, video: true, op: true, ed: true, creditless: false };
-        var t = String(theme.type || '').toUpperCase();
-        var isAudio = true; // theme rows contain both; we filter at display level by type buttons
-        // For simplicity, the filters control which type rows are shown. The row itself decides.
-        if (f.creditless && !theme.creditless) return false;
-        if (!f.op && t === 'OP') return false;
-        if (!f.ed && t === 'ED') return false;
-        return true;
+        var type = String(theme.type || '').toUpperCase();
+        if (f.creditless && !theme.creditless) { return false; }
+        if (!f.op && type === 'OP') { return false; }
+        if (!f.ed && type === 'ED') { return false; }
+        if (!f.audio && !f.video) { return false; }
+        var hasAudio = !!theme.audioUrl || !!theme.audioDownloaded;
+        var hasVideo = !!theme.videoUrl || !!theme.videoDownloaded;
+        return (f.audio && hasAudio) || (f.video && hasVideo);
     }
 
     function getFilteredThemesForGroup(groupThemes) {
@@ -710,27 +744,34 @@
 
         types.forEach(function (item) {
             var btn = util.el('button', 'kt-btn kt-btn-sm kt-filter-btn', item.label);
+            btn.type = 'button';
             btn.dataset.filterKey = item.key;
+            btn.setAttribute('aria-pressed', state.filters[item.key] ? 'true' : 'false');
             if (state.filters[item.key]) btn.classList.add('on');
             btn.addEventListener('click', function () {
                 state.filters[item.key] = !state.filters[item.key];
                 btn.classList.toggle('on', state.filters[item.key]);
+                btn.setAttribute('aria-pressed', state.filters[item.key] ? 'true' : 'false');
                 renderSeasonGroups();
             });
             bar.appendChild(btn);
         });
 
         var credit = util.el('button', 'kt-btn kt-btn-sm kt-filter-btn', KT.t('filterCreditless'));
+        credit.type = 'button';
         credit.dataset.filterKey = 'creditless';
+        credit.setAttribute('aria-pressed', state.filters.creditless ? 'true' : 'false');
         if (state.filters.creditless) credit.classList.add('on');
         credit.addEventListener('click', function () {
             state.filters.creditless = !state.filters.creditless;
             credit.classList.toggle('on', state.filters.creditless);
+            credit.setAttribute('aria-pressed', state.filters.creditless ? 'true' : 'false');
             renderSeasonGroups();
         });
         bar.appendChild(credit);
 
         var clear = util.el('button', 'kt-btn kt-btn-sm kt-btn-ghost', KT.t('filterClear'));
+        clear.type = 'button';
         clear.addEventListener('click', function () {
             state.filters = { audio: true, video: true, op: true, ed: true, creditless: false };
             renderFiltersBar();
@@ -739,8 +780,9 @@
         bar.appendChild(clear);
 
         var selVis = util.el('button', 'kt-btn kt-btn-sm', KT.t('filterAllVisible'));
+        selVis.type = 'button';
         selVis.addEventListener('click', function () {
-            // Select all currently visible
+            // Select all currently visible media, respecting Audio/Video filters.
             var visible = [];
             state.seasonGroups.forEach(function (g) {
                 (g.themes || []).forEach(function (gt) {
@@ -748,9 +790,9 @@
                     if (full && matchesFilters(full)) visible.push(full);
                 });
             });
-            visible.forEach(function (th) {
-                setSelected(th, 'audio', true);
-                setSelected(th, 'video', true);
+            visible.forEach(function (theme) {
+                if (state.filters.audio) { setSelected(theme, 'audio', true); }
+                if (state.filters.video) { setSelected(theme, 'video', true); }
             });
             syncToggleVisuals();
             updateSelBar();
@@ -792,14 +834,20 @@
                 'OP ' + (group.opCount != null ? group.opCount : '·') + ' / ED ' + (group.edCount != null ? group.edCount : '·'));
             summary.appendChild(counts);
 
-            // Per-group bulk actions (enhancement for season grouping UX)
+            // Per-group bulk actions, aligned with the active media filters.
             var bulk = util.el('span', 'kt-group-bulk');
-            var ba = util.el('button', 'kt-btn kt-btn-xs', 'audio');
-            ba.addEventListener('click', function (e) { e.stopPropagation(); selectGroup(group, 'audio'); });
-            bulk.appendChild(ba);
-            var bv = util.el('button', 'kt-btn kt-btn-xs', 'video');
-            bv.addEventListener('click', function (e) { e.stopPropagation(); selectGroup(group, 'video'); });
-            bulk.appendChild(bv);
+            if (state.filters.audio) {
+                var ba = util.el('button', 'kt-btn kt-btn-xs', KT.t('audio'));
+                ba.type = 'button';
+                ba.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); selectGroup(group, 'audio'); });
+                bulk.appendChild(ba);
+            }
+            if (state.filters.video) {
+                var bv = util.el('button', 'kt-btn kt-btn-xs', KT.t('video'));
+                bv.type = 'button';
+                bv.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); selectGroup(group, 'video'); });
+                bulk.appendChild(bv);
+            }
             summary.appendChild(bulk);
 
             details.appendChild(summary);
@@ -834,6 +882,12 @@
             extra.appendChild(list);
             host.appendChild(extra);
         }
+
+        if (!host.querySelector('.kt-theme')) {
+            var empty = util.el('div', 'kt-empty');
+            empty.appendChild(util.el('p', 'kt-note', KT.t('noVisibleThemes')));
+            host.appendChild(empty);
+        }
     }
 
     /* ---- selection bar + download ---- */
@@ -857,7 +911,9 @@
     function syncToggleVisuals() {
         state.page.querySelectorAll('#ktSeasonGroups .kt-media-toggle[data-url]').forEach(function (toggle) {
             if (toggle.disabled) { return; }
-            toggle.classList.toggle('on', !!state.selected[toggle.dataset.url]);
+            var selected = !!state.selected[toggle.dataset.url];
+            toggle.classList.toggle('on', selected);
+            toggle.setAttribute('aria-pressed', selected ? 'true' : 'false');
         });
     }
 
@@ -938,7 +994,7 @@
             var th = state.themes.find(function (t) {
                 return t.entryId === gt.entryId && t.videoId === gt.videoId && t.slug === gt.slug;
             });
-            if (th) {
+            if (th && matchesFilters(th)) {
                 setSelected(th, mediaType, true);
             }
         });
@@ -962,7 +1018,7 @@
         btn.textContent = KT.t('downloading');
         logLine(KT.t('downloading'), 'info');
 
-        KT.api.post('Plugins/KometaThemes/Items/' + state.itemId + '/download', {
+        KT.api.post('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/download', {
             urls: items,
             animeId: state.selectedAnimeId,
             animeName: state.selectedAnimeName || '',
@@ -1005,6 +1061,12 @@
         var itemId = util.getItemId();
         var itemChanged = itemId !== state.itemId;
         state.itemId = itemId;
+        if (itemChanged) {
+            state.contextRequestId++;
+            state.searchRequestId++;
+            state.detailRequestId++;
+            state.itemInfo = null;
+        }
 
         KT.config.load().catch(function () { return null; }).then(function () {
             KT.i18n.apply(page);
@@ -1039,7 +1101,7 @@
                     var clr = util.el('button', 'kt-search-clear', '✕');
                     clr.id = 'ktSearchClear';
                     clr.type = 'button';
-                    clr.setAttribute('aria-label', 'Clear search input');
+                    clr.setAttribute('aria-label', KT.t('filterClear'));
                     clr.addEventListener('click', function () {
                         si.value = '';
                         si.focus();
@@ -1065,7 +1127,20 @@
             }
 
             if (hasItem && itemChanged) {
+                state.currentBinding = null;
+                state.results = [];
+                state.broadResults = [];
                 state.selected = {};
+                q('ktBtnSearch').disabled = false;
+                q('ktResultsCard').style.display = 'none';
+                q('ktSearchYear').value = '';
+                var poster = q('ktFinderPoster');
+                util.clear(poster);
+                poster.appendChild(util.el('div', 'kt-poster-ph', '♪'));
+                var backdrop = q('ktFinderBackdrop');
+                backdrop.style.display = 'none';
+                backdrop.style.backgroundImage = '';
+                renderBinding();
                 clearDetail();
                 setStep(1);
                 loadItemContext();

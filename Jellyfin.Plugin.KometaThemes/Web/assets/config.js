@@ -252,6 +252,7 @@
         failed: [],
         bindings: [],
         poller: null,
+        saving: false,
         logTab: 'server',
         logFetchedAt: 0
     };
@@ -797,6 +798,10 @@
     }
 
     function save() {
+        if (state.saving) { return; }
+        state.saving = true;
+        q('ktBtnSave').disabled = true;
+        q('ktBtnDiscard').disabled = true;
         KT.ui.loading(true);
         ApiClient.getPluginConfiguration(KT.GUID).then(function (config) {
             state.fields.forEach(function (field) { setPath(config, field.path, field.read()); });
@@ -805,13 +810,16 @@
         }).then(function (config) {
             state.config = config;
             KT.i18n.setLang(config.UiLanguage || 'en');
-            KT.ui.loading(false);
             KT.ui.toast(KT.t('saved'), 'success');
             state.loadedSnapshot = snapshot();
             updateDirty();
         }).catch(function (error) {
-            KT.ui.loading(false);
             KT.ui.toast(KT.t('saveFailed') + ': ' + (error.message || ''), 'error');
+        }).finally(function () {
+            state.saving = false;
+            q('ktBtnSave').disabled = false;
+            q('ktBtnDiscard').disabled = false;
+            KT.ui.loading(false);
         });
     }
 
@@ -1067,19 +1075,44 @@
 
     /* ---- tabs ---- */
 
-    function selectTab(name) {
+    function selectTab(name, focusTab) {
         state.page.querySelectorAll('.kt-tab').forEach(function (tab) {
-            tab.setAttribute('aria-selected', tab.dataset.panel === name ? 'true' : 'false');
+            var selected = tab.dataset.panel === name;
+            tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+            tab.tabIndex = selected ? 0 : -1;
+            if (selected && focusTab) { tab.focus(); }
         });
         state.page.querySelectorAll('.kt-panel').forEach(function (panel) {
-            panel.classList.toggle('active', panel.dataset.panel === name);
+            var selected = panel.dataset.panel === name;
+            panel.classList.toggle('active', selected);
+            panel.hidden = !selected;
         });
     }
 
     function bindTabs() {
-        state.page.querySelectorAll('.kt-tab').forEach(function (tab) {
-            tab.addEventListener('click', function () { selectTab(tab.dataset.panel); });
+        var tabs = Array.prototype.slice.call(state.page.querySelectorAll('.kt-tab'));
+        tabs.forEach(function (tab, index) {
+            var panel = state.page.querySelector('.kt-panel[data-panel="' + tab.dataset.panel + '"]');
+            tab.id = 'ktTab-' + tab.dataset.panel;
+            if (panel) {
+                panel.setAttribute('role', 'tabpanel');
+                panel.setAttribute('aria-labelledby', tab.id);
+                tab.setAttribute('aria-controls', panel.id);
+            }
+            tab.addEventListener('click', function () { selectTab(tab.dataset.panel, false); });
+            tab.addEventListener('keydown', function (event) {
+                var next = index;
+                if (event.key === 'ArrowRight') { next = (index + 1) % tabs.length; }
+                else if (event.key === 'ArrowLeft') { next = (index - 1 + tabs.length) % tabs.length; }
+                else if (event.key === 'Home') { next = 0; }
+                else if (event.key === 'End') { next = tabs.length - 1; }
+                else { return; }
+                event.preventDefault();
+                selectTab(tabs[next].dataset.panel, true);
+            });
         });
+        var active = tabs.filter(function (tab) { return tab.getAttribute('aria-selected') === 'true'; })[0];
+        selectTab(active ? active.dataset.panel : tabs[0].dataset.panel, false);
     }
 
     function bindCacheTile() {
@@ -1087,10 +1120,10 @@
         tile.classList.add('kt-stat-link');
         tile.setAttribute('role', 'button');
         tile.tabIndex = 0;
-        tile.title = KT.t('tabFailed');
-        tile.addEventListener('click', function () { selectTab('failed'); });
-        tile.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTab('failed'); }
+        tile.title = KT.t('tabProviders');
+        tile.addEventListener('click', function () { selectTab('providers'); });
+        tile.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectTab('providers', true); }
         });
     }
 
@@ -1103,7 +1136,7 @@
         q('ktBtnSyncNow').textContent = KT.t('syncNow');
         q('ktBtnForceSync').textContent = KT.t('forceSync');
         q('ktBtnToggleLog').textContent = KT.t('toggleLog');
-        q('ktStatCache').parentElement.title = KT.t('tabFailed');
+        q('ktStatCache').parentElement.title = KT.t('tabProviders');
     }
 
     function buildAllPanels() {

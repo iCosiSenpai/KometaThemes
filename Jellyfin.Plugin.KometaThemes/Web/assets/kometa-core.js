@@ -7,7 +7,7 @@
 
     // Guard against double-loading the exact same version of core.
     // Bump this string on every meaningful change to kometa-core.js (keeps in sync with Directory.Build.props + HTML V=).
-    var CURRENT_VERSION = '1.0.5.1';
+    var CURRENT_VERSION = '1.0.6.0';
     if (window.KT && window.KT.VERSION === CURRENT_VERSION) { return; }
 
     var KT = {
@@ -17,6 +17,15 @@
     };
 
     /* ---------------- util ---------------- */
+
+    var TRUSTED_REMOTE_SUFFIXES = ['animethemes.moe'];
+
+    function isTrustedRemoteHost(hostname) {
+        var host = String(hostname || '').toLowerCase().replace(/\.$/, '');
+        return TRUSTED_REMOTE_SUFFIXES.some(function (suffix) {
+            return host === suffix || host.slice(-(suffix.length + 1)) === '.' + suffix;
+        });
+    }
 
     var util = {
         esc: function (value) {
@@ -29,6 +38,27 @@
             if (className) { node.className = className; }
             if (text != null) { node.textContent = text; }
             return node;
+        },
+        /* Only same-origin HTTP(S) resources or HTTPS resources from the
+           AnimeThemes domain family may be assigned to media/image attributes. */
+        safeUrl: function (value) {
+            if (!value) { return null; }
+            try {
+                var parsed = new URL(String(value), window.location.href);
+                var sameOrigin = parsed.origin === window.location.origin;
+                var protocolAllowed = parsed.protocol === 'https:' || (sameOrigin && parsed.protocol === 'http:');
+                var hostAllowed = sameOrigin || isTrustedRemoteHost(parsed.hostname);
+                if (protocolAllowed && hostAllowed && !parsed.username && !parsed.password) {
+                    return parsed.href;
+                }
+            } catch (e) { /* invalid URL */ }
+            return null;
+        },
+        setBackgroundImage: function (node, value) {
+            var safe = util.safeUrl(value);
+            if (!node || !safe) { return false; }
+            node.style.backgroundImage = 'url("' + safe.replace(/"/g, '%22') + '")';
+            return true;
         },
         clear: function (node) {
             while (node && node.firstChild) { node.removeChild(node.firstChild); }
@@ -85,6 +115,17 @@
         return path;
     }
 
+    function responseError(payload, status) {
+        var message = payload && typeof payload === 'object' && (payload.error || payload.message || payload.title);
+        if (!message && typeof payload === 'string' && payload.indexOf('<') === -1) { message = payload; }
+        message = String(message || ('HTTP ' + status)).replace(/[\r\n\t]+/g, ' ').trim();
+        if (message.length > 500) { message = message.slice(0, 497) + '...'; }
+        var error = new Error(message);
+        error.status = status;
+        error.payload = payload;
+        return error;
+    }
+
     function request(method, path, body) {
         var headers = { Accept: 'application/json' };
         var auth = authHeader();
@@ -95,18 +136,10 @@
             options.body = JSON.stringify(body);
         }
         return fetch(apiUrl(path), options).then(function (response) {
-            var isJson = (response.headers.get('Content-Type') || '').indexOf('json') > -1;
+            var isJson = (response.headers.get('Content-Type') || '').toLowerCase().indexOf('json') > -1;
             if (!response.ok) {
                 return (isJson ? response.json() : response.text()).catch(function () { return null; })
-                    .then(function (payload) {
-                        var message = (payload && (payload.error || payload.message)) ||
-                            (typeof payload === 'string' && payload) ||
-                            ('HTTP ' + response.status);
-                        var error = new Error(message);
-                        error.status = response.status;
-                        error.payload = payload;
-                        throw error;
-                    });
+                    .then(function (payload) { throw responseError(payload, response.status); });
             }
             if (response.status === 204 || !isJson) { return null; }
             return response.json();
@@ -169,7 +202,9 @@
             downloadedCount: 'Downloaded', failed: 'Failed', skipped: 'Skipped',
             idle: 'Idle', never: 'Never', unsavedChanges: 'Unsaved changes',
             confirmTitle: 'Are you sure?', themeFinder: 'Theme Finder',
-            openThemeFinder: 'Open Theme Finder', settings: 'Settings',
+            openThemeFinder: 'Open Theme Finder', settings: 'Settings', copy: 'Copy', copied: 'Copied',
+            supportLabel: 'Enjoying KometaThemes? Support its development.', supportCoffee: 'Buy me a coffee', supportPayPal: 'Donate with PayPal',
+            invalidRemoteUrl: 'Blocked an invalid or insecure remote URL',
             dotIdle: 'No sync running', dotRunning: 'Sync in progress', dotError: 'Last sync failed'
         },
         it: {
@@ -184,7 +219,9 @@
             downloadedCount: 'Scaricati', failed: 'Falliti', skipped: 'Saltati',
             idle: 'Inattivo', never: 'Mai', unsavedChanges: 'Modifiche non salvate',
             confirmTitle: 'Sei sicuro?', themeFinder: 'Theme Finder',
-            openThemeFinder: 'Apri Theme Finder', settings: 'Impostazioni',
+            openThemeFinder: 'Apri Theme Finder', settings: 'Impostazioni', copy: 'Copia', copied: 'Copiato',
+            supportLabel: 'KometaThemes ti è utile? Supporta lo sviluppo.', supportCoffee: 'Offrimi un caffè', supportPayPal: 'Dona con PayPal',
+            invalidRemoteUrl: 'URL remoto non valido o non sicuro bloccato',
             dotIdle: 'Nessun sync in corso', dotRunning: 'Sync in corso', dotError: 'Ultimo sync fallito'
         }
     };
@@ -233,9 +270,12 @@
         var host = document.querySelector('.kt-toast-host');
         if (!host) {
             host = util.el('div', 'kt-toast-host');
+            host.setAttribute('aria-live', 'polite');
+            host.setAttribute('aria-atomic', 'false');
             document.body.appendChild(host);
         }
         var toast = util.el('div', 'kt-toast' + (type ? ' ' + type : ''), message);
+        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
         host.appendChild(toast);
         setTimeout(function () {
             toast.classList.add('leaving');
@@ -245,9 +285,17 @@
 
     ui.confirm = function (message, title) {
         return new Promise(function (resolve) {
+            var previouslyFocused = document.activeElement;
             var veil = util.el('div', 'kt-modal-veil');
             var modal = util.el('div', 'kt-modal kt-page');
-            modal.appendChild(util.el('h3', null, title || KT.t('confirmTitle')));
+            var titleId = 'kt-modal-title-' + Date.now();
+            var heading = util.el('h3', null, title || KT.t('confirmTitle'));
+            heading.id = titleId;
+            modal.setAttribute('role', 'alertdialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', titleId);
+            modal.tabIndex = -1;
+            modal.appendChild(heading);
             if (typeof message === 'string') {
                 modal.appendChild(util.el('p', null, message));
             } else if (Array.isArray(message)) {
@@ -264,12 +312,40 @@
             row.appendChild(btnOk);
             modal.appendChild(row);
             veil.appendChild(modal);
-            function done(value) { veil.remove(); resolve(value); }
+
+            function onKeyDown(event) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    done(false);
+                    return;
+                }
+                if (event.key !== 'Tab') { return; }
+                var focusable = modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]');
+                if (!focusable.length) { event.preventDefault(); modal.focus(); return; }
+                var first = focusable[0];
+                var last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault(); last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault(); first.focus();
+                }
+            }
+
+            function done(value) {
+                document.removeEventListener('keydown', onKeyDown, true);
+                veil.remove();
+                if (previouslyFocused && previouslyFocused.isConnected && previouslyFocused.focus) {
+                    previouslyFocused.focus();
+                }
+                resolve(value);
+            }
+
             btnCancel.addEventListener('click', function () { done(false); });
             btnOk.addEventListener('click', function () { done(true); });
-            veil.addEventListener('click', function (e) { if (e.target === veil) { done(false); } });
+            veil.addEventListener('click', function (event) { if (event.target === veil) { done(false); } });
+            document.addEventListener('keydown', onKeyDown, true);
             document.body.appendChild(veil);
-            btnOk.focus();
+            btnCancel.focus();
         });
     };
 
@@ -403,6 +479,12 @@
         }
 
         function open(url, mediaType, title, preferredVolume) {
+            var safeUrl = util.safeUrl(url);
+            if (!safeUrl) {
+                ui.toast(KT.t('invalidRemoteUrl'), 'error');
+                return;
+            }
+            url = safeUrl;
             close();
             var panel = util.el('div', 'kt-player kt-page');
             var head = util.el('div', 'kt-player-head');
@@ -418,7 +500,7 @@
             var link = util.el('a', 'kt-player-link', '↗');
             link.href = url;
             link.target = '_blank';
-            link.rel = 'noopener';
+            link.rel = 'noopener noreferrer';
             link.title = 'Open on source';
             link.addEventListener('click', function (ev) { ev.stopImmediatePropagation(); });
 
@@ -432,6 +514,7 @@
             media.controls = true;
             media.autoplay = true;
             media.preload = 'metadata';
+            media.referrerPolicy = 'no-referrer';
             media.src = url;
             var vol = (typeof preferredVolume === 'number' && preferredVolume > 0) ? preferredVolume : lastVolume;
             media.volume = Math.min(1, Math.max(0, vol));

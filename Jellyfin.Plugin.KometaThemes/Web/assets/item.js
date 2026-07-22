@@ -65,7 +65,7 @@
         { key: 'AllOPEDAudioVideo', label: 'presetOPEDVideo' }
     ];
 
-    var state = { page: null, itemId: null, poller: null };
+    var state = { page: null, itemId: null, poller: null, requestId: 0, busy: false };
 
     function q(id) { return state.page.querySelector('#' + id); }
 
@@ -75,10 +75,20 @@
         node.className = 'kt-state' + (type ? ' ' + type : '');
     }
 
+    function setBusy(value) {
+        state.busy = !!value;
+        ['ktBtnSyncItem', 'ktBtnRefresh', 'ktBtnDeleteAll'].forEach(function (id) {
+            var button = q(id);
+            if (button) { button.disabled = state.busy; }
+        });
+    }
+
     /* ---- item identity ---- */
 
     function loadIdentity() {
-        ApiClient.getItem(ApiClient.getCurrentUserId(), state.itemId).then(function (item) {
+        var itemId = state.itemId;
+        ApiClient.getItem(ApiClient.getCurrentUserId(), itemId).then(function (item) {
+            if (itemId !== state.itemId) { return; }
             q('ktItemTitle').textContent = item.Name;
             var chips = q('ktItemChips');
             util.clear(chips);
@@ -91,17 +101,16 @@
                 util.clear(poster);
                 var img = util.el('img');
                 img.alt = item.Name;
-                img.src = ApiClient.getScaledImageUrl(item.Id, { type: 'Primary', maxWidth: 200, tag: item.ImageTags.Primary });
-                poster.appendChild(img);
+                var imageUrl = util.safeUrl(ApiClient.getScaledImageUrl(item.Id, { type: 'Primary', maxWidth: 200, tag: item.ImageTags.Primary }));
+                if (imageUrl) { img.src = imageUrl; poster.appendChild(img); }
             }
             if (item.BackdropImageTags && item.BackdropImageTags.length) {
                 var backdrop = q('ktItemBackdrop');
-                backdrop.style.display = '';
-                backdrop.style.backgroundImage = 'url("' +
-                    ApiClient.getScaledImageUrl(item.Id, { type: 'Backdrop', maxWidth: 1280, tag: item.BackdropImageTags[0] }) + '")';
+                var backdropUrl = ApiClient.getScaledImageUrl(item.Id, { type: 'Backdrop', maxWidth: 1280, tag: item.BackdropImageTags[0] });
+                backdrop.style.display = util.setBackgroundImage(backdrop, backdropUrl) ? '' : 'none';
             }
         }).catch(function () {
-            q('ktItemTitle').textContent = state.itemId;
+            if (itemId === state.itemId) { q('ktItemTitle').textContent = itemId; }
         });
     }
 
@@ -131,7 +140,7 @@
     function loadRegistration() {
         var banner = q('ktRegBanner');
         util.clear(banner);
-        KT.api.get('Plugins/KometaThemes/Items/' + state.itemId + '/info').then(function (info) {
+        KT.api.get('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/info').then(function (info) {
             var status = info && info.themeStatus;
             if (!status) { return; }
             var disk = status.songsOnDisk + status.videosOnDisk;
@@ -157,7 +166,7 @@
 
     function repairLinks() {
         KT.ui.loading(true);
-        KT.api.post('Plugins/KometaThemes/Items/' + state.itemId + '/repair').then(function (result) {
+        KT.api.post('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/repair').then(function (result) {
             KT.ui.loading(false);
             KT.ui.toast(KT.t('repaired', {
                 repaired: result.repaired,
@@ -178,7 +187,7 @@
         var existing = state.page.querySelector('.kt-binding-banner');
         if (existing) { existing.remove(); }
         if (!state.itemId) { return; }
-        KT.api.get('Plugins/KometaThemes/Items/' + state.itemId + '/binding').then(function (data) {
+        KT.api.get('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/binding').then(function (data) {
             if (!data || !data.hasBinding) { return; }
             var banner = util.el('div', 'kt-binding-banner');
             banner.appendChild(util.el('span', 'kt-badge success', KT.t('manualBinding', { anime: data.animeName })));
@@ -192,11 +201,14 @@
     /* ---- theme list ---- */
 
     function loadThemes() {
+        var requestId = ++state.requestId;
+        var itemId = state.itemId;
         var list = q('ktThemesList');
         util.clear(list);
         list.appendChild(util.el('div', 'kt-theme')).appendChild(util.el('div', 'kt-skel', '')).style.minHeight = '30px';
 
-        KT.api.get('Plugins/KometaThemes/Items/' + state.itemId + '/themes').then(function (themes) {
+        KT.api.get('Plugins/KometaThemes/Items/' + encodeURIComponent(itemId) + '/themes').then(function (themes) {
+            if (requestId !== state.requestId || itemId !== state.itemId) { return; }
             util.clear(list);
             themes = themes || [];
             q('ktThemesCount').textContent = String(themes.length);
@@ -235,13 +247,15 @@
                 del.addEventListener('click', function () {
                     KT.ui.confirm(KT.t('confirmDelete', { name: theme.FileName })).then(function (ok) {
                         if (!ok) { return; }
-                        KT.api.del('Plugins/KometaThemes/Items/' + state.itemId + '/themes?fileName=' + encodeURIComponent(theme.FileName))
+                        del.disabled = true;
+                        KT.api.del('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/themes?fileName=' + encodeURIComponent(theme.FileName))
                             .then(function () {
                                 KT.ui.toast(KT.t('themesDeleted'), 'success');
                                 loadThemes();
                                 loadRegistration();
                             })
-                            .catch(function (error) { KT.ui.toast(error.message || KT.t('error'), 'error'); });
+                            .catch(function (error) { KT.ui.toast(error.message || KT.t('error'), 'error'); })
+                            .finally(function () { del.disabled = false; });
                     });
                 });
                 actions.appendChild(del);
@@ -249,6 +263,7 @@
                 list.appendChild(row);
             });
         }).catch(function (error) {
+            if (requestId !== state.requestId || itemId !== state.itemId) { return; }
             util.clear(list);
             var fail = util.el('div', 'kt-theme');
             fail.appendChild(util.el('p', 'kt-state error', error.message || KT.t('error')));
@@ -259,31 +274,37 @@
     /* ---- actions ---- */
 
     function syncItem() {
+        if (state.busy) { return; }
+        setBusy(true);
         setState(KT.t('syncRunning'));
         KT.ui.loading(true);
-        KT.api.post('Plugins/KometaThemes/Items/' + state.itemId + '/sync').then(function (data) {
-            KT.ui.loading(false);
+        KT.api.post('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/sync').then(function (data) {
             setState((data && data.message) || KT.t('syncCompleted'), 'success');
             loadThemes();
             loadRegistration();
         }).catch(function (error) {
-            KT.ui.loading(false);
             setState(error.message || KT.t('error'), 'error');
+        }).finally(function () {
+            setBusy(false);
+            KT.ui.loading(false);
         });
     }
 
     function deleteAll() {
+        if (state.busy) { return; }
         KT.ui.confirm(KT.t('confirmDeleteAll')).then(function (ok) {
             if (!ok) { return; }
+            setBusy(true);
             KT.ui.loading(true);
-            KT.api.del('Plugins/KometaThemes/Items/' + state.itemId + '/themes').then(function () {
-                KT.ui.loading(false);
+            KT.api.del('Plugins/KometaThemes/Items/' + encodeURIComponent(state.itemId) + '/themes').then(function () {
                 KT.ui.toast(KT.t('themesDeleted'), 'success');
                 loadThemes();
                 loadRegistration();
             }).catch(function (error) {
-                KT.ui.loading(false);
                 KT.ui.toast(error.message || KT.t('error'), 'error');
+            }).finally(function () {
+                setBusy(false);
+                KT.ui.loading(false);
             });
         });
     }
@@ -329,7 +350,21 @@
 
     function show(page) {
         state.page = page;
-        state.itemId = util.getItemId();
+        var nextItemId = util.getItemId();
+        var itemChanged = nextItemId !== state.itemId;
+        state.itemId = nextItemId;
+        if (itemChanged) {
+            state.requestId++;
+            setState('');
+            var poster = q('ktItemPoster');
+            util.clear(poster);
+            poster.appendChild(util.el('div', 'kt-poster-ph', '♪'));
+            var backdrop = q('ktItemBackdrop');
+            backdrop.style.display = 'none';
+            backdrop.style.backgroundImage = '';
+            var warning = q('ktEligibilityWarning');
+            if (warning) { warning.remove(); }
+        }
 
         KT.config.load().catch(function () { return null; }).then(function () {
             KT.i18n.apply(page);
