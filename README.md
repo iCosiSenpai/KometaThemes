@@ -1,221 +1,302 @@
-# KometaThemes
+<div align="center">
+  <img src="assets/banner-readme-plugin.png" alt="KometaThemes for Jellyfin" width="100%" />
 
-![KometaThemes Banner](assets/banner-readme-plugin.png)
+  # KometaThemes for Jellyfin
 
-<p align="center">
-  <a href="https://github.com/iCosiSenpai/KometaThemes/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/iCosiSenpai/KometaThemes?label=release&color=00a4dc"></a>
-  <img alt="Jellyfin" src="https://img.shields.io/badge/Jellyfin-10.11.x-7c5cff">
-  <img alt=".NET" src="https://img.shields.io/badge/.NET-9.0-512bd4">
-  <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-green">
-</p>
+  **English** · [Italiano](README.it.md)
 
-<p align="center">
-  <a href="https://www.buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="46"></a>
-  &nbsp;
-  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif"></a>
-</p>
+  [![GitHub Release](https://img.shields.io/github/v/release/iCosiSenpai/KometaThemes?style=flat-square&color=00a4dc)](https://github.com/iCosiSenpai/KometaThemes/releases)
+  [![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11.x-7c5cff?style=flat-square)](https://jellyfin.org/)
+  [![.NET](https://img.shields.io/badge/.NET-9.0-512bd4?style=flat-square)](https://dotnet.microsoft.com/)
+  [![CI](https://img.shields.io/github/actions/workflow/status/iCosiSenpai/KometaThemes/ci.yml?branch=main&style=flat-square&label=build%20%26%20tests)](https://github.com/iCosiSenpai/KometaThemes/actions/workflows/ci.yml)
+  [![License](https://img.shields.io/github/license/iCosiSenpai/KometaThemes?style=flat-square)](LICENSE)
 
-Anime openings and endings for [Jellyfin](https://jellyfin.org/), fetched automatically from [animethemes.moe](https://animethemes.moe). Multi-provider matching, multi-season handling, a guided Theme Finder UI, and first-class support for the Jellyfin 10.11.x theme playback quirks.
+  [![GitHub repository](https://img.shields.io/badge/GitHub-KometaThemes-181717?style=for-the-badge&logo=github)](https://github.com/iCosiSenpai/KometaThemes)
 
-> 🇮🇹 La versione italiana è più in basso — [vai alla sezione italiana](#-italiano).
+  <a href="https://buymeacoffee.com/iCosiSenpai">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Support iCosiSenpai on Buy Me a Coffee" height="50" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ">
+    <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate with PayPal" height="47" />
+  </a>
+</div>
 
----
+KometaThemes automatically finds and downloads anime openings and endings from [AnimeThemes](https://animethemes.moe/) for your Jellyfin library. It combines multi-provider matching, season-aware selection, a guided Theme Finder, per-item controls, resilient downloads, and an English/Italian administration interface.
 
-## Features
+> The documentation is split by language so GitHub displays only the language you choose. Use **English · Italiano** at the top of either README to switch instantly.
 
-- **Automatic theme sync** — OP/ED audio (MP3) and video (WebM) for Series and Movies, on a schedule, on library add, or on demand.
-- **Multi-provider resolution** — AniDB, AniList, MyAnimeList, Kitsu, AniSearch in configurable priority order, with a fuzzy title-search fallback (AnimeClick-friendly).
-- **Multi-season aware** — season detection via multilingual regex and episode-range mapping; `AllPerSeason` mode downloads every theme of the detected season as a separate file for Jellyfin rotation.
-- **Theme Finder** — guided 3-step wizard (search → pick anime → pick themes) with poster cards, audio/video preview, bulk selection and a live download log. Reachable from a ♪ button on every Series/Movie detail page.
-- **Per-item management** — per-item page with downloaded/missing badges, one-click sync, delete, and **link repair** for the Jellyfin 10.11.x bug where theme files end up detached from their item (`ThemeLinkRepairService`).
-- **Unresolved tracking** — items that fail to match or download land in a dedicated dashboard tab with per-item **Retry** and **Blacklist** actions; the cache tile links straight to it.
-- **Activity log** — the dashboard shows the plugin's own entries from the live Jellyfin server log (INF/WRN/ERR, including stack traces), no SSH needed.
-- **Resilient by design** — persistent JSON resolution cache with TTLs, token-bucket rate limiting, Polly retry + circuit breaker, parallel downloads, ffmpeg volume normalization.
-- **Global playlist** — auto-maintained M3U with every downloaded theme, exportable from the dashboard.
-- **Modern frontend** — premium dark design system, English/Italian UI, `Authorization: MediaBrowser` auth only (ready for Jellyfin 10.12+).
+## At a glance
+
+- Download OP/ED audio themes and video backdrops for series and movies.
+- Resolve titles through AniDB, AniList, MyAnimeList, Kitsu, and AniSearch before a fuzzy title fallback.
+- Handle multi-season anime and select a single best theme, every theme, or every theme per season.
+- Search AnimeThemes manually, preview media, filter results, and create persistent item-to-anime bindings.
+- Track unresolved and excluded items without repeatedly querying known misses.
+- Repair Jellyfin 10.11.x theme links and build a global M3U playlist.
+- Operate from an accessible, responsive bilingual frontend with no separate web build step.
 
 ## Requirements
 
-- **Jellyfin 10.11.x** (targetAbi 10.11.8.0).
-- **[File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)** plugin — required only for the ♪ Theme Finder button on item pages. KometaThemes uses it to inject its button script into the web client automatically. Everything else (sync, dashboard, Theme Finder page) works without it.
+| Requirement | Details |
+|---|---|
+| Jellyfin | `10.11.x`; catalog ABI `10.11.8.0` |
+| Runtime | .NET 9, provided by the supported Jellyfin release |
+| File Transformation | Optional; required only for the ♪ shortcut on Jellyfin item detail pages |
+| Network | HTTPS access to AnimeThemes and the metadata providers you enable |
+| Permissions | An administrator account is required for configuration and plugin actions |
 
 ## Installation
 
-1. In Jellyfin go to **Dashboard → Plugins → Repositories** and add:
-   ```
+### Recommended: Jellyfin Plugin Catalog
+
+1. Open **Dashboard → Plugins → Repositories**.
+2. Add this repository URL:
+
+   ```text
    https://raw.githubusercontent.com/iCosiSenpai/iCosiSenpai-Plugins/main/manifest.json
    ```
-2. Open **Catalog**, find **KometaThemes**, install it and restart Jellyfin.
-3. (For the ♪ button) install the **File Transformation** plugin from the official Jellyfin catalog if you don't have it already, then restart.
-4. Hard-refresh the dashboard afterwards (`Ctrl+Shift+R`).
 
-### The ♪ Theme Finder button
+3. Open **Catalog**, select **KometaThemes**, and install the latest version.
+4. Restart Jellyfin when prompted, then hard-refresh the web client (`Ctrl+Shift+R`).
+5. Optional: install **File Transformation** from the Jellyfin catalog to enable the ♪ item-page shortcut.
 
-Once the **File Transformation** plugin is installed, KometaThemes registers an injection automatically at startup — the ♪ button appears **only on Series and Movie detail pages that belong to libraries matching your configured `Library Pattern`** (default: libraries whose name contains "Anime"; admins only). This prevents the UI from showing on non-anime content. The button script is served at `/Plugins/KometaThemes/ItemButton.js`; if you prefer to wire it up yourself, you can point any JavaScript injector at that URL instead.
+Updates are distributed through the same catalog. The project does not require copying DLL files into the container manually.
 
-If the button does not appear for an item you expect, check that the item's library name matches the pattern in the plugin config (General tab).
+## First setup
 
-## Configuration
+1. Open **Dashboard → Plugins → KometaThemes**.
+2. In **General**, set the UI language and verify the library name pattern. The default `Anime` limits automatic work and UI injection to matching libraries.
+3. In **Themes & Download**, choose audio/video fetch modes separately for series and movies.
+4. In **Providers & Matching**, arrange metadata providers and review title fallback and cache settings.
+5. Use **Sync now** for an incremental run or **Force sync** when all matching items must be re-evaluated.
+6. In your Jellyfin user profile, verify **Settings → Display → Play theme songs** is enabled.
 
-The dashboard is organized in five tabs under a status hero (health, last sync, cache hit rate, skipped items — plus a live sync indicator):
+## Main workflows
 
-| Tab | What's inside |
-| --- | --- |
-| **General** | UI language, library name pattern, sync interval, automation toggles (auto-sync on add, cleanup on remove, notifications) |
-| **Themes & Download** | Audio/video settings for Series and Movies (fetch mode, volume, OP/ED filters), season detection, parallelism, force sync, dry-run |
-| **Providers & Matching** | Provider priority list, title fallback + threshold, rate limit, resolution cache TTLs and stats |
-| **Library** | Excluded items table with restore, playlist settings with refresh/export |
-| **Unresolved** | Items that did not fetch, with reason, attempts, Retry / Blacklist / Dismiss |
+### Automatic and on-demand sync
 
-### Example output
+KometaThemes can run on a schedule, shortly after a new item enters a matching library, or manually. Incremental sync only processes missing or unsatisfied items. Force sync removes outdated themes and performs a full re-evaluation. Dry-run mode resolves and logs without writing media.
 
-For "Attack on Titan" Season 1:
+### Theme Finder
 
+The guided Theme Finder supports this workflow:
+
+1. **Search** using the Jellyfin title and year, with editable inputs.
+2. **Choose an anime** from strong and broad matches using pointer or keyboard navigation.
+3. **Review themes** by season, filter Audio/Video and OP/ED, optionally require creditless media, preview a source, and select individual or bulk actions.
+4. **Download** the chosen themes or save only the manual binding for future automatic syncs.
+
+The ♪ shortcut is admin-only and appears on eligible series/movie pages whose library matches `Library Pattern`. Without File Transformation, the Theme Finder remains available from the plugin dashboard.
+
+### Item management
+
+The item page displays downloaded themes, disk/registration status, missing files, manual bindings, and library presets. Available actions include:
+
+- sync one item;
+- delete one theme or all themes for the item;
+- open the Theme Finder;
+- repair detached theme links after a Jellyfin library scan;
+- launch background presets across matching libraries.
+
+### Unresolved, bindings, and exclusions
+
+- **Unresolved** records matching and download failures, including attempts and last error.
+- **Bindings** stores manual item-to-anime associations and gives them priority over automatic resolution.
+- **Excluded** contains items intentionally blacklisted from future matching; each can be restored later.
+
+## Configuration reference
+
+| Section | Purpose |
+|---|---|
+| **General** | Interface language, library filter, schedule, auto-sync, cleanup, and notifications |
+| **Themes & Download** | Series/movie media modes, volume, OP/ED and credit filters, season behavior, download parallelism, dry-run |
+| **Providers & Matching** | Provider order, fuzzy title threshold, API rate, positive/negative cache TTLs, cache controls |
+| **Excluded** | Blacklisted items and restore controls, global playlist configuration and M3U export |
+| **Bindings** | Persistent manual matches, unlock/recalculate, optional downloaded-file removal |
+| **Unresolved** | Retry, manual resolution, blacklist, dismiss, and clear operations |
+
+### Fetch modes
+
+| Mode | Behavior |
+|---|---|
+| `None` | Do not download this media type |
+| `Single` | Download the best eligible theme |
+| `All` | Download all eligible themes |
+| `AllPerSeason` | Keep eligible themes grouped and named per detected season |
+
+### Typical output
+
+```text
+Series folder/
+├── theme-music/
+│   ├── OP1 - Guren no Yumiya__50.mp3
+│   └── ED1 - Utsukushiki Zankoku na Sekai__50.mp3
+└── backdrops/
+    └── OP1 - Guren no Yumiya__0.webm
 ```
-theme-music/
-  OP1 - Guren no Yumiya__50.mp3
-  OP2 - Jiyuu no Tsubasa__50.mp3
-  ED1 - Utsukushiki Zankoku na Sekai__50.mp3
-  ED2 - Great Escape__50.mp3
-backdrops/
-  OP1 - Guren no Yumiya__0.webm
-```
+
+The volume suffix is generated for Jellyfin playback. Media selection remains controlled by the per-type configuration.
+
+## Reliability and security
+
+- API calls use the current Jellyfin `MediaBrowser` token and same-origin credentials.
+- Remote media is accepted only from same-origin HTTP(S) or HTTPS AnimeThemes domains; credentials embedded in URLs are rejected.
+- Remote previews use `no-referrer`, and UI error text is sanitized and length-limited.
+- Resolution results are cached in atomic JSON files with separate positive and negative TTLs.
+- Requests use rate limiting, retries, and circuit-breaker behavior.
+- Stale async search, item, and detail responses are discarded when navigation changes context.
+- Save, sync, delete, and download actions guard against duplicate submission.
+
+## Accessibility and frontend
+
+The Jellyfin frontend is composed of three small HTML shells and embedded JavaScript/CSS assets. Shared modules provide:
+
+- sequential, versioned asset loading with visible failure handling;
+- keyboard tab navigation with Arrow keys, Home, and End;
+- focus-trapped confirmation dialogs with Escape and focus restoration;
+- live status/toast regions and `aria-busy` operation states;
+- Theme Finder listbox navigation and accessible selection state;
+- responsive dark/light design tokens and reduced layout overflow.
+
+The browser suite loads the real embedded shells against a local Jellyfin API fixture. Playwright covers critical flows, while axe-core checks WCAG A/AA serious and critical violations.
 
 ## REST API
 
-All endpoints require an elevated (admin) token.
+All operational endpoints require an elevated Jellyfin token unless noted otherwise.
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/Plugins/KometaThemes/Health` | GET | Operational snapshot: version, cache, metrics, sync state |
-| `/Plugins/KometaThemes/Sync/status` | GET | Live progress of the running sync |
-| `/Plugins/KometaThemes/Sync/run` | POST | Start a preset sync (OP/ED/Video/All) |
-| `/Plugins/KometaThemes/Items/{id}/sync?force=` | POST | Sync a single item (`force=true` bypasses the satisfied check) |
-| `/Plugins/KometaThemes/Items/{id}/preview` | POST | Dry-run resolution for a single item |
-| `/Plugins/KometaThemes/Items/{id}/themes` | GET/DELETE | List / delete downloaded themes |
-| `/Plugins/KometaThemes/Items/{id}/repair` | POST | Re-link theme files to the item (10.11.x fix) |
-| `/Plugins/KometaThemes/Failed/items` | GET | Unresolved/failed items list |
-| `/Plugins/KometaThemes/Failed/items/{id}` | DELETE | Dismiss a failed item |
-| `/Plugins/KometaThemes/Failed/clear` | POST | Clear the failed list |
-| `/Plugins/KometaThemes/Skipped/{id}` | POST | Blacklist an item (never matched again) |
-| `/Plugins/KometaThemes/Skipped/items` | GET | List blacklisted items |
-| `/Plugins/KometaThemes/Skipped/{id}/remove` | POST | Restore a blacklisted item |
-| `/Plugins/KometaThemes/Logs?lines=200` | GET | Plugin entries from the current server log |
-| `/Plugins/KometaThemes/Cache/stats` · `/clear` | GET/POST | Resolution cache stats / clear |
-| `/Plugins/KometaThemes/Playlist/refresh` · `/export` | POST/GET | Rebuild / download the M3U playlist |
-| `/Plugins/KometaThemes/Search?title=…` | GET | Theme Finder search |
-| `/Plugins/KometaThemes/ItemButton.js` | GET | Detail-page button injector (anonymous) |
+| Endpoint | Method | Purpose |
+|---|---:|---|
+| `/Plugins/KometaThemes/Health` | GET | Version, health, metrics, and current sync summary |
+| `/Plugins/KometaThemes/Sync/status` | GET | Live sync progress |
+| `/Plugins/KometaThemes/Sync/sync` | POST | Start an incremental sync |
+| `/Plugins/KometaThemes/Sync/force` | POST | Start a server-side forced sync |
+| `/Plugins/KometaThemes/Sync/run` | POST | Start a library preset |
+| `/Plugins/KometaThemes/Items/{id}/info` | GET | Item and theme-registration context |
+| `/Plugins/KometaThemes/Items/{id}/sync` | POST | Sync one eligible item |
+| `/Plugins/KometaThemes/Items/{id}/themes` | GET / DELETE | List themes or delete all themes |
+| `/Plugins/KometaThemes/Items/{id}/repair` | POST | Repair Jellyfin theme links |
+| `/Plugins/KometaThemes/Search` | GET | Search AnimeThemes candidates |
+| `/Plugins/KometaThemes/Anime/{id}/themes` | GET | Retrieve themes and season groups |
+| `/Plugins/KometaThemes/Bindings/{id}` | POST / DELETE | Save or remove a manual binding |
+| `/Plugins/KometaThemes/Cache/stats` | GET | Resolution-cache statistics |
+| `/Plugins/KometaThemes/Cache/clear` | POST | Clear the resolution cache |
+| `/Plugins/KometaThemes/Logs?lines=200` | GET | Read current plugin log entries |
+| `/Plugins/KometaThemes/Playlist/refresh` | POST | Rebuild the global playlist |
+| `/Plugins/KometaThemes/Playlist/export` | GET | Download the M3U playlist |
+| `/Plugins/KometaThemes/ItemButton.js` | GET | Item-button injector script; anonymous resource |
 
-## Troubleshooting / FAQ
+## Troubleshooting
 
 <details>
-<summary><b>The whole web UI shows "Error processing request" after I installed/updated a plugin</b></summary>
+<summary><strong>Themes download but do not play</strong></summary>
 
-This is **not** caused by KometaThemes — it is a known issue with web-injection plugins (**File Transformation**, **JavaScript Injector**, **EditorsChoice**, and similar). When Jellyfin reloads plugins after a catalog install, File Transformation can keep a reference to a disposed `IServiceProvider` and then throws `ObjectDisposedException` on every `/web/` request, taking the whole web client down.
-
-**Fix:** fully restart the Jellyfin **container** (`docker restart jellyfin`), not the in-app restart — this rebuilds the service provider cleanly. If it persists, temporarily disable File Transformation / JavaScript Injector / EditorsChoice, restart, confirm the web loads, then re-enable them one at a time. You can confirm the cause in `config/log/log_*.log` (look for `Jellyfin.Plugin.FileTransformation` + `ObjectDisposedException`); KometaThemes loads cleanly with no errors of its own.
+Open the item's KometaThemes page and inspect its registration banner. Run a Jellyfin library scan, then use **Repair links**. Also verify **Settings → Display → Play theme songs** in the affected user's profile; Jellyfin upgrades may reset it.
 </details>
 
 <details>
-<summary><b>Themes download but don't play</b></summary>
+<summary><strong>The ♪ shortcut does not appear</strong></summary>
 
-Jellyfin 10.11.x has a resolver bug that attaches theme files to the library's collection folder instead of the Series/Movie, so `ThemeMedia` comes back empty. Open the item's KometaThemes page and click **Repair links** (or `POST /Plugins/KometaThemes/Items/{id}/repair`). Also check **Settings → Display → "Play theme songs"** in your user profile — the 10.11 migration can reset it.
+Install and enable File Transformation, restart Jellyfin, and hard-refresh the client. The shortcut is visible only to administrators, only on series/movie pages, and only when the owning library matches `Library Pattern`.
 </details>
 
 <details>
-<summary><b>The ♪ Theme Finder button doesn't appear on a series/movie page</b></summary>
+<summary><strong>An item never resolves</strong></summary>
 
-The button needs the **File Transformation** plugin installed (KometaThemes uses it to inject the button script into the web client). Install it from the Jellyfin catalog and restart. The button is admin-only and only shows on Series and Movie detail pages (not Season/Episode). After installing, hard-refresh the web client (`Ctrl+Shift+R`). You can verify the injection registered in the log (`Registered the item-button injection with the File Transformation plugin`).
+Open **Unresolved** to retry or search and bind it manually. If the title does not exist on AnimeThemes, blacklist it to prevent repeated searches. Review provider IDs, year, title threshold, and the live activity log before lowering matching safeguards.
 </details>
 
 <details>
-<summary><b>An anime never resolves / isn't on AnimeThemes</b></summary>
+<summary><strong>The entire Jellyfin web UI fails after a plugin update</strong></summary>
 
-Open the **Unresolved** tab (or click the cache hit-rate tile). Use **Retry** to force another lookup, or **Blacklist** for titles that genuinely aren't on animethemes.moe so they stop being searched. Blacklisted items can be restored later from the **Library** tab.
-</details>
-
-<details>
-<summary><b>How do I see what the plugin is doing?</b></summary>
-
-The config page has an **Activity log** button showing the plugin's own entries pulled live from the Jellyfin server log (with stack traces for errors) — no SSH needed. The status hero also shows health, last sync, cache hit rate and a live sync indicator.
+Check the Jellyfin log for web-injection plugins throwing `ObjectDisposedException`. This can occur when another injector retains a disposed service provider during plugin reload. Perform a full Jellyfin restart from your normal administration environment and test injectors one at a time; do not replace the KometaThemes DLL manually.
 </details>
 
 ## Architecture
 
-```
-Jellyfin library ──► LibrarySelection ──► CompositeResolver ──► AnimeThemesDownloader
-                        (pattern filter)     │  AniDB/AniList/MAL/Kitsu/AniSearch     │  download + ffmpeg
-                                             │  + title fallback                      │  + ThemeLinkRepairService
-                                             ▼                                        ▼
-                                      JsonResolutionCache                     PlaylistManager (M3U)
-                                      FailedItemsStore ◄── unresolved/failed items, surfaced in the dashboard
+```text
+Jellyfin library
+      │
+      ▼
+LibrarySelection ──► CompositeResolver ──► AnimeThemes API
+  pattern/type          │ provider IDs        │ themes + seasons
+  eligibility           └ title fallback      ▼
+      │                                   Download engine
+      │                                 ffmpeg + resilience
+      ▼                                         │
+Item sync / scheduler ──────────────────────────┤
+      │                                         ▼
+      ├── JsonResolutionCache            Theme files + repair
+      ├── FailedItemsStore                      │
+      ├── manual bindings                       ▼
+      └── excluded items                 Global M3U playlist
 ```
 
-Frontend: three HTML shells (config, Theme Finder, item page) sharing embedded assets (`kometa.css`, `kometa-core.js` with the `window.KT` namespace) served through `/web/configurationpage` with version-based cache busting. No build toolchain — `dotnet build` is everything.
+```text
+Jellyfin page shells
+  └── kometa-loader.js
+      ├── kometa-core.js       API, i18n, dialogs, sync, preview
+      ├── kometa-a11y.js       tabs, busy state, announcements
+      ├── config.js
+      ├── search.js
+      └── item.js
+```
 
-## Development
+## Development and validation
+
+Requirements: .NET 9 SDK, Node.js 20, and npm.
 
 ```bash
-dotnet build -c Release
-dotnet test
+dotnet restore
+dotnet build -c Release --no-restore
+dotnet test -c Release --no-build
+npm ci
+npx playwright install chromium
+npm run test:browser
 ```
 
-Requires the .NET 9.0 SDK. Local end-to-end testing: run `jellyfin/jellyfin:10.11.11` in Docker and drop the built DLL in `config/plugins/KometaThemes_<version>/`.
+Useful focused commands:
 
-## ❤️ Support
+```bash
+npm run test:e2e
+npm run test:a11y
+```
 
-KometaThemes is free and open source. If it saves you time, consider supporting development:
+CI runs the .NET build/tests, Playwright end-to-end tests, axe accessibility audit, creates a DLL-only ZIP, and prints its MD5. Releases and catalog updates remain explicit publication steps. Deployment to a Jellyfin server is intentionally performed by the administrator through the Plugin Catalog.
 
-<p>
-  <a href="https://www.buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="46"></a>
-  &nbsp;
-  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif"></a>
-</p>
+## Release policy
 
-## Credits & License
+KometaThemes uses `Major.Minor.Build.Revision`. UI and feature work increments Build; focused fixes increment Revision. Every published version includes:
 
-Theme data and media: [animethemes.moe](https://animethemes.moe). License: [GPL-3.0](LICENSE).
+1. synchronized assembly and frontend versions;
+2. Release build and automated tests;
+3. a DLL-only `KometaThemes.zip` with an MD5 checksum;
+4. a GitHub Release with Features, Fixes, and Breaking changes;
+5. a new top entry in the Jellyfin catalog manifest.
 
----
+## Credits and license
 
-## 🇮🇹 Italiano
+- Theme metadata and media: [AnimeThemes](https://animethemes.moe/)
+- Media server: [Jellyfin](https://jellyfin.org/)
+- Author and maintainer: [iCosiSenpai](https://github.com/iCosiSenpai)
+- License: [GNU GPL v3](LICENSE)
 
-Plugin per [Jellyfin](https://jellyfin.org/) che scarica automaticamente sigle anime (OP/ED) da [animethemes.moe](https://animethemes.moe), con matching multi-provider, gestione multi-stagione e una UI dedicata.
+## Support the project
 
-### Funzionalità principali
+KometaThemes is free and open source. If it helps your library, you can support ongoing development or contribute through GitHub.
 
-- **Sync automatico delle sigle** — audio (MP3) e video (WebM) per Serie e Film: pianificato, all'aggiunta in libreria o manuale.
-- **Risoluzione multi-provider** — AniDB, AniList, MyAnimeList, Kitsu, AniSearch in ordine di priorità configurabile, con fallback fuzzy per titolo (compatibile AnimeClick).
-- **Multi-stagione** — rilevamento stagione via regex multilingua e range episodi; modalità `AllPerSeason` per scaricare tutte le sigle della stagione.
-- **Theme Finder** — wizard guidato in 3 passi con anteprima audio/video, selezione bulk e log di download, raggiungibile dal pulsante ♪ nelle pagine degli item.
-- **Gestione per item** — badge scaricato/mancante, sync e delete one-click, **riparazione collegamenti** per il bug di Jellyfin 10.11.x che stacca i temi dagli item.
-- **Tab "Non risolti"** — gli item che non fetchano finiscono in una tab dedicata con Riprova e Blacklist; la tile della cache ci porta direttamente.
-- **Log attività** — le righe di log del plugin direttamente dalla dashboard, senza SSH.
-- **Playlist globale** — M3U mantenuta automaticamente ed esportabile.
+<div align="center">
+  <a href="https://buymeacoffee.com/iCosiSenpai">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="50" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ">
+    <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate with PayPal" height="47" />
+  </a>
+  <br /><br />
+  <a href="https://github.com/iCosiSenpai/KometaThemes">
+    <img src="https://img.shields.io/badge/GitHub-Open%20KometaThemes-181717?style=for-the-badge&logo=github" alt="Open the KometaThemes GitHub repository" />
+  </a>
+</div>
 
-### Installazione
-
-1. **Dashboard → Plugin → Repository** e aggiungi `https://raw.githubusercontent.com/iCosiSenpai/iCosiSenpai-Plugins/main/manifest.json`
-2. Dal **Catalogo** installa **KometaThemes** e riavvia Jellyfin, poi `Ctrl+Shift+R` sulla dashboard.
-
-> **Arrivi da una 2.x?** La numerazione riparte da **1.0.0.0**: disinstalla prima la vecchia versione, riavvia, poi installa la 1.0.0.0 dal catalogo. La configurazione si conserva.
-
-Per il pulsante ♪ nelle pagine degli item, punta il tuo injector JS (es. plugin Custom JavaScript) a `/Plugins/KometaThemes/ItemButton.js` (visibile solo agli amministratori).
-
----
-
-### ❤️ Sostieni il progetto
-
-Se KometaThemes ti è utile, puoi offrirmi un caffè o fare una donazione:
-
-<p>
-  <a href="https://www.buymeacoffee.com/iCosiSenpai"><img alt="Buy Me a Coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="46"></a>
-  &nbsp;
-  <a href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ"><img alt="Donate with PayPal" src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif"></a>
-</p>
-
----
-
-**Author:** iCosiSenpai ·
-**Repository:** [github.com/iCosiSenpai/KometaThemes](https://github.com/iCosiSenpai/KometaThemes) ·
-**Themes source:** [animethemes.moe](https://animethemes.moe)
+For bugs and feature requests, open an [issue](https://github.com/iCosiSenpai/KometaThemes/issues) with anonymized logs, your Jellyfin version, plugin version, and reproducible steps.

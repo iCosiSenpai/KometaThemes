@@ -27,7 +27,7 @@
 </svg>
                                     <div class="kt-wordmark"><strong>Kometa</strong><span>Themes</span></div>
                                 </div>
-                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version" id="ktVersion">v1.0.6.0</span></span>
+                                <span class="kt-row" style="gap:8px;"><span class="kt-live-dot is-idle" id="ktLiveDot"></span><span class="kt-version" id="ktVersion">v1.0.7.0</span></span>
                             </div>
                             <div class="kt-stats" id="ktHeroStats">
                                 <div class="kt-stat"><span class="kt-stat-label" data-kt="statHealth"></span><span class="kt-stat-value" id="ktStatHealth">…</span><span class="kt-stat-sub" id="ktStatHealthSub"></span></div>
@@ -50,7 +50,7 @@
                     </div>
 
                     <!-- section tabs -->
-                    <nav class="kt-tabs kt-reveal" id="ktTabs" role="tablist">
+                    <nav class="kt-tabs kt-reveal" id="ktTabs" role="tablist" data-kt-aria-label="configurationSections">
                         <button type="button" class="kt-tab" role="tab" data-panel="general" aria-selected="true"><span data-kt="tabGeneral"></span></button>
                         <button type="button" class="kt-tab" role="tab" data-panel="themes" aria-selected="false"><span data-kt="tabThemes"></span></button>
                         <button type="button" class="kt-tab" role="tab" data-panel="providers" aria-selected="false"><span data-kt="tabProviders"></span></button>
@@ -79,6 +79,7 @@
                         <span class="kt-support-label" data-kt="supportLabel"></span>
                         <a class="kt-support-link" href="https://buymeacoffee.com/iCosiSenpai" target="_blank" rel="noopener noreferrer" data-kt="supportCoffee"></a>
                         <a class="kt-support-link" href="https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ" target="_blank" rel="noopener noreferrer" data-kt="supportPayPal"></a>
+                        <a class="kt-support-link" href="https://github.com/iCosiSenpai/KometaThemes" target="_blank" rel="noopener noreferrer" data-kt="supportGitHub"></a>
                     </div>
 
                 </div>
@@ -86,37 +87,51 @@
         </div>
         <script>
         (function () {
-            var V = '1.0.6.0';
-            function asset(name) { return 'configurationpage?name=' + name + '&v=' + V; }
-            function ensureCss() {
-                var id = 'kt-css-' + V;
-                if (document.getElementById(id)) { return; }
-                var link = document.createElement('link');
-                link.id = id; link.rel = 'stylesheet'; link.href = asset('KometaThemesCss');
-                document.head.appendChild(link);
+            var V = '1.0.7.0';
+            var page = document.getElementById('KometaThemesConfigPage');
+
+            function reportBootstrapFailure() {
+                var host = page.querySelector('.kt-shell');
+                if (!host || host.querySelector('[data-kt-bootstrap-error]')) { return; }
+                var alert = document.createElement('div');
+                alert.className = 'kt-state error';
+                alert.setAttribute('role', 'alert');
+                alert.setAttribute('data-kt-bootstrap-error', '');
+                alert.textContent = 'KometaThemes could not load its page loader. Refresh the dashboard and try again.';
+                host.insertBefore(alert, host.firstChild);
             }
-            function ensureJs(name, done) {
-                var id = 'kt-js-' + name + '-' + V;
+
+            function loadPage() {
+                if (!window.KTLoader || window.KTLoader.VERSION !== V) { reportBootstrapFailure(); return; }
+                window.KTLoader.load(page, [
+                    'KometaThemesCoreJs',
+                    'KometaThemesA11yJs',
+                    'KometaThemesConfigJs'
+                ], function () { window.KT.pages.config.show(page); });
+            }
+
+            function start() {
+                if (window.KTLoader && window.KTLoader.VERSION === V) { loadPage(); return; }
+                var id = 'kt-js-KometaThemesLoaderJs-' + V;
                 var existing = document.getElementById(id);
                 if (existing) {
-                    if (existing.dataset.loaded) { done(); }
-                    else { existing.addEventListener('load', done); }
+                    if (existing.dataset.loaded === '1') { loadPage(); }
+                    else if (existing.dataset.failed === '1') { reportBootstrapFailure(); }
+                    else {
+                        existing.addEventListener('load', loadPage, { once: true });
+                        existing.addEventListener('error', reportBootstrapFailure, { once: true });
+                    }
                     return;
                 }
                 var script = document.createElement('script');
-                script.id = id; script.src = asset(name);
-                script.addEventListener('load', function () { script.dataset.loaded = '1'; done(); });
+                script.id = id;
+                script.src = 'configurationpage?name=KometaThemesLoaderJs&v=' + V;
+                script.addEventListener('load', function () { script.dataset.loaded = '1'; loadPage(); }, { once: true });
+                script.addEventListener('error', function () { script.dataset.failed = '1'; reportBootstrapFailure(); }, { once: true });
                 document.head.appendChild(script);
             }
-            var page = document.getElementById('KometaThemesConfigPage');
-            page.addEventListener('pageshow', function () {
-                ensureCss();
-                ensureJs('KometaThemesCoreJs', function () {
-                    ensureJs('KometaThemesConfigJs', function () {
-                        window.KT.pages.config.show(page);
-                    });
-                });
-            });
+
+            page.addEventListener('pageshow', start);
         })();
         </script>
     </div>

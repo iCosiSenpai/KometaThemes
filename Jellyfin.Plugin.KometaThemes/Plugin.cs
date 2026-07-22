@@ -55,7 +55,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
             // Shared assets, served through /web/configurationpage?name=...
             new PluginPageInfo { Name = "KometaThemesCss", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.kometa.css", ns) },
+            new PluginPageInfo { Name = "KometaThemesLoaderJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.kometa-loader.js", ns) },
             new PluginPageInfo { Name = "KometaThemesCoreJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.kometa-core.js", ns) },
+            new PluginPageInfo { Name = "KometaThemesA11yJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.kometa-a11y.js", ns) },
             new PluginPageInfo { Name = "KometaThemesConfigJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.config.js", ns) },
             new PluginPageInfo { Name = "KometaThemesSearchJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.search.js", ns) },
             new PluginPageInfo { Name = "KometaThemesItemJs", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Web.assets.item.js", ns) }

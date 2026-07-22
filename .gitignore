@@ -8,3 +8,7 @@ tmp/
 .DS_Store
 iCosiSenpai-Plugins/
 *.zip
+node_modules/
+playwright-report/
+test-results/
+TestResults/

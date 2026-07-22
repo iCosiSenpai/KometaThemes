@@ -834,26 +834,27 @@
                 'OP ' + (group.opCount != null ? group.opCount : '·') + ' / ED ' + (group.edCount != null ? group.edCount : '·'));
             summary.appendChild(counts);
 
-            // Per-group bulk actions, aligned with the active media filters.
-            var bulk = util.el('span', 'kt-group-bulk');
-            if (state.filters.audio) {
+            // Per-group bulk actions live outside <summary>: nested buttons inside
+            // the disclosure control are not announced reliably by assistive tech.
+            var filteredGroupThemes = getFilteredThemesForGroup(group.themes || []);
+            var bulk = util.el('div', 'kt-season-actions');
+            if (filteredGroupThemes.length && state.filters.audio) {
                 var ba = util.el('button', 'kt-btn kt-btn-xs', KT.t('audio'));
                 ba.type = 'button';
-                ba.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); selectGroup(group, 'audio'); });
+                ba.addEventListener('click', function () { selectGroup(group, 'audio'); });
                 bulk.appendChild(ba);
             }
-            if (state.filters.video) {
+            if (filteredGroupThemes.length && state.filters.video) {
                 var bv = util.el('button', 'kt-btn kt-btn-xs', KT.t('video'));
                 bv.type = 'button';
-                bv.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); selectGroup(group, 'video'); });
+                bv.addEventListener('click', function () { selectGroup(group, 'video'); });
                 bulk.appendChild(bv);
             }
-            summary.appendChild(bulk);
 
             details.appendChild(summary);
+            if (bulk.childNodes.length) { details.appendChild(bulk); }
 
             var list = util.el('div', 'kt-themes');
-            var filteredGroupThemes = getFilteredThemesForGroup(group.themes || []);
             filteredGroupThemes.forEach(function (groupTheme) {
                 var index = state.themes.findIndex(function (candidate, candidateIndex) {
                     return !rendered.has(candidateIndex) &&
@@ -1013,6 +1014,7 @@
         var items = selectedValues();
         if (!items.length || state.downloading) { return; }
         state.downloading = true;
+        KT.a11y.setBusy(q('ktSelBar'), true);
         var btn = q('ktBtnDownload');
         btn.disabled = true;
         btn.textContent = KT.t('downloading');
@@ -1049,6 +1051,7 @@
             KT.ui.toast(error.message || KT.t('error'), 'error');
         }).finally(function () {
             state.downloading = false;
+            KT.a11y.setBusy(q('ktSelBar'), false);
             btn.textContent = KT.t('download');
             updateSelBar();
         });

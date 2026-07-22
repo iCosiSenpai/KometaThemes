@@ -9,6 +9,7 @@
 
     KT.i18n.extend({
         en: {
+            configurationSections: 'Configuration sections',
             tabGeneral: 'General', tabThemes: 'Themes & Download', tabProviders: 'Providers & Matching', tabLibrary: 'Excluded', tabBindings: 'Bindings',
             statHealth: 'Status', statLastSync: 'Last sync', statCache: 'Cache hit rate', statSkipped: 'Skipped items',
             statSkippedSub: 'excluded from sync', healthOk: 'Ready', healthRunning: 'Syncing', healthDown: 'Unreachable',
@@ -100,6 +101,7 @@
             logLoadFailed: 'Could not load the server log'
         },
         it: {
+            configurationSections: 'Sezioni configurazione',
             tabGeneral: 'Generale', tabThemes: 'Temi & Download', tabProviders: 'Provider & Matching', tabLibrary: 'Esclusi', tabBindings: 'Binding',
             statHealth: 'Stato', statLastSync: 'Ultimo sync', statCache: 'Cache hit rate', statSkipped: 'Elementi esclusi',
             statSkippedSub: 'esclusi dal sync', healthOk: 'Pronto', healthRunning: 'Sync in corso', healthDown: 'Non raggiungibile',
@@ -279,7 +281,8 @@
             descriptor.write = function (value) { input.checked = !!value; };
         } else {
             wrap = util.el('div', 'kt-field');
-            wrap.appendChild(util.el('label', null, KT.t(descriptor.label)));
+            var fieldLabel = util.el('label', null, KT.t(descriptor.label));
+            wrap.appendChild(fieldLabel);
             var control;
             if (descriptor.type === 'enum' || descriptor.type === 'select') {
                 control = util.el('select', 'kt-select');
@@ -320,9 +323,17 @@
                     descriptor.write = function (value) { control.value = value != null ? value : ''; };
                 }
             }
+            var controlId = 'ktField-' + descriptor.path.replace(/[^A-Za-z0-9_-]/g, '-');
+            control.id = controlId;
+            fieldLabel.htmlFor = controlId;
             descriptor.input = control;
             wrap.appendChild(control);
-            if (descriptor.desc) { wrap.appendChild(util.el('div', 'kt-field-desc', KT.t(descriptor.desc))); }
+            if (descriptor.desc) {
+                var description = util.el('div', 'kt-field-desc', KT.t(descriptor.desc));
+                description.id = controlId + '-description';
+                control.setAttribute('aria-describedby', description.id);
+                wrap.appendChild(description);
+            }
         }
         descriptor.input.addEventListener('change', function () {
             updateDirty();
@@ -1076,43 +1087,16 @@
     /* ---- tabs ---- */
 
     function selectTab(name, focusTab) {
-        state.page.querySelectorAll('.kt-tab').forEach(function (tab) {
-            var selected = tab.dataset.panel === name;
-            tab.setAttribute('aria-selected', selected ? 'true' : 'false');
-            tab.tabIndex = selected ? 0 : -1;
-            if (selected && focusTab) { tab.focus(); }
-        });
-        state.page.querySelectorAll('.kt-panel').forEach(function (panel) {
-            var selected = panel.dataset.panel === name;
-            panel.classList.toggle('active', selected);
-            panel.hidden = !selected;
-        });
+        if (state.tabs) { state.tabs.select(name, !!focusTab); }
     }
 
     function bindTabs() {
-        var tabs = Array.prototype.slice.call(state.page.querySelectorAll('.kt-tab'));
-        tabs.forEach(function (tab, index) {
-            var panel = state.page.querySelector('.kt-panel[data-panel="' + tab.dataset.panel + '"]');
-            tab.id = 'ktTab-' + tab.dataset.panel;
-            if (panel) {
-                panel.setAttribute('role', 'tabpanel');
-                panel.setAttribute('aria-labelledby', tab.id);
-                tab.setAttribute('aria-controls', panel.id);
-            }
-            tab.addEventListener('click', function () { selectTab(tab.dataset.panel, false); });
-            tab.addEventListener('keydown', function (event) {
-                var next = index;
-                if (event.key === 'ArrowRight') { next = (index + 1) % tabs.length; }
-                else if (event.key === 'ArrowLeft') { next = (index - 1 + tabs.length) % tabs.length; }
-                else if (event.key === 'Home') { next = 0; }
-                else if (event.key === 'End') { next = tabs.length - 1; }
-                else { return; }
-                event.preventDefault();
-                selectTab(tabs[next].dataset.panel, true);
-            });
+        state.tabs = KT.a11y.setupTabs(state.page, {
+            tabList: q('ktTabs'),
+            tabSelector: '.kt-tab',
+            panelSelector: '.kt-panel',
+            idPrefix: 'ktTab'
         });
-        var active = tabs.filter(function (tab) { return tab.getAttribute('aria-selected') === 'true'; })[0];
-        selectTab(active ? active.dataset.panel : tabs[0].dataset.panel, false);
     }
 
     function bindCacheTile() {

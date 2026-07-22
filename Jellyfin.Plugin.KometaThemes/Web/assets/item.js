@@ -77,6 +77,7 @@
 
     function setBusy(value) {
         state.busy = !!value;
+        KT.a11y.setBusy(q('ktItemActions'), state.busy);
         ['ktBtnSyncItem', 'ktBtnRefresh', 'ktBtnDeleteAll'].forEach(function (id) {
             var button = q(id);
             if (button) { button.disabled = state.busy; }

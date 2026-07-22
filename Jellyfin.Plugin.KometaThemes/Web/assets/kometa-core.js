@@ -7,7 +7,7 @@
 
     // Guard against double-loading the exact same version of core.
     // Bump this string on every meaningful change to kometa-core.js (keeps in sync with Directory.Build.props + HTML V=).
-    var CURRENT_VERSION = '1.0.6.0';
+    var CURRENT_VERSION = '1.0.7.0';
     if (window.KT && window.KT.VERSION === CURRENT_VERSION) { return; }
 
     var KT = {
@@ -203,7 +203,7 @@
             idle: 'Idle', never: 'Never', unsavedChanges: 'Unsaved changes',
             confirmTitle: 'Are you sure?', themeFinder: 'Theme Finder',
             openThemeFinder: 'Open Theme Finder', settings: 'Settings', copy: 'Copy', copied: 'Copied',
-            supportLabel: 'Enjoying KometaThemes? Support its development.', supportCoffee: 'Buy me a coffee', supportPayPal: 'Donate with PayPal',
+            supportLabel: 'Enjoying KometaThemes? Support its development.', supportCoffee: 'Buy me a coffee', supportPayPal: 'Donate with PayPal', supportGitHub: 'Open on GitHub',
             invalidRemoteUrl: 'Blocked an invalid or insecure remote URL',
             dotIdle: 'No sync running', dotRunning: 'Sync in progress', dotError: 'Last sync failed'
         },
@@ -220,7 +220,7 @@
             idle: 'Inattivo', never: 'Mai', unsavedChanges: 'Modifiche non salvate',
             confirmTitle: 'Sei sicuro?', themeFinder: 'Theme Finder',
             openThemeFinder: 'Apri Theme Finder', settings: 'Impostazioni', copy: 'Copia', copied: 'Copiato',
-            supportLabel: 'KometaThemes ti è utile? Supporta lo sviluppo.', supportCoffee: 'Offrimi un caffè', supportPayPal: 'Dona con PayPal',
+            supportLabel: 'KometaThemes ti è utile? Supporta lo sviluppo.', supportCoffee: 'Offrimi un caffè', supportPayPal: 'Dona con PayPal', supportGitHub: 'Apri su GitHub',
             invalidRemoteUrl: 'URL remoto non valido o non sicuro bloccato',
             dotIdle: 'Nessun sync in corso', dotRunning: 'Sync in corso', dotError: 'Ultimo sync fallito'
         }
@@ -241,6 +241,9 @@
             });
             (root || document).querySelectorAll('[data-kt-placeholder]').forEach(function (node) {
                 node.placeholder = KT.t(node.getAttribute('data-kt-placeholder'));
+            });
+            (root || document).querySelectorAll('[data-kt-aria-label]').forEach(function (node) {
+                node.setAttribute('aria-label', KT.t(node.getAttribute('data-kt-aria-label')));
             });
         }
     };
