@@ -3,23 +3,31 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
-/// Types of overlap between episode and theme.
+/// Whether a theme video overlaps episode content.
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(OverlapTypeConverter))]
 public enum OverlapType
 {
-    /// <summary>
-    /// No overlap.
-    /// </summary>
+    /// <summary>Clean theme.</summary>
     None,
 
-    /// <summary>
-    /// Some overlap.
-    /// </summary>
+    /// <summary>Episode content fades into or out of the theme.</summary>
     Transition,
 
-    /// <summary>
-    /// Complete overlap.
-    /// </summary>
+    /// <summary>Episode content plays over the theme.</summary>
     Over
+}
+
+/// <summary>
+/// Lenient converter for <see cref="OverlapType"/>.
+/// </summary>
+public sealed class OverlapTypeConverter : LenientEnumConverter<OverlapType>
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OverlapTypeConverter"/> class.
+    /// </summary>
+    public OverlapTypeConverter()
+        : base(OverlapType.None)
+    {
+    }
 }

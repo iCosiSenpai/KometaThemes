@@ -1,120 +1,111 @@
 using System;
 using System.Net.Http.Headers;
+using Jellyfin.Plugin.KometaThemes.AniList;
+using Jellyfin.Plugin.KometaThemes.AnimeThemes;
 using Jellyfin.Plugin.KometaThemes.Api;
 using Jellyfin.Plugin.KometaThemes.Caching;
 using Jellyfin.Plugin.KometaThemes.Http;
+using Jellyfin.Plugin.KometaThemes.Library;
 using Jellyfin.Plugin.KometaThemes.Resolving;
 using Jellyfin.Plugin.KometaThemes.Sync;
+using Jellyfin.Plugin.KometaThemes.Themes;
 using Jellyfin.Plugin.KometaThemes.Web;
+using Jellyfin.Plugin.KometaThemes.YouTube;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.KometaThemes;
 
-/// <inheritdoc />
+/// <summary>
+/// Registers the plugin's services.
+/// </summary>
 public class PluginServiceRegistrator : IPluginServiceRegistrator
 {
+    private const string AnimeThemesBudget = "AnimeThemes";
+    private const string AniListBudget = "AniList";
+
     /// <inheritdoc />
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
-        // Cache (singleton — shared across all syncs)
+        ArgumentNullException.ThrowIfNull(serviceCollection);
+
         serviceCollection.AddSingleton<IResolutionCache, JsonResolutionCache>();
-
-        // API clients
-        serviceCollection.AddSingleton<AnimeThemesApi>();
-        serviceCollection.AddSingleton<AniListMetadataClient>();
-
-        // Resolvers
-        serviceCollection.AddSingleton<ExternalIdResolver>();
+        serviceCollection.AddSingleton<AnimeThemesClient>();
+        serviceCollection.AddSingleton<AniListClient>();
         serviceCollection.AddSingleton<TitleSearchResolver>();
-        serviceCollection.AddSingleton<IAnimeResolver, CompositeResolver>();
+        serviceCollection.AddSingleton<AnimeResolver>();
+        serviceCollection.AddSingleton<SeasonResolver>();
 
-        // Season detection & theme grouping
-        serviceCollection.AddSingleton<SeasonDetector>();
-        serviceCollection.AddSingleton<ThemeGrouper>();
-
-        // Sync status tracking
-        serviceCollection.AddSingleton<SyncStatusTracker>();
-        serviceCollection.AddSingleton<DownloadMetrics>();
-
-        // Process-wide ffmpeg concurrency cap, shared by sync, Theme Finder and YouTube import.
+        serviceCollection.AddSingleton<FolderStateStore>();
+        serviceCollection.AddSingleton<FolderLocks>();
         serviceCollection.AddSingleton<TranscodeGate>();
+        serviceCollection.AddSingleton<ThemeInstaller>();
+
+        serviceCollection.AddSingleton<LibraryScope>();
+        serviceCollection.AddSingleton<ItemTargetFinder>();
+        serviceCollection.AddSingleton<ItemRefresher>();
+        serviceCollection.AddSingleton<LibraryIndex>();
+
         serviceCollection.AddSingleton<FailedItemsStore>();
-        serviceCollection.AddSingleton<SyncThemesRunner>();
+        serviceCollection.AddSingleton<ActivityLog>();
+        serviceCollection.AddSingleton<ItemProcessor>();
+        serviceCollection.AddSingleton<SyncRunner>();
+        serviceCollection.AddSingleton<ItemDetailsBuilder>();
 
-        // Download tracking
-        serviceCollection.AddSingleton<DownloadTracker>();
+        serviceCollection.AddSingleton<ManagedYouTubeExtractor>();
+        serviceCollection.AddSingleton<YouTubeImportService>();
 
-        // Playlist manager
-        serviceCollection.AddSingleton<PlaylistManager>();
+        serviceCollection.AddSingleton<LibraryWatcher>();
+        serviceCollection.AddHostedService(provider => provider.GetRequiredService<LibraryWatcher>());
+        serviceCollection.AddHostedService<IndexInjection>();
 
-        // Downloader
-        serviceCollection.AddSingleton<AnimeThemesDownloader>();
+        // Budgets are singletons: handler chains are rebuilt every few minutes and must not reset them.
+        serviceCollection.AddKeyedSingleton(AnimeThemesBudget, (_, _) => new ApiThrottle(AnimeThemesBudget, () => Plugin.Instance?.Configuration?.RateLimitPerMinute ?? 60));
+        serviceCollection.AddKeyedSingleton(AniListBudget, (_, _) => new ApiThrottle(AniListBudget, () => 25));
 
-        // Theme link repair (Jellyfin 10.11.x ThemeMediaResolver workaround)
-        serviceCollection.AddSingleton<ThemeLinkRepairService>();
+        var userAgent = new ProductInfoHeaderValue("KometaThemes", typeof(Plugin).Assembly.GetName().Version?.ToString() ?? "2");
+        var contact = new ProductInfoHeaderValue("(+https://github.com/iCosiSenpai/KometaThemes)");
 
-        // YouTube theme import (external yt-dlp extractor)
-        serviceCollection.AddSingleton<YouTube.ManagedYouTubeExtractor>();
-        serviceCollection.AddSingleton<YouTube.YouTubeImportService>();
-
-        // Library event handler for real-time sync on new items
-        serviceCollection.AddSingleton<ItemRemovedHandler>();
-        serviceCollection.AddSingleton<LibrarySyncHandler>();
-
-        // Auto-inject the ♪ item button into the web client via File Transformation
-        serviceCollection.AddHostedService<WebButtonInjectionRegistrar>();
-
-        // HTTP handlers
-        serviceCollection.AddTransient<PollyResilienceHandler>();
-        serviceCollection.AddTransient<RateLimitingHandler>();
-
-        var productHeader = new ProductInfoHeaderValue(
-            "jf-plugin-kometathemes",
-            applicationHost.ApplicationVersionString);
-
-        serviceCollection
-            .AddHttpClient("AnimeThemes", c =>
+        serviceCollection.AddHttpClient(AnimeThemesClient.HttpClientName, client =>
             {
-                c.BaseAddress = new Uri("https://api.animethemes.moe");
-                c.DefaultRequestHeaders.UserAgent.Add(productHeader);
+                client.BaseAddress = new Uri("https://api.animethemes.moe/");
+                client.DefaultRequestHeaders.UserAgent.Add(userAgent);
+                client.DefaultRequestHeaders.UserAgent.Add(contact);
+                client.Timeout = TimeSpan.FromMinutes(5);
             })
-            .AddHttpMessageHandler<RateLimitingHandler>()
-            .AddHttpMessageHandler<PollyResilienceHandler>();
+            .AddHttpMessageHandler(provider => Retry(provider, TimeSpan.FromSeconds(45)))
+            .AddHttpMessageHandler(provider => new ThrottleHandler(provider.GetRequiredKeyedService<ApiThrottle>(AnimeThemesBudget)));
 
-        // CDN client for actual theme downloads (no rate limiting needed, but resilience is).
-        // HttpClient.Timeout covers the streamed body read, not just the response headers, so the
-        // previous 30s value aborted any theme video that took longer than that to transfer — the
-        // failure was then swallowed and retried on every subsequent sync, forever. The per-attempt
-        // budget lives in PollyResilienceHandler instead.
-        serviceCollection
-            .AddHttpClient("AnimeThemesCDN", c =>
+        serviceCollection.AddHttpClient(AniListClient.HttpClientName, client =>
             {
-                c.DefaultRequestHeaders.UserAgent.Add(productHeader);
-                c.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+                client.BaseAddress = new Uri("https://graphql.anilist.co/");
+                client.DefaultRequestHeaders.UserAgent.Add(userAgent);
+                client.DefaultRequestHeaders.UserAgent.Add(contact);
+                client.Timeout = TimeSpan.FromMinutes(5);
             })
-            .AddHttpMessageHandler<PollyResilienceHandler>();
+            .AddHttpMessageHandler(provider => Retry(provider, TimeSpan.FromSeconds(30)))
+            .AddHttpMessageHandler(provider => new ThrottleHandler(provider.GetRequiredKeyedService<ApiThrottle>(AniListBudget)));
 
-        // AniList GraphQL client
-        serviceCollection
-            .AddHttpClient("AniList", c =>
+        // Theme files: the client timeout would also cover the streamed body, which the installer
+        // bounds itself, so it is off here; the retry handler limits the wait for the headers.
+        serviceCollection.AddHttpClient(ThemeInstaller.HttpClientName, client =>
             {
-                c.BaseAddress = new Uri("https://graphql.anilist.co");
-                c.DefaultRequestHeaders.UserAgent.Add(productHeader);
+                client.DefaultRequestHeaders.UserAgent.Add(userAgent);
+                client.DefaultRequestHeaders.UserAgent.Add(contact);
+                client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
             })
-            .AddHttpMessageHandler<PollyResilienceHandler>();
+            .AddHttpMessageHandler(provider => Retry(provider, TimeSpan.FromSeconds(60)));
 
-        // Client for the bundled YouTube extractor. No rate-limiting handler: the extractor issues
-        // its own chunked range requests for one video at a time, and the plugin-wide ffmpeg cap
-        // already bounds how many imports run at once. No resilience handler either, because the
-        // extractor implements its own retry behaviour over those chunks and a second layer of
-        // retries would multiply them. The timeout covers a streamed body, so it is generous.
-        serviceCollection.AddHttpClient("YouTube", c =>
+        // The YouTube extractor retries its own chunked requests; a second retry layer would multiply them.
+        serviceCollection.AddHttpClient("YouTube", client =>
         {
-            c.DefaultRequestHeaders.UserAgent.Add(productHeader);
-            c.Timeout = TimeSpan.FromMinutes(10);
+            client.DefaultRequestHeaders.UserAgent.Add(userAgent);
+            client.Timeout = TimeSpan.FromMinutes(10);
         });
     }
+
+    private static RetryHandler Retry(IServiceProvider provider, TimeSpan attemptTimeout)
+        => new(provider.GetRequiredService<ILogger<RetryHandler>>()) { AttemptTimeout = attemptTimeout };
 }

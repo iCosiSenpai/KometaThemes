@@ -1,25 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.KometaThemes</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Nullable>enable</Nullable>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
-    <!-- A class library does not copy package assemblies to the output folder by default, which
-         is why a DLL-only package used to be enough. YoutubeExplode is not shipped by the Jellyfin
-         server, so its assemblies have to travel with the plugin and therefore have to be present
-         in the build output. The release archive still lists what it packs explicitly, so the
-         Jellyfin assemblies that also land here are never shipped. -->
+    <!-- Public members of the plugin are documented where the name does not say it all; requiring a
+         comment on every DTO property only produced restatements of the property name. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- A class library does not copy package assemblies to its output by default. The YouTube
+         extractor is not part of the Jellyfin server, so its assemblies must be in the output to be
+         packed. The Jellyfin packages are excluded below, so only the extractor lands there. -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.8" />
-    <PackageReference Include="Jellyfin.Model" Version="10.11.8" />
-    <PackageReference Include="System.Linq.Async" Version="6.0.3" />
+    <!-- Compile against the server's API but never ship its assemblies: ExcludeAssets=runtime keeps
+         them out of the output folder, PrivateAssets keeps them from flowing to consumers. -->
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="$(JellyfinVersion)">
+      <ExcludeAssets>runtime</ExcludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -27,33 +35,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Lets the test project exercise internal pure helpers (scoring, parsing) directly
-         instead of reaching for them through reflection. -->
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-      <_Parameter1>Jellyfin.Plugin.KometaThemes.Tests</_Parameter1>
-    </AssemblyAttribute>
+    <InternalsVisibleTo Include="Jellyfin.Plugin.KometaThemes.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Polly" Version="8.6.5" />
-    <PackageReference Include="System.Threading.RateLimiting" Version="9.0.0" />
-    <!-- Managed YouTube extractor, so the feature works without an external binary. Its assemblies
-         and those of its two dependencies are packed with the plugin; see the release archive. -->
-    <PackageReference Include="YoutubeExplode" Version="6.6.0" />
+    <!-- Managed YouTube extractor, so the import works without an external binary. Its assembly and
+         those of its two dependencies are packed with the plugin; see the release archive. -->
+    <PackageReference Include="YoutubeExplode" Version="6.6.2" />
     <PackageReference Include="SerilogAnalyzer" Version="0.15.0" PrivateAssets="All" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="All" />
     <PackageReference Include="SmartAnalyzers.MultithreadingAnalyzer" Version="1.1.31" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Configuration\*.html" />
-    <None Remove="Web\SearchPage.html" />
-    <None Remove="Web\ItemButton.js" />
-    <None Remove="Web\assets\*.*" />
-    <EmbeddedResource Include="Configuration\*.html" />
-    <EmbeddedResource Include="Web\SearchPage.html" />
-    <EmbeddedResource Include="Web\ItemButton.js" />
-    <EmbeddedResource Include="Web\assets\*.*" />
+    <None Remove="Configuration\configPage.html" />
+    <None Remove="Web\**\*" />
+    <EmbeddedResource Include="Configuration\configPage.html" />
+    <EmbeddedResource Include="Web\**\*.js;Web\**\*.css;Web\**\*.png;Web\**\*.svg" />
   </ItemGroup>
 
 </Project>

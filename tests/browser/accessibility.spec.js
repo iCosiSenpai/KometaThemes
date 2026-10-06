@@ -1,51 +1,60 @@
+// Automated WCAG 2.1 A/AA checks with axe on every view, in Jellyfin's Dark and Light themes.
 const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
-const { installJellyfinMocks, openPluginPage } = require('./support');
 
-const pages = [
-  ['configuration', 'KometaThemes', 'KometaThemesConfigPage', null],
-  ['Theme Finder', 'KometaThemesSearch', 'KometaThemesSearchPage', 'test-item'],
-  ['item management', 'KometaThemesItem', 'KometaThemesItemPage', 'test-item']
-];
+const KAGUYA = 'a0000000-0000-0000-0000-000000000001';
 
-async function assertAccessible(page, selector, stateLabel) {
-  const result = await new AxeBuilder({ page })
-    .include(selector)
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze();
-  const severe = result.violations.filter(item => item.impact === 'serious' || item.impact === 'critical');
-  expect(severe, stateLabel + '\n' + JSON.stringify(severe, null, 2)).toEqual([]);
+async function open(page, query, reset) {
+  await page.request.get('/__reset' + (reset ? '?' + reset : ''));
+  await page.goto('/web/host.html' + (query ? '?' + query : ''));
+  await page.waitForFunction(() => window.__ktReady === true);
+  await expect(page.locator('#ktRoot')).not.toHaveAttribute('aria-busy', 'true');
 }
 
-for (const [label, name, pageId, itemId] of pages) {
-  test(label + ' has no serious or critical axe violations', async ({ page }) => {
-    const errors = await installJellyfinMocks(page);
-    await openPluginPage(page, name, pageId, itemId);
-    await page.addStyleTag({
-      content: 'html,body{background:#10131d;color:#f5f7ff}.kt-page *,.kt-page *::before,.kt-page *::after{animation:none!important;transition:none!important}'
+async function audit(page) {
+  const results = await new AxeBuilder({ page })
+    .include('#KometaThemesPage')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  const summary = results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`);
+  expect(summary).toEqual([]);
+}
+
+for (const theme of ['dark', 'light']) {
+  test.describe(`${theme} theme`, () => {
+    const prefix = theme === 'light' ? 'theme=light&' : '';
+
+    test('library', async ({ page }) => {
+      await open(page, prefix);
+      await expect(page.locator('.kt-row')).toHaveCount(24);
+      await audit(page);
     });
 
-    if (name === 'KometaThemes') {
-      await expect(page.locator('#ktCacheStats .kt-stat')).toHaveCount(4);
-      const tabs = page.locator('#ktTabs .kt-tab');
-      for (let index = 0; index < await tabs.count(); index += 1) {
-        await tabs.nth(index).click();
-        await assertAccessible(page, '#' + pageId, label + ' tab ' + index);
-      }
-      await page.evaluate(() => { window.__a11yConfirm = window.KT.ui.confirm('Accessibility confirmation'); });
-      await expect(page.getByRole('alertdialog')).toBeVisible();
-      await assertAccessible(page, '.kt-modal', label + ' dialog');
-      await page.keyboard.press('Escape');
-    } else {
-      await assertAccessible(page, '#' + pageId, label + ' initial');
-    }
+    test('anime page', async ({ page }) => {
+      await open(page, `${prefix}item=${KAGUYA}`);
+      await expect(page.locator('.kt-track')).toHaveCount(3);
+      await page.locator('details.kt-fold').first().locator('summary').click();
+      await audit(page);
+    });
 
-    if (name === 'KometaThemesSearch') {
-      await page.locator('.kt-result').first().click();
-      await expect(page.locator('#ktAnimeCard')).toBeVisible();
-      await assertAccessible(page, '#' + pageId, label + ' selected anime');
-    }
+    test('match dialog', async ({ page }) => {
+      await open(page, `${prefix}item=${KAGUYA}`);
+      await page.getByRole('button', { name: 'Change match' }).click();
+      await expect(page.locator('.kt-result')).not.toHaveCount(0);
+      await audit(page);
+    });
 
-    expect(errors).toEqual([]);
+    test('settings', async ({ page }) => {
+      await open(page, prefix);
+      await page.getByRole('tab', { name: 'Settings' }).click();
+      await page.locator('details.kt-fold summary').click();
+      await audit(page);
+    });
+
+    test('setup', async ({ page }) => {
+      await open(page, prefix, 'setup=1');
+      await expect(page.getByRole('heading', { name: 'Set up KometaThemes' })).toBeVisible();
+      await audit(page);
+    });
   });
 }

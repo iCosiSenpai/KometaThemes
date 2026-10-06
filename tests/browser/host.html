@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KometaThemes test host</title>
+<style>
+  /* The CSS variables Jellyfin 12's Dark and Light themes define. */
+  :root {
+    --jf-palette-background-default: #101010; --jf-palette-background-paper: #202020;
+    --jf-palette-text-primary: #fff; --jf-palette-text-secondary: rgba(255,255,255,.7);
+    --jf-palette-divider: rgba(255,255,255,.12); --jf-palette-action-hover: rgba(255,255,255,.08);
+    --jf-palette-primary-main: #00a4dc; --jf-palette-primary-contrastText: rgba(0,0,0,.87);
+    --jf-palette-success-main: #66bb6a; --jf-palette-warning-main: #ffa726; --jf-palette-error-main: #f44336;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --jf-palette-background-default: #f2f2f2; --jf-palette-background-paper: #e8e8e8;
+    --jf-palette-text-primary: #000; --jf-palette-text-secondary: rgba(0,0,0,.87);
+    --jf-palette-divider: rgba(0,0,0,.14); --jf-palette-action-hover: #ddd;
+    --jf-palette-primary-main: #00a4dc; --jf-palette-primary-contrastText: rgba(0,0,0,.87);
+    --jf-palette-success-main: #2e7d32; --jf-palette-warning-main: #b26a00; --jf-palette-error-main: #c62828;
+    color-scheme: light;
+  }
+  html, body { margin: 0; background: var(--jf-palette-background-default); color: var(--jf-palette-text-primary); font: 16px/1.4 "Noto Sans", system-ui, sans-serif; }
+  .appbar { height: 56px; display: flex; align-items: center; padding: 0 16px; background: var(--jf-palette-background-paper); font-weight: 600; }
+  .mainAnimatedPages { padding: 16px; }
+</style>
+</head>
+<body>
+<div class="appbar">Dashboard</div>
+<div class="mainAnimatedPages"></div>
+<script type="module">
+  const params = Object.fromEntries(new URLSearchParams(location.search));
+  if (params.theme === 'light') document.documentElement.dataset.theme = 'light';
+
+  window.ApiClient = {
+    getUrl(path, query) {
+      let url = '/' + String(path).replace(/^\//, '');
+      const pairs = Object.entries(query || {}).filter(([, v]) => v !== undefined && v !== null);
+      if (pairs.length) url += '?' + new URLSearchParams(pairs).toString();
+      return url;
+    },
+    setRequestHeaders(headers) { headers.Authorization = 'MediaBrowser Token="test"'; },
+    getCurrentUser() { return Promise.resolve({ Policy: { IsAdministrator: true } }); }
+  };
+
+  // Load the page the way Jellyfin's dashboard does: fetch the HTML, insert it, import the controller.
+  const html = await (await fetch('/web/configurationpage?name=KometaThemes')).text();
+  const holder = document.createElement('div');
+  holder.innerHTML = html;
+  const view = holder.querySelector('[data-role="page"]');
+  document.querySelector('.mainAnimatedPages').appendChild(view);
+  const name = view.getAttribute('data-controller').replace('__plugin/', '');
+  const module = await import('/web/configurationpage?name=' + name);
+  const pageParams = params.item ? { name: 'KometaThemes', item: params.item } : { name: 'KometaThemes' };
+  new module.default(view, pageParams);
+  view.dispatchEvent(new CustomEvent('viewshow', { detail: { params: pageParams }, bubbles: true }));
+  window.__ktReady = true;
+</script>
+</body>
+</html>

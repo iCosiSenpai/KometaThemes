@@ -1,16 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.KometaThemes.Api;
+using Jellyfin.Plugin.KometaThemes.AnimeThemes;
 using Jellyfin.Plugin.KometaThemes.Caching;
-using Jellyfin.Plugin.KometaThemes.Configuration;
 using Jellyfin.Plugin.KometaThemes.Models;
 using MediaBrowser.Controller.Entities;
 using Microsoft.Extensions.Logging;
@@ -32,7 +29,7 @@ public class TitleSearchResolver
     /// </summary>
     private const int SeasonMismatchScorePenalty = 26;
 
-    private readonly AnimeThemesApi _api;
+    private readonly AnimeThemesClient _client;
     private readonly IResolutionCache _cache;
     private readonly ILogger<TitleSearchResolver> _logger;
 
@@ -67,136 +64,128 @@ public class TitleSearchResolver
     /// <summary>
     /// Initializes a new instance of the <see cref="TitleSearchResolver"/> class.
     /// </summary>
-    /// <param name="api">AnimeThemes API instance.</param>
+    /// <param name="client">animethemes.moe client.</param>
     /// <param name="cache">Resolution cache.</param>
     /// <param name="logger">Logger.</param>
-    public TitleSearchResolver(AnimeThemesApi api, IResolutionCache cache, ILogger<TitleSearchResolver> logger)
+    public TitleSearchResolver(AnimeThemesClient client, IResolutionCache cache, ILogger<TitleSearchResolver> logger)
     {
-        _api = api;
+        _client = client;
         _cache = cache;
         _logger = logger;
     }
 
     /// <summary>
-    /// Resolves items by searching for them by title.
+    /// Finds an item's anime by its titles.
     /// </summary>
-    /// <param name="items">Items to resolve.</param>
-    /// <param name="threshold">Minimum Levenshtein similarity ratio (0.0-1.0).</param>
+    /// <param name="item">Library item.</param>
+    /// <param name="threshold">Required confidence, 0.5 to 1.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>An async enumerable of resolved items.</returns>
-    public async IAsyncEnumerable<ItemWithAnime> ResolveAsync(
-        BaseItem[] items,
-        double threshold,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+    /// <returns>The match and a description of it, or null when no candidate is confident enough.</returns>
+    /// <exception cref="System.Net.Http.HttpRequestException">animethemes.moe could not be reached.</exception>
+    public async Task<(Anime Anime, string Detail)?> ResolveAsync(BaseItem item, double threshold, CancellationToken cancellationToken)
     {
-        foreach (var item in items)
+        ArgumentNullException.ThrowIfNull(item);
+
+        var searchKeys = GetSearchKeys(item);
+        if (searchKeys.Count == 0)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var searchKeys = GetSearchKeys(item);
-            if (searchKeys.Count == 0)
-            {
-                continue;
-            }
-
-            var year = item.ProductionYear;
-            var primaryTitle = searchKeys[0].Value;
-            var cacheKey = $"title2:{string.Join("|", searchKeys.Select(key => key.Normalized))}:{year}";
-
-            if (_cache.TryGet(cacheKey, out var cached))
-            {
-                if (cached != null && cached.Length > 0)
-                {
-                    yield return new ItemWithAnime(item, new ReadOnlyCollection<Anime>(cached));
-                }
-
-                continue;
-            }
-
-            Anime? bestMatch = null;
-            var bestScore = 0;
-            var bestQuery = primaryTitle;
-
-            foreach (var query in searchKeys.Select(key => key.Value).Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                Anime[] results;
-                try
-                {
-                    results = await _api.SearchByTitleAsync(query, year, cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "TitleSearchResolver: API search failed for '{Title}'. Skipping query.", query);
-                    continue;
-                }
-
-                foreach (var anime in results)
-                {
-                    var score = ScoreSearchCandidate(anime, searchKeys, year);
-
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        bestMatch = anime;
-                        bestQuery = query;
-                    }
-                }
-
-                if (bestScore >= ExactMatchScore)
-                {
-                    break;
-                }
-            }
-
-            var requiredScore = Math.Clamp((int)Math.Round(threshold * 100, MidpointRounding.AwayFromZero), MinimumFallbackScore, ExactMatchScore);
-            if (bestMatch != null && bestScore >= requiredScore)
-            {
-                var hydratedMatch = await HydrateMatchAsync(bestMatch, cancellationToken).ConfigureAwait(false);
-                if (hydratedMatch == null)
-                {
-                    _logger.LogDebug("Title match for '{Title}' could not be hydrated from AnimeThemes.", primaryTitle);
-                    _cache.SetNegative(cacheKey);
-                    continue;
-                }
-
-                _logger.LogInformation(
-                    "Title match found for '{Title}' via '{Query}': '{Match}' (score={Score}, required={Required})",
-                    primaryTitle,
-                    bestQuery,
-                    hydratedMatch.Name,
-                    bestScore,
-                    requiredScore);
-
-                var matchArray = new[] { hydratedMatch };
-                _cache.SetPositive(cacheKey, matchArray);
-                yield return new ItemWithAnime(item, new ReadOnlyCollection<Anime>(matchArray));
-            }
-            else
-            {
-                _logger.LogDebug(
-                    "No title match found for '{Title}' (best score={Score}, required={Required})",
-                    primaryTitle,
-                    bestScore,
-                    requiredScore);
-
-                _cache.SetNegative(cacheKey);
-            }
+            return null;
         }
-    }
 
-    private async ValueTask<Anime?> HydrateMatchAsync(Anime match, CancellationToken cancellationToken)
-    {
-        if (!string.IsNullOrWhiteSpace(match.Slug))
+        var year = item.ProductionYear;
+        var primaryTitle = searchKeys[0].Value;
+        var cacheKey = $"title3:{string.Join("|", searchKeys.Select(key => key.Normalized))}:{year}";
+
+        if (_cache.TryGet(cacheKey, out var cached))
         {
-            var anime = await _api.GetAnimeBySlugAsync(match.Slug, cancellationToken).ConfigureAwait(false);
-            if (anime != null)
+            return cached is { Length: > 0 } ? (cached[0], "title match \u201c" + primaryTitle + "\u201d") : null;
+        }
+
+        Anime? bestMatch = null;
+        var bestScore = 0;
+        var bestQuery = primaryTitle;
+
+        foreach (var query in searchKeys.Select(key => key.Value).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var results = await _client.SearchAsync(query, cancellationToken).ConfigureAwait(false);
+            foreach (var anime in results)
             {
-                return anime;
+                var score = ScoreSearchCandidate(anime, searchKeys, year);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestMatch = anime;
+                    bestQuery = query;
+                }
+            }
+
+            if (bestScore >= ExactMatchScore)
+            {
+                break;
             }
         }
 
-        return await _api.GetAnimeByIdAsync(match.Id, cancellationToken).ConfigureAwait(false);
+        var requiredScore = RequiredScore(threshold);
+        if (bestMatch == null || bestScore < requiredScore)
+        {
+            _logger.LogDebug("No title match for {Title} (best score {Score}, required {Required})", primaryTitle, bestScore, requiredScore);
+            _cache.SetNegative(cacheKey);
+            return null;
+        }
+
+        var full = await _client.GetAnimeAsync(bestMatch.Id, cancellationToken).ConfigureAwait(false);
+        if (full == null || !AnimeThemeAvailability.HasUsableTheme(full))
+        {
+            _cache.SetNegative(cacheKey);
+            return null;
+        }
+
+        _logger.LogInformation(
+            "Title match for {Title} via {Query}: {Match} (score {Score}, required {Required})",
+            primaryTitle,
+            bestQuery,
+            full.Name,
+            bestScore,
+            requiredScore);
+        _cache.SetPositive(cacheKey, [full]);
+        return (full, "title match \u201c" + bestQuery + "\u201d");
     }
+
+    /// <summary>
+    /// Scores search results against the item's titles, for the manual search.
+    /// </summary>
+    /// <param name="item">Library item, or null to score against the query alone.</param>
+    /// <param name="query">The search text.</param>
+    /// <param name="candidates">Search results.</param>
+    /// <returns>Candidates with a 0-100 score, best first.</returns>
+    public static IReadOnlyList<(Anime Anime, int Score)> Rank(BaseItem? item, string query, IEnumerable<Anime> candidates)
+    {
+        var keys = new List<SearchKey>();
+        AddSearchKey(keys, query);
+        if (item != null)
+        {
+            foreach (var key in GetSearchKeys(item))
+            {
+                if (keys.All(existing => existing.Normalized != key.Normalized))
+                {
+                    keys.Add(key);
+                }
+            }
+        }
+
+        return candidates
+            .Select(anime => (Anime: anime, Score: keys.Count == 0 ? 0 : ScoreSearchCandidate(anime, keys, item?.ProductionYear)))
+            .OrderByDescending(pair => pair.Score)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Converts a 0.5-1 threshold to a score, never below the weakest accepted bucket.
+    /// </summary>
+    /// <param name="threshold">The threshold.</param>
+    /// <returns>The required score.</returns>
+    internal static int RequiredScore(double threshold)
+        => Math.Clamp((int)Math.Round(threshold * 100, MidpointRounding.AwayFromZero), MinimumFallbackScore, ExactMatchScore);
 
     private static List<SearchKey> GetSearchKeys(BaseItem item)
     {

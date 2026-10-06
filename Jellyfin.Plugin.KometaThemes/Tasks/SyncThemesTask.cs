@@ -2,62 +2,55 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.KometaThemes.Configuration;
 using Jellyfin.Plugin.KometaThemes.Sync;
 using MediaBrowser.Model.Tasks;
-
-#pragma warning disable SA1611, CS1591
 
 namespace Jellyfin.Plugin.KometaThemes.Tasks;
 
 /// <summary>
-/// Scheduled task that syncs anime themes from animethemes.moe.
-/// Supports multi-season and per-item processing.
+/// Scheduled check of every managed series and movie.
 /// </summary>
-public class SyncThemesTask : IScheduledTask
+/// <remarks>
+/// The schedule is Jellyfin's to edit (Dashboard, Scheduled tasks). 1.x also had an interval setting
+/// on its own page that only applied to a fresh install, because Jellyfin keeps the triggers it saved.
+/// </remarks>
+public sealed class SyncThemesTask : IScheduledTask
 {
-    private readonly SyncThemesRunner _runner;
+    private readonly SyncRunner _runner;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SyncThemesTask"/> class.
     /// </summary>
-    public SyncThemesTask(
-        SyncThemesRunner runner)
+    /// <param name="runner">Check runner.</param>
+    public SyncThemesTask(SyncRunner runner)
     {
         _runner = runner;
     }
 
     /// <inheritdoc />
-    public string Name => "KometaThemes: Sync Anime Themes";
+    public string Name => "Check anime themes";
 
     /// <inheritdoc />
     public string Key => "KometaThemesSyncThemes";
 
     /// <inheritdoc />
-    public string Description => "Downloads anime theme songs and videos from animethemes.moe with multi-provider resolution and multi-season support.";
+    public string Description => "Downloads missing openings and endings from animethemes.moe, renames and removes what changed.";
 
     /// <inheritdoc />
     public string Category => "KometaThemes";
 
     /// <inheritdoc />
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
-    {
-        var configuration = Plugin.Instance?.Configuration ?? new PluginConfiguration();
-        var intervalHours = Math.Clamp(configuration.SyncIntervalHours, 1, 168);
-
-        return
+        =>
         [
             new TaskTriggerInfo
             {
                 Type = TaskTriggerInfoType.IntervalTrigger,
-                IntervalTicks = TimeSpan.FromHours(intervalHours).Ticks
+                IntervalTicks = TimeSpan.FromHours(12).Ticks
             }
         ];
-    }
 
     /// <inheritdoc />
-    public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
-    {
-        await _runner.RunScheduledAsync(progress, cancellationToken).ConfigureAwait(false);
-    }
+    public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
+        => _runner.RunScheduledAsync(progress, cancellationToken);
 }

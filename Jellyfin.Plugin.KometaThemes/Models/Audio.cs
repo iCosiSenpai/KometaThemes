@@ -3,20 +3,15 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
-/// An audio API resource represents the audio track of a video.
-///
-/// For example, the audio Bakemonogatari-OP1.ogg represents the audio track of the Bakemonogatari-OP1.webm video.
+/// The audio track animethemes.moe extracts from a video.
 /// </summary>
-/// <param name="Id">The primary key of the resource.</param>
-/// <param name="Path">The path of the file in storage.</param>
-/// <param name="Filename">The filename of the file without extension.</param>
-/// <param name="MimeType">The media type of the file in storage.</param>
-/// <param name="Link">The URL to stream the file from storage.</param>
-public record Audio(
+/// <param name="Id">Audio ID.</param>
+/// <param name="Link">Audio URL.</param>
+public sealed record Audio(
     [property: JsonPropertyName("id")] int Id,
-    [property: JsonPropertyName("path")] string Path,
-    [property: JsonPropertyName("filename")] string Filename,
-    [property: JsonPropertyName("mimetype")]
-    string MimeType,
-    [property: JsonPropertyName("link")] string Link
-);
+    [property: JsonPropertyName("link")] string? Link)
+{
+    /// <summary>Gets the file size in bytes.</summary>
+    [JsonPropertyName("size")]
+    public long? Size { get; init; }
+}

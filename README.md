@@ -4,189 +4,133 @@
 
 # KometaThemes
 
-**Anime openings and endings, automatically brought into Jellyfin.**
+**Anime openings and endings on your Jellyfin series, season and movie pages.**
 
 [![Latest release](https://img.shields.io/github/v/release/iCosiSenpai/KometaThemes?color=00a4dc&labelColor=171a2b)](https://github.com/iCosiSenpai/KometaThemes/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/iCosiSenpai/KometaThemes/ci.yml?branch=main&label=build&labelColor=171a2b)](https://github.com/iCosiSenpai/KometaThemes/actions/workflows/ci.yml)
-![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11.x-7c5cff?labelColor=171a2b)
+![Jellyfin](https://img.shields.io/badge/Jellyfin-12.x-7c5cff?labelColor=171a2b)
 [![License](https://img.shields.io/github/license/iCosiSenpai/KometaThemes?labelColor=171a2b)](LICENSE)
 
-[Install](#installation) · [Set up](#first-time-setup) · [Use](#everyday-use) · [Troubleshoot](docs/troubleshooting.md) · [API](docs/api.md)
+[Install](#installation) · [First run](#first-run) · [Everyday use](#everyday-use) · [Upgrading from 1.x](#upgrading-from-1x) · [Troubleshooting](docs/troubleshooting.md) · [API](docs/api.md)
 
 </div>
 
-KometaThemes downloads the real opening and ending themes for anime series and movies from
-[AnimeThemes](https://animethemes.moe/) and places them where Jellyfin expects theme music and
-video backdrops. It resolves titles from the metadata already attached to your library, keeps
-seasons separate when the source data supports it, and gives you manual controls for everything
-automatic matching cannot decide safely.
+KometaThemes finds each anime of your library on [animethemes.moe](https://animethemes.moe/),
+downloads its openings and endings, and puts them where Jellyfin plays theme music and theme
+videos. Open *Kaguya-sama* and its opening plays; open its second season and you hear the second
+season's opening, not the first one's.
 
-No API key is required. YouTube import also works on a stock Jellyfin installation through the
-extractor included with the plugin; `yt-dlp` remains an optional, automatically detected upgrade.
+No account or API key is needed.
 
-## Highlights
+## What it does
 
-- **Audio and video themes** — configure OP/ED audio and video independently for series and movies.
-- **Metadata-aware matching** — resolves AniDB, AniList, MyAnimeList, Kitsu and AniSearch IDs before
-  falling back to a guarded title search.
-- **Multi-season support** — download one best theme, every theme, or themes grouped by season
-  without confidently assigning an opening to the wrong season.
-- **Theme Finder** — search AnimeThemes manually, preview sources, filter OP/ED and audio/video,
-  select across seasons, download, and save a permanent Jellyfin-item binding.
-- **YouTube fallback** — paste a supported YouTube link for a theme missing from AnimeThemes and
-  choose OP or ED plus audio, video or both.
-- **Per-item tools** — inspect files and registrations, sync one title, remove plugin-owned themes,
-  repair links, blacklist an item or open Theme Finder directly.
-- **Useful failure state** — unresolved items retain their error and attempt history instead of
-  being retried silently on every pass.
-- **Jellyfin integration** — scheduled and event-driven sync, a global M3U playlist, theme-link
-  repair for Jellyfin 10.11.x, and an optional ♪ shortcut on item pages.
+- **Real songs, real names.** Files are named after the song, `OP1 - Love Dramatic feat. Rikka Ihara.mp3`,
+  and tagged with title, artist and anime.
+- **Every season its own themes.** A later season is matched to its own animethemes.moe entry by
+  following the sequels on AniList, and only when the premiere year and the number of episodes
+  agree. When the match is not certain the season plays the series themes: never the wrong song.
+- **Matching that explains itself.** AniDB, AniList, MyAnimeList, Kitsu and aniSearch IDs first,
+  then a careful title search. The anime page says how each match was made, and you can change it.
+- **An episode map.** Each anime page shows which episodes every opening and ending plays in.
+- **Songs, videos, or both.** Choose openings, endings, the main theme or all of them, creditless
+  videos only, and the volume.
+- **Per-song control.** Keep a song your settings would skip, or keep one out for good.
+- **Hands off.** New anime are handled when Jellyfin has their metadata; a scheduled check picks
+  up new songs. Anime that animethemes.moe does not have are retried less and less often.
+- **Safe with your files.** KometaThemes only renames or deletes files it wrote itself, and keeps
+  a record of them next to the media.
+- **YouTube, when needed.** For a song animethemes.moe does not have, paste a YouTube link.
+- **A ♪ button on item pages** shows the songs of that page and opens its KometaThemes page.
 
 ## Requirements
 
-| Requirement | Status | Notes |
-|---|---:|---|
-| Jellyfin `10.11.x` | Required | Catalog target ABI: `10.11.8.0`; .NET 9 is supplied by Jellyfin. |
-| Administrator account | Required | Configuration and plugin actions are admin-only. |
-| File Transformation plugin | Optional | Adds the ♪ KometaThemes shortcut to series and movie pages. |
-| `yt-dlp` | Optional | Preferred automatically when installed; the bundled extractor is the fallback. |
+| | |
+|---|---|
+| **Jellyfin 12.0 or newer** | Built for .NET 10 and the Jellyfin 12 API. Jellyfin 10.x is not supported. |
+| Administrator account | Every KometaThemes page and action is for administrators. |
+| [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation) *(optional)* | Adds the ♪ button to item pages. Its 3.0.1 release needs Jellyfin 12.1 or newer. |
+| yt-dlp *(optional)* | Used for YouTube imports when it is installed; otherwise the extractor inside the plugin is used. |
 
-The plugin administration interface is currently in English. Italian season names such as
-`2ª Stagione` are still understood when matching library folders and titles.
+Jellyfin plays theme songs only when **Settings → Display → Theme songs** is on in the user's
+profile, and theme videos only when **Theme videos** is on.
 
 ## Installation
 
-KometaThemes is distributed through the Jellyfin plugin catalog. Do not copy DLLs into the
-Jellyfin plugin directory manually.
+1. In Jellyfin open **Dashboard → Plugins → Repositories** and add
+   `https://raw.githubusercontent.com/iCosiSenpai/iCosiSenpai-Plugins/main/manifest.json`.
+2. In **Catalog**, install **KometaThemes** and restart Jellyfin.
+3. Optionally install **File Transformation** from its own repository for the ♪ button.
 
-1. Open **Dashboard → Plugins → Repositories**.
-2. Add this repository URL:
+Install only through the catalog: Jellyfin keeps track of plugin versions it installed itself.
 
-   ```text
-   https://raw.githubusercontent.com/iCosiSenpai/iCosiSenpai-Plugins/main/manifest.json
-   ```
+## First run
 
-3. Open **Catalog**, choose **KometaThemes**, and install the latest version.
-4. Restart Jellyfin when prompted.
-5. Hard-refresh the web client with `Ctrl+Shift+R` so versioned frontend assets are reloaded.
+Open **Anime themes** in the dashboard sidebar. A new install asks three things:
 
-Updates are delivered through the same catalog. File Transformation is only needed if you want
-the ♪ shortcut; the dashboard, scheduler, Theme Finder and API work without it.
-
-## First-time setup
-
-1. Open **Dashboard → Plugins → KometaThemes**.
-2. Under **General**, verify the library-name pattern. The default `Anime` limits all automatic
-   work and item-page integration to libraries whose names match it.
-3. Under **Themes & Download**, choose the audio and video modes separately for series and movies.
-4. Under **Providers & Matching**, arrange the metadata providers used by your libraries.
-5. Run **Sync now** for an incremental pass. Use **Dry run** first if you want resolution and logs
-   without writing media files.
-6. For each Jellyfin user who should hear themes, enable
-   **User menu → Settings → Display → Play theme songs**.
-
-If files download correctly but nothing plays, check step 6 first. Jellyfin upgrades can reset
-that per-user preference.
+1. **Libraries**: the libraries that hold your anime. Libraries with "anime" in the name are
+   preselected; everything else is left alone.
+2. **What to download**: songs (on by default), videos (off by default: 20–80 MB each), and whether
+   seasons get their own themes.
+3. **Start**: the first check looks up every anime. You can keep using Jellyfin meanwhile.
 
 ## Everyday use
 
-### Automatic sync
+**Library.** Every anime with its state: *Ready*, *Matched by you*, *Not checked yet*, *Excluded*,
+or *Needs attention* when animethemes.moe has no entry for it. Filter and search the list.
 
-The scheduled task and library events process matching anime libraries. A normal sync only fills
-missing or incomplete results. **Force sync** removes outdated plugin-owned themes and resolves
-the selected scope again; it does not delete unrelated artwork or media.
+**Anime page.** Click an anime to see:
 
-### Theme Finder
+- the entry it is matched to and how (for example *Matched by AniList ID 101921*, or *Matched as a
+  sequel on AniList* for a season), with **Change match** to search animethemes.moe yourself;
+- one tab for the series and one per season;
+- the episode map and the list of songs, each with a preview and **Song** / **Video** buttons: a
+  solid button is in the folder, a dashed one downloads at the next check, a struck one stays out;
+- the files in each theme folder, including your own, which KometaThemes never touches;
+- **Check again**, **Download again**, **Exclude**, and **Add a song from YouTube** when enabled.
 
-Use Theme Finder when a title has no match, the match is wrong, or you want exact control. Search
-by title and year, choose an AnimeThemes result, preview its sources, and select themes individually
-or in bulk. Saving a binding makes that choice win over automatic matching on future syncs.
+**Activity.** What KometaThemes did recently, in plain words: downloads, renames, matches, problems.
 
-With File Transformation installed, the ♪ button opens the same workflow from a series or movie
-page. Otherwise, open it from the KometaThemes dashboard.
+**Settings.** Libraries, what to download, volume, automatic work, YouTube, and under *Advanced*
+the order of the IDs tried, title matching, request budget, cache durations and time limits.
 
-### Import from YouTube
+The full check runs on Jellyfin's schedule (**Dashboard → Scheduled tasks → Check anime themes**,
+every 12 hours by default) and from **Check now**.
 
-Enable **Themes & Download → YouTube import**, then paste a `watch`, `youtu.be`, Shorts, YouTube
-Music or embed URL into Theme Finder. The plugin reduces it to a canonical video ID, ignores
-playlist context, and asks how the result should be named and imported.
+## Where files go
 
-The managed extractor ships in the release archive, so there is nothing else to install. When
-`yt-dlp` exists in the Jellyfin environment, KometaThemes uses it automatically because it can be
-updated independently as YouTube changes. The settings page reports which backend is active.
+| Item | Songs | Videos |
+|---|---|---|
+| Series | `Series/theme-music/` | `Series/backdrops/` |
+| Season with its own entry | `Series/Season 02/theme-music/` | `Series/Season 02/backdrops/` |
+| Movie in its own folder | `Movie/theme-music/` | `Movie/backdrops/` |
 
-Only import media you are allowed to use. You remain responsible for the applicable copyright
-rules and service terms.
+Next to them, `_kometa_themes.json` records which files KometaThemes wrote. Movies that share a
+folder with other movies get no themes: Jellyfin does not look for them there.
 
-### Unresolved, bindings and excluded items
+## Upgrading from 1.x
 
-- **Unresolved** explains matching and download failures and lets you retry, search, dismiss or
-  blacklist them.
-- **Bindings** contains permanent Jellyfin-item to AnimeThemes matches and lets you unlock them.
-- **Excluded** contains intentionally skipped items, which can be restored later.
+Install 2.0 from the catalog on Jellyfin 12. Your settings, exclusions and manual matches are kept,
+and the libraries matched by the old name pattern become the selected libraries. At the next check:
 
-## Files created in the library
+- files are renamed to the song names (`OP0 - Op1__50.mp3` becomes `OP1 - Love Dramatic.mp3`),
+  without downloading them again;
+- the `theme.mp3` copies 1.x placed next to each series are removed, but only when they are
+  byte-for-byte a song KometaThemes downloaded;
+- songs 1.x put in the wrong season folder are removed, and seasons get their own when AniList
+  confirms them;
+- the playlist file, dry run, presets and log viewer of 1.x are gone; the Activity tab replaces the
+  log viewer.
 
-```text
-Series folder/
-├── theme-music/
-│   ├── OP1 - Guren no Yumiya__50.mp3
-│   └── ED1 - Utsukushiki Zankoku na Sekai__50.mp3
-└── backdrops/
-    └── OP1 - Guren no Yumiya__50.webm
-```
+## More
 
-The numeric suffix controls Jellyfin's playback volume. YouTube imports preserve a compatible
-source container, so `.mp4` beside `.webm` is normal. Cleanup is based on the files KometaThemes
-recorded as its own; your existing artwork in `backdrops/` is left alone.
+- [Configuration reference](docs/configuration.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [HTTP API](docs/api.md)
+- [Development and releases](docs/development.md)
 
-## Reliability and security
+Themes and metadata come from [animethemes.moe](https://animethemes.moe/) and
+[AniList](https://anilist.co/). Please support them.
 
-- Downloads are written atomically, so an interruption cannot publish a half-written theme.
-- Caches, unresolved records, bindings and exclusions are bounded and survive restarts.
-- Remote URLs are restricted, API calls use Jellyfin's authenticated same-origin context, and
-  mutating endpoints require an administrator.
-- The pasted YouTube URL is validated and reduced to its video ID before an extractor sees it.
-- Network requests use rate limiting, retries and circuit breaking; conversion concurrency is
-  capped across the plugin.
+## License
 
-See the [configuration reference](docs/configuration.md) for the exact controls and behaviour.
-
-## Documentation
-
-- [Configuration reference](docs/configuration.md) — settings, fetch modes, matching and safeguards
-- [Troubleshooting](docs/troubleshooting.md) — playback, permissions, the ♪ shortcut and imports
-- [REST API](docs/api.md) — endpoints and request shapes
-- [Development](docs/development.md) — architecture, tests, packaging and release flow
-
-When reporting a problem, include the KometaThemes entries from the plugin's **Activity** panel or
-from Jellyfin's current server log, plus the plugin and Jellyfin versions. Please remove tokens,
-paths or other private information before posting logs.
-
-## Building from source
-
-The backend targets .NET 9 and the browser regression suite uses Node.js 20:
-
-```bash
-dotnet restore
-dotnet build -c Release --no-restore
-dotnet test -c Release --no-build
-
-npm ci
-npx playwright install chromium
-npm run test:browser
-```
-
-The release archive intentionally contains exactly four assemblies: KometaThemes, YoutubeExplode,
-AngleSharp and JsonExtensions. See [Development](docs/development.md) before changing dependencies
-or packaging.
-
-## Credits and license
-
-Theme metadata and media are provided by [AnimeThemes](https://animethemes.moe/). KometaThemes is
-built for [Jellyfin](https://jellyfin.org/) by [iCosiSenpai](https://github.com/iCosiSenpai) and is
-released under the [GNU General Public License v3](LICENSE).
-
-If the plugin is useful to you, you can support its maintenance through
-[Buy Me a Coffee](https://www.buymeacoffee.com/iCosiSenpai) or
-[PayPal](https://www.paypal.com/donate/?hosted_button_id=5A4E26XC45GLQ).
+GPL-3.0. See [LICENSE](LICENSE).

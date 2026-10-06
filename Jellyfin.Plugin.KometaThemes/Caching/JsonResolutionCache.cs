@@ -74,7 +74,11 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
 
         var pluginDir = Path.Combine(applicationPaths.PluginConfigurationsPath, "KometaThemes");
         Directory.CreateDirectory(pluginDir);
-        _cachePath = Path.Combine(pluginDir, "resolution-cache.json");
+        _cachePath = Path.Combine(pluginDir, "resolution-cache-v2.json");
+
+        // The 1.x cache holds anime without song titles; reusing it would delay the 2.0 file names
+        // by up to a week. It is dropped once instead.
+        TryDeleteLegacyCache(Path.Combine(pluginDir, "resolution-cache.json"));
 
         LoadFromDisk();
 
@@ -96,14 +100,20 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
     /// <inheritdoc />
     public bool TryGet(string key, out Anime[]? result)
     {
+        var found = TryGetEntry(key, out var entry);
+        result = found && !entry!.IsNegative ? entry.Anime : null;
+        return found;
+    }
+
+    private bool TryGetEntry(string key, out CacheEntry? entry)
+    {
         MaybeSweep();
 
-        if (_cache.TryGetValue(key, out var entry))
+        if (_cache.TryGetValue(key, out entry))
         {
             if (!entry.IsExpired(PositiveTtl, NegativeTtl))
             {
                 Interlocked.Increment(ref _hits);
-                result = entry.IsNegative ? null : entry.Anime;
                 return true;
             }
 
@@ -114,8 +124,24 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
         }
 
         Interlocked.Increment(ref _misses);
-        result = null;
+        entry = null;
         return false;
+    }
+
+    private void TryDeleteLegacyCache(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                _logger.LogInformation("Dropped the 1.x resolution cache {Path}", path);
+            }
+        }
+        catch (IOException ex)
+        {
+            _logger.LogDebug(ex, "Could not delete {Path}", path);
+        }
     }
 
     /// <inheritdoc />
@@ -142,6 +168,31 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
         };
         Volatile.Write(ref _dirty, true);
         EnforceCap();
+    }
+
+    /// <inheritdoc />
+    public bool TryGetText(string key, out string? value)
+    {
+        var found = TryGetEntry(key, out var entry);
+        value = found ? entry!.Text : null;
+        return found && entry!.Text != null;
+    }
+
+    /// <inheritdoc />
+    public void SetText(string key, string value)
+    {
+        _cache[key] = new CacheEntry { Text = value, IsNegative = false, Timestamp = DateTime.UtcNow };
+        Volatile.Write(ref _dirty, true);
+        EnforceCap();
+    }
+
+    /// <inheritdoc />
+    public void Remove(string key)
+    {
+        if (_cache.TryRemove(key, out _))
+        {
+            Volatile.Write(ref _dirty, true);
+        }
     }
 
     /// <inheritdoc />
@@ -380,6 +431,8 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
     private sealed class CacheEntry
     {
         public Anime[]? Anime { get; set; }
+
+        public string? Text { get; set; }
 
         public bool IsNegative { get; set; }
 

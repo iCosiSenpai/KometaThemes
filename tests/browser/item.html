@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Item page test host</title>
+<style>
+  :root { --jf-palette-background-default: #101010; --jf-palette-background-paper: #202020; --jf-palette-text-primary: #fff; --jf-palette-text-secondary: rgba(255,255,255,.7); --jf-palette-divider: rgba(255,255,255,.12); color-scheme: dark; }
+  body { margin: 0; padding: 24px; background: var(--jf-palette-background-default); color: var(--jf-palette-text-primary); font: 16px system-ui, sans-serif; }
+  .detailButton { width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(255,255,255,.1); color: inherit; }
+</style>
+</head>
+<body>
+<!-- The bits of Jellyfin's item details page the button relies on. -->
+<div class="page itemDetailPage" id="details">
+  <h1>Kaguya-sama</h1>
+  <div class="mainDetailButtons focuscontainer-x">
+    <button type="button" class="button-flat btnPlay detailButton" title="Play">▶</button>
+    <button type="button" class="button-flat btnMoreCommands detailButton" title="More">⋯</button>
+  </div>
+</div>
+<script>
+  const params = Object.fromEntries(new URLSearchParams(location.search));
+  window.ApiClient = {
+    getUrl(path) { return '/' + String(path).replace(/^\//, ''); },
+    setRequestHeaders(headers) { headers.Authorization = 'MediaBrowser Token="test"'; },
+    getCurrentUser() { return Promise.resolve({ Policy: { IsAdministrator: params.admin !== '0' } }); }
+  };
+</script>
+<script src="/KometaThemes/ItemButton.js"></script>
+<script>
+  document.getElementById('details').dispatchEvent(new CustomEvent('viewshow', { detail: { params: { id: params.id } }, bubbles: true }));
+</script>
+</body>
+</html>

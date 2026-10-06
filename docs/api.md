@@ -1,84 +1,52 @@
-# REST API
+# HTTP API
 
-All paths are relative to `/Plugins/KometaThemes`.
+Every route lives under `/KometaThemes/` and needs an **administrator** session (the usual
+`Authorization: MediaBrowser … Token="…"` header). Answers are camelCase JSON. Errors are
+`{ "error": "…" }` with a sentence meant to be shown as it is.
 
-Every endpoint requires an elevated Jellyfin token, except the two web assets at the
-bottom of the table, which must stay anonymous because the Jellyfin web client loads
-them before authentication.
+The one exception is `GET /KometaThemes/ItemButton.js`: the static script of the ♪ button, anonymous
+because the web client loads it before anyone signs in.
 
-## Health and sync
+## State and settings
 
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/Health` | GET | Version, health, metrics, current sync summary |
-| `/Sync/status` | GET | Live sync progress |
-| `/Sync/sync` | POST | Start an incremental sync |
-| `/Sync/force` | POST | Start a server-side forced sync |
-| `/Sync/run` | POST | Start a library preset |
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `State` | Version, setup state, libraries, counts per status, check status, YouTube status. |
+| GET | `Settings` | Every setting the page edits. |
+| POST | `Settings` | Save settings. Never touches exclusions or manual matches. |
+| POST | `Setup/Complete` | Mark the first-run setup as done. |
+| POST | `WhatsNew/Dismiss` | Hide the 2.0 note. |
+| GET | `Activity?limit=&itemId=` | Latest activity, newest first. |
+| POST | `Cache/Clear` | Forget every lookup and make waiting anime due again. |
 
-## Per item
+## The full check
 
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/Items/{id}/info` | GET | Item and theme-registration context |
-| `/Items/{id}/eligible` | GET | Whether the item is in a matching library |
-| `/Items/{id}/binding` | GET | The item's manual binding, if any |
-| `/Items/{id}/themes` | GET · DELETE | List themes, or delete them |
-| `/Items/{id}/sync` | POST | Sync one eligible item |
-| `/Items/{id}/preview` | POST | Resolve without downloading anything |
-| `/Items/{id}/repair` | POST | Repair Jellyfin theme links |
-| `/Items/{id}/download` | POST | Download selected AnimeThemes media |
-| `/Items/{id}/youtube` | POST | Import a theme from a YouTube link |
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `Check` | Status: running, phase, done/total, downloads, current anime, last message. |
+| POST | `Check` | Start it. Body `{ "retryProblems": true }` also retries anime that are waiting after a problem. `409` if already running. |
+| DELETE | `Check` | Stop after the anime in progress. |
 
-## Search and YouTube
+## Library and anime
 
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/Search` | GET | Search AnimeThemes candidates |
-| `/Anime/{id}/themes` | GET | Retrieve themes and season groups |
-| `/YouTube/status` | GET | Whether YouTube import is enabled and available |
+`{itemId}` can be a series, a season, an episode or a movie: seasons and episodes resolve to their
+series. Actions that act on one folder (match, songs, files, YouTube) take the series, season or
+movie whose folder it is.
 
-## Bindings
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `Library` | One summary per managed series or movie. |
+| GET | `Items/{itemId}` | The anime page: summary, problem, and per folder the match, the songs with their state, and the files. |
+| GET | `Items/{itemId}/Summary` | Whether the item is managed, without any network lookup (used by the ♪ button). |
+| POST | `Items/{itemId}/Check?redownload=` | Bring this anime up to date now. |
+| PUT | `Items/{itemId}/Match` | Body `{ "animeId": 1386 }`: match a series, season or movie to an animethemes.moe entry, then download. |
+| DELETE | `Items/{itemId}/Match` | Back to the automatic match. |
+| PUT | `Items/{itemId}/Excluded?deleteFiles=` | Exclude; optionally delete the files KometaThemes wrote. |
+| DELETE | `Items/{itemId}/Excluded` | Manage it again. |
+| PUT | `Items/{itemId}/Themes/{themeId}` | Body `{ "change": "audio", "audio": false }`: keep (`true`), keep out (`false`) or follow the settings (`null`). |
+| DELETE | `Items/{itemId}/Files?directory=&name=` | Delete one file KometaThemes wrote; `404` for any other file. |
+| GET | `Items/{itemId}/Search?q=` | animethemes.moe search, ranked against the item. |
+| GET | `Anime/{animeId}` | An entry with its songs, for previews. |
+| POST | `Items/{itemId}/YouTube` | Body `{ "url", "type": "OP"|"ED", "sequence", "title", "format": "audio"|"video"|"both" }`. |
 
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/Bindings` | GET | List every manual binding |
-| `/Bindings/{id}` | POST · DELETE | Save or remove a binding |
-| `/Bindings/{id}/unlock` | POST | Drop the binding but keep the files |
-
-## Unresolved items
-
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/Failed/items` | GET | List unresolved items |
-| `/Failed/count` | GET | Unresolved count |
-| `/Failed/items/{id}` | DELETE | Dismiss one entry |
-| `/Failed/items/{id}/resolve-manually` | POST | Mark as handled by hand |
-| `/Failed/clear` | POST | Clear the list |
-
-## Excluded items
-
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/Skipped/items` | GET | List excluded items |
-| `/Skipped/count` | GET | Excluded count |
-| `/Skipped/{id}` | POST | Add to the blacklist |
-| `/Skipped/{id}/remove` | POST | Restore one item |
-| `/Skipped/clear` | POST | Clear the blacklist |
-
-## Cache, logs and playlist
-
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/Cache/stats` | GET | Resolution-cache statistics |
-| `/Cache/clear` | POST | Clear the resolution cache |
-| `/Logs?lines=200` | GET | Read current plugin log entries |
-| `/Playlist/refresh` | POST | Rebuild the global playlist |
-| `/Playlist/export` | GET | Download the M3U playlist |
-
-## Web assets
-
-| Endpoint | Method | Purpose |
-|---|:---:|---|
-| `/ItemButton.js` | GET | Item-button injector script — anonymous |
-| `/InjectButton` | POST | File Transformation hook — anonymous |
+Item actions return the updated anime page, so a client never needs a second request.

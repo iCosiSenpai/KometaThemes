@@ -1,0 +1,461 @@
+{
+ "anime": {
+  "id": 1386,
+  "name": "Kaguya-sama wa Kokurasetai: Tensai-tachi no Renai Zunousen",
+  "media_format": "TV",
+  "season": "Winter",
+  "slug": "kaguya_sama_wa_kokurasetai_tensai_tachi_no_renai_zunousen",
+  "synopsis": "Known for being both brilliant and powerful, Miyuki Shirogane and Kaguya Shinomiya lead the illustrious Shuchiin Academy as near equals. And everyone thinks they’d make a great couple. Pride and arrogance are in ample supply, so the only logical move is to trick the other into instigating a date! Who will come out on top in this psychological war where the first move is the only one that matters?\n\n\n(Source: Aniplex)",
+  "year": 2019,
+  "animethemes": [
+   {
+    "id": 9311,
+    "sequence": null,
+    "slug": "OP1",
+    "type": "OP",
+    "song": {
+     "id": 9312,
+     "title": "Love Dramatic feat. Rikka Ihara",
+     "artists": [
+      {
+       "id": 526,
+       "name": "Masayuki Suzuki",
+       "slug": "masayuki_suzuki",
+       "information": null,
+       "artistsong": {
+        "id": 6576,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 10943,
+      "episodes": null,
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 517,
+      "videos": [
+       {
+        "id": 11126,
+        "basename": "KaguyaSamaWaKokurasetai-OP1-Lyrics.webm",
+        "filename": "KaguyaSamaWaKokurasetai-OP1-Lyrics",
+        "lyrics": true,
+        "nc": false,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-OP1-Lyrics.webm",
+        "resolution": 720,
+        "size": 34974847,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "Lyrics",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-OP1-Lyrics.webm",
+        "audio": {
+         "id": 8487,
+         "basename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg",
+         "size": 3628280,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11127,
+        "basename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-OP1-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 41669550,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-OP1-NCBD1080.webm",
+        "audio": {
+         "id": 8487,
+         "basename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg",
+         "size": 3628280,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11128,
+        "basename": "KaguyaSamaWaKokurasetai-OP1.webm",
+        "filename": "KaguyaSamaWaKokurasetai-OP1",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-OP1.webm",
+        "resolution": 720,
+        "size": 33572585,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-OP1.webm",
+        "audio": {
+         "id": 8487,
+         "basename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-OP1-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg",
+         "size": 3628280,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-OP1-NCBD1080.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": 9312,
+    "sequence": 1,
+    "slug": "ED1",
+    "type": "ED",
+    "song": {
+     "id": 9313,
+     "title": "Sentimental Crisis",
+     "artists": [
+      {
+       "id": 81,
+       "name": "halca",
+       "slug": "halca",
+       "information": null,
+       "artistsong": {
+        "id": 1397,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 10944,
+      "episodes": "2, 4-12",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 207,
+      "videos": [
+       {
+        "id": 11120,
+        "basename": "KaguyaSamaWaKokurasetai-ED1-Lyrics.webm",
+        "filename": "KaguyaSamaWaKokurasetai-ED1-Lyrics",
+        "lyrics": true,
+        "nc": false,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED1-Lyrics.webm",
+        "resolution": 720,
+        "size": 31716483,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "Lyrics",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-ED1-Lyrics.webm",
+        "audio": {
+         "id": 8485,
+         "basename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg",
+         "size": 3611672,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11121,
+        "basename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED1-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 40919109,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-ED1-NCBD1080.webm",
+        "audio": {
+         "id": 8485,
+         "basename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg",
+         "size": 3611672,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11122,
+        "basename": "KaguyaSamaWaKokurasetai-ED1.webm",
+        "filename": "KaguyaSamaWaKokurasetai-ED1",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED1.webm",
+        "resolution": 720,
+        "size": 22062046,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-ED1.webm",
+        "audio": {
+         "id": 8485,
+         "basename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-ED1-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg",
+         "size": 3611672,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-ED1-NCBD1080.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": 9313,
+    "sequence": 2,
+    "slug": "ED2",
+    "type": "ED",
+    "song": {
+     "id": 9314,
+     "title": "Chikatto Chika Chika♡",
+     "artists": [
+      {
+       "id": 114,
+       "name": "Konomi Kohara",
+       "slug": "konomi_kohara",
+       "information": null,
+       "artistsong": {
+        "id": 2058,
+        "alias": null,
+        "as": "Chika Fujiwara",
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 10945,
+      "episodes": "3",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 277,
+      "videos": [
+       {
+        "id": 11123,
+        "basename": "KaguyaSamaWaKokurasetai-ED2-Lyrics.webm",
+        "filename": "KaguyaSamaWaKokurasetai-ED2-Lyrics",
+        "lyrics": true,
+        "nc": false,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED2-Lyrics.webm",
+        "resolution": 720,
+        "size": 31791185,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "Lyrics",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-ED2-Lyrics.webm",
+        "audio": {
+         "id": 8486,
+         "basename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg",
+         "size": 3986503,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11124,
+        "basename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED2-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 46074016,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-ED2-NCBD1080.webm",
+        "audio": {
+         "id": 8486,
+         "basename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg",
+         "size": 3986503,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11125,
+        "basename": "KaguyaSamaWaKokurasetai-ED2.webm",
+        "filename": "KaguyaSamaWaKokurasetai-ED2",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED2.webm",
+        "resolution": 720,
+        "size": 40292773,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetai-ED2.webm",
+        "audio": {
+         "id": 8486,
+         "basename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetai-ED2-NCBD1080",
+         "path": "2019/Winter/KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg",
+         "size": 3986503,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetai-ED2-NCBD1080.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "resources": [
+   {
+    "id": 3035,
+    "external_id": 37999,
+    "link": "https://myanimelist.net/anime/37999",
+    "site": "MyAnimeList",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 9172,
+    "external_id": 101921,
+    "link": "https://anilist.co/anime/101921",
+    "site": "AniList",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 9910,
+    "external_id": 41373,
+    "link": "https://kitsu.app/anime/41373",
+    "site": "Kitsu",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 14280,
+    "external_id": 14111,
+    "link": "https://anidb.net/anime/14111",
+    "site": "aniDB",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 20914,
+    "external_id": 21401,
+    "link": "https://www.animenewsnetwork.com/encyclopedia/anime.php?id=21401",
+    "site": "Anime News Network",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 25237,
+    "external_id": 10332,
+    "link": "https://www.anime-planet.com/anime/kaguya-sama-love-is-war",
+    "site": "Anime-Planet",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 35879,
+    "external_id": null,
+    "link": "https://kaguya.love/1st/",
+    "site": "Official Website",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32907,
+    "external_id": null,
+    "link": "https://x.com/anime_kaguya",
+    "site": "X",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 35880,
+    "external_id": null,
+    "link": "https://www.crunchyroll.com/kaguya-sama-love-is-war",
+    "site": "Crunchyroll",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 35881,
+    "external_id": null,
+    "link": "https://www.hulu.com/series/kaguya-sama-love-is-war-da69fc06-cdea-42dc-8827-52cee194db54",
+    "site": "Hulu",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 35882,
+    "external_id": 81061754,
+    "link": "https://www.netflix.com/title/81061754",
+    "site": "Netflix",
+    "animeresource": {
+     "as": null
+    }
+   }
+  ],
+  "images": [
+   {
+    "id": 2763,
+    "facet": "Large Cover",
+    "path": "anime/large-cover/IS2dVXrMZcjekzLwa1aR6eHafiZ3FY6SxA0BG28r.png",
+    "link": "https://pub-92474f7785774e91a790e086dfa6b2ef.r2.dev/anime/large-cover/IS2dVXrMZcjekzLwa1aR6eHafiZ3FY6SxA0BG28r.png"
+   },
+   {
+    "id": 2764,
+    "facet": "Small Cover",
+    "path": "anime/small-cover/T8uKiwChsZZ0kbBG3qzuI6v0u1sYskTuXp7hQDRy.avif",
+    "link": "https://pub-92474f7785774e91a790e086dfa6b2ef.r2.dev/anime/small-cover/T8uKiwChsZZ0kbBG3qzuI6v0u1sYskTuXp7hQDRy.avif"
+   }
+  ]
+ }
+}

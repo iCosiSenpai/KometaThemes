@@ -1,11 +1,11 @@
 {
   "name": "kometathemes-browser-tests",
-  "version": "1.4.1.0",
+  "version": "2.0.0.0",
   "private": true,
   "description": "Browser regression and accessibility tests for the embedded KometaThemes frontend",
   "scripts": {
     "test:browser": "playwright test",
-    "test:e2e": "playwright test tests/browser/e2e.spec.js",
+    "test:page": "playwright test tests/browser/page.spec.js tests/browser/item-button.spec.js",
     "test:a11y": "playwright test tests/browser/accessibility.spec.js"
   },
   "devDependencies": {

@@ -5,24 +5,28 @@ using System.Linq;
 using Jellyfin.Plugin.KometaThemes.Models;
 using MediaBrowser.Model.Plugins;
 
-#pragma warning disable CA2227, CS1591
-
 namespace Jellyfin.Plugin.KometaThemes.Configuration;
 
 /// <summary>
-/// Plugin configuration.
+/// Plugin configuration, stored by Jellyfin as XML.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Never pre-populate a collection in the constructor: <c>XmlSerializer</c> appends to an existing
+/// collection instead of replacing it, which is how 1.0 grew its provider list by five entries on every
+/// load. Defaults for collections are applied by <see cref="ConfigurationMigrator"/> after loading.
+/// </para>
+/// <para>
+/// Settings properties keep their 1.x names so an upgrade carries them over. Properties that 2.0
+/// dropped are simply no longer declared; the serializer ignores their elements in old files.
+/// </para>
+/// </remarks>
 public class PluginConfiguration : BasePluginConfiguration
 {
-    /// <summary>
-    /// Largest number of entries kept in the skip list and the manual-binding list.
-    /// </summary>
-    /// <remarks>
-    /// Both lists live inside the single plugin configuration XML file, are rewritten in full on
-    /// every save, and had no cap and no pruning of entries whose item no longer exists. The
-    /// bindings listing endpoint also does a library lookup per entry on every GET. A cap keeps the
-    /// config file, the save cost and that listing bounded; the oldest entries are dropped first.
-    /// </remarks>
+    /// <summary>Schema version written by this release.</summary>
+    public const int CurrentSchemaVersion = 2;
+
+    /// <summary>Largest number of entries kept in the exclusion and match lists.</summary>
     public const int MaxPersistedListEntries = 2000;
 
     /// <summary>
@@ -30,394 +34,185 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public PluginConfiguration()
     {
-        // set default options here
-        DegreeOfParallelism = 1;
-        ForceSync = false;
-
-        AudioSettings = new MediaTypeConfiguration()
+        AudioSettings = new MediaTypeConfiguration
         {
-            FetchType = FetchType.Single,
+            FetchType = FetchType.All,
             IgnoreOverlapping = true,
-            IgnoreThemesWithCredits = false,
-            IgnoreOPs = false,
-            IgnoreEDs = false,
             Volume = 0.5,
         };
 
-        VideoSettings = new MediaTypeConfiguration()
+        VideoSettings = new MediaTypeConfiguration
         {
-            FetchType = FetchType.Single,
+            FetchType = FetchType.None,
             IgnoreOverlapping = true,
             IgnoreThemesWithCredits = true,
-            IgnoreOPs = false,
-            IgnoreEDs = false,
             Volume = 0.5,
         };
 
-        MovieSettings = new CollectionTypeConfiguration();
-
-        // KometaThemes extensions
-        // NOTE: do NOT seed ProviderPriority here. XmlSerializer appends to a
-        // pre-populated collection on deserialize (it never clears it), so seeding
-        // defaults in the constructor makes the saved list grow by 5 every load/save
-        // cycle. Defaults are seeded — and any accumulated duplicates repaired — once
-        // at load time by Plugin.NormalizeProviderPriorityConfig().
+        MaxThemesPerSeason = 5;
+        PerSeasonThemes = true;
+        AutoSyncOnItemAdded = true;
         EnableTitleFallback = true;
         TitleMatchThreshold = 0.80;
         RateLimitPerMinute = 60;
         PositiveCacheTtlDays = 7;
         NegativeCacheTtlHours = 24;
-
-        // Library filtering
-        LibraryPattern = "Anime";
-
-        // Sync scheduling
-        SyncIntervalHours = 6;
-
-        // Dry-run mode
-        DryRunMode = false;
-
-        // Download settings
-        DownloadTimeoutSeconds = 60;
-
-        // Multi-season / multi-theme settings
-        SeasonDetectionMode = "Auto";
-        MaxThemesPerSeason = 5;
-
-        // Playlist
-        EnablePlaylist = false;
-        PlaylistName = "Anime Themes";
-
-        // Fallback mode
-        MissingThemeFallbackMode = MissingThemeFallbackMode.None;
-
-        VideoVolumeDefaultMigrated = false;
+        DownloadTimeoutSeconds = 120;
+        DegreeOfParallelism = 2;
     }
 
-    /// <summary>
-    /// Gets or sets the degree of parallelism.
-    /// </summary>
-    public int DegreeOfParallelism { get; set; }
+    /// <summary>Gets or sets the schema version of this file. 0 means it was written by 1.x or is new.</summary>
+    public int SchemaVersion { get; set; }
+
+    /// <summary>Gets or sets the schema version whose first-run setup the owner has completed. 0 shows the setup.</summary>
+    public int SetupCompletedVersion { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the "what's new in 2.0" note was dismissed.</summary>
+    public bool WhatsNewDismissed { get; set; }
+
+    /// <summary>Gets the IDs of the libraries KometaThemes manages.</summary>
+    public Collection<string> LibraryIds { get; } = new();
 
     /// <summary>
-    /// Gets or sets a value indicating whether the sync should enforce conformity.
+    /// Gets or sets the 1.x library name pattern. Only read once, to pick the libraries of an upgraded
+    /// install; cleared after that.
     /// </summary>
-    public bool ForceSync { get; set; }
+    public string? LibraryPattern { get; set; }
 
-    /// <summary>
-    /// Gets or sets the audio settings.
-    /// </summary>
+    /// <summary>Gets or sets what to download as theme songs.</summary>
     public MediaTypeConfiguration AudioSettings { get; set; }
 
-    /// <summary>
-    /// Gets or sets the video settings.
-    /// </summary>
+    /// <summary>Gets or sets what to download as theme videos.</summary>
     public MediaTypeConfiguration VideoSettings { get; set; }
 
-    /// <summary>
-    /// Gets or sets the download settings for the movie type.
-    /// </summary>
-    public CollectionTypeConfiguration MovieSettings { get; set; }
+    /// <summary>Gets or sets the most themes of each media type written to one series, season or movie.</summary>
+    public int MaxThemesPerSeason { get; set; }
 
-    // ── KometaThemes Extensions ──
+    /// <summary>Gets or sets a value indicating whether each season gets the themes of its own anime entry.</summary>
+    public bool PerSeasonThemes { get; set; }
 
-#pragma warning disable CA2227
-    /// <summary>
-    /// Gets or sets the provider priority order for external ID resolution.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether new library items are processed as they arrive.</summary>
+    public bool AutoSyncOnItemAdded { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a removed item's downloaded themes are deleted.</summary>
+    public bool CleanupThemesOnItemRemoved { get; set; }
+
+#pragma warning disable CA2227 // XmlSerializer needs the setter; the list is replaced, never appended to, by the migrator.
+    /// <summary>Gets or sets the order in which external IDs are tried.</summary>
     public Collection<string> ProviderPriority { get; set; } = new();
 #pragma warning restore CA2227
 
-    /// <summary>
-    /// Gets or sets a value indicating whether to enable title-based fallback search.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether items without a usable ID are matched by title.</summary>
     public bool EnableTitleFallback { get; set; }
 
-    /// <summary>
-    /// Gets or sets the minimum Levenshtein similarity threshold for title matching (0.0-1.0).
-    /// </summary>
+    /// <summary>Gets or sets how confident a title match must be, 0.5 to 1.</summary>
     public double TitleMatchThreshold { get; set; }
 
-    /// <summary>
-    /// Gets or sets the rate limit in requests per minute for the AnimeThemes API.
-    /// </summary>
+    /// <summary>Gets or sets the request budget for animethemes.moe per minute.</summary>
     public int RateLimitPerMinute { get; set; }
 
-    /// <summary>
-    /// Gets or sets the TTL in days for positive cache entries.
-    /// </summary>
+    /// <summary>Gets or sets how long a found match is reused, in days.</summary>
     public int PositiveCacheTtlDays { get; set; }
 
-    /// <summary>
-    /// Gets or sets the TTL in hours for negative cache entries.
-    /// </summary>
+    /// <summary>Gets or sets how long a failed lookup is remembered, in hours.</summary>
     public int NegativeCacheTtlHours { get; set; }
 
-    /// <summary>
-    /// Gets or sets the library name pattern for selecting which libraries to sync.
-    /// Only libraries whose name contains this pattern are included. Default: "Anime".
-    /// </summary>
-    public string LibraryPattern { get; set; }
-
-    /// <summary>
-    /// Gets or sets the sync interval in hours. Default: 6, range: 1-168.
-    /// </summary>
-    public int SyncIntervalHours { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether dry-run mode is enabled.
-    /// When enabled, themes are resolved and logged but not downloaded.
-    /// </summary>
-    public bool DryRunMode { get; set; }
-
-    /// <summary>
-    /// Gets or sets the ffmpeg download timeout in seconds. Default: 60, range: 15-300.
-    /// </summary>
+    /// <summary>Gets or sets the time limit of one ffmpeg conversion, in seconds.</summary>
     public int DownloadTimeoutSeconds { get; set; }
 
-    /// <summary>
-    /// Gets or sets the season detection mode (ByName, ByEpisodeRange, Auto).
-    /// </summary>
-    public string SeasonDetectionMode { get; set; }
+    /// <summary>Gets or sets how many theme files of one item are fetched at the same time.</summary>
+    public int DegreeOfParallelism { get; set; }
 
-    /// <summary>
-    /// Gets or sets the maximum number of themes to download per season.
-    /// </summary>
-    public int MaxThemesPerSeason { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to automatically create/update a global playlist.
-    /// </summary>
-    public bool EnablePlaylist { get; set; }
-
-    /// <summary>
-    /// Gets or sets the name of the global playlist.
-    /// </summary>
-    public string PlaylistName { get; set; }
-
-    /// <summary>
-    /// Gets or sets the library root path used to enumerate theme files for M3U export.
-    /// </summary>
-    public string? PlaylistExportRoot { get; set; }
-
-    /// <summary>
-    /// Gets or sets the fallback download mode when an item has no existing themes.
-    /// </summary>
-    public MissingThemeFallbackMode MissingThemeFallbackMode { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the old muted video default has been migrated.
-    /// </summary>
-    public bool VideoVolumeDefaultMigrated { get; set; }
-
-    /// <summary>
-    /// Gets or sets the full path to the <c>yt-dlp</c> executable used for YouTube theme imports.
-    /// Leave empty to auto-detect it from the usual install locations and <c>PATH</c>.
-    /// </summary>
-    public string? YtDlpPath { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether importing themes from YouTube links is allowed.
-    /// Disabled by default: it needs an external <c>yt-dlp</c> binary, and downloading from
-    /// YouTube may not be permitted in every jurisdiction or for every video.
-    /// </summary>
+    /// <summary>Gets or sets a value indicating whether themes can be imported from YouTube links.</summary>
     public bool EnableYouTubeImport { get; set; }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether the new item auto-sync is enabled.
-    /// </summary>
-    public bool AutoSyncOnItemAdded { get; set; } = true;
+    /// <summary>Gets or sets an explicit yt-dlp path. Empty uses yt-dlp when found, else the bundled extractor.</summary>
+    public string? YtDlpPath { get; set; }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether orphaned theme files should be removed when an item is deleted from the library.
-    /// </summary>
-    public bool CleanupThemesOnItemRemoved { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to send an admin notification when a sync downloads new themes.
-    /// </summary>
-    public bool NotifyOnSyncComplete { get; set; }
-
-    /// <summary>
-    /// Gets or sets the last successful full-sync timestamp (UTC).
-    /// </summary>
+    /// <summary>Gets or sets when the last full check finished.</summary>
     public DateTime? LastFullSyncUtc { get; set; }
 
-    /// <summary>
-    /// Gets or sets the last sync summary (e.g. "123 items, 87 downloaded, 2 failed").
-    /// </summary>
+    /// <summary>Gets or sets the one-line result of the last full check.</summary>
     public string? LastSyncSummary { get; set; }
 
-    /// <summary>
-    /// Gets the list of permanently skipped items.
-    /// </summary>
-#pragma warning disable CA2227
+    /// <summary>Gets the items the owner excluded.</summary>
     public Collection<SkippedItemEntry> SkippedItems { get; } = new();
-#pragma warning restore CA2227
 
-    /// <summary>
-    /// Gets the list of manual item-to-anime bindings.
-    /// </summary>
-#pragma warning disable CA2227
+    /// <summary>Gets the owner's matches of series, seasons and movies to anime entries.</summary>
     public Collection<ManualBindingEntry> ManualBindings { get; } = new();
-#pragma warning restore CA2227
 
     /// <summary>
-    /// Gets a dictionary of skipped item IDs for fast lookup.
+    /// Finds the exclusion entry of an item.
     /// </summary>
-    /// <returns>Dictionary keyed by item ID.</returns>
-    public Dictionary<string, SkippedItemEntry> GetSkippedItemsDictionary()
-    {
-        // Built by hand: ToDictionary throws on a duplicate ItemId, and nothing guarantees these
-        // lists are unique — the controllers de-duplicate with plain string equality, so the same
-        // item stored under two GUID formats appears twice.
-        var result = new Dictionary<string, SkippedItemEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in SkippedItems)
-        {
-            if (!string.IsNullOrEmpty(entry.ItemId))
-            {
-                result[entry.ItemId] = entry;
-            }
-        }
-
-        return result;
-    }
+    /// <param name="itemId">Item ID.</param>
+    /// <returns>The entry, or null.</returns>
+    public SkippedItemEntry? FindSkipped(Guid itemId)
+        => SkippedItems.LastOrDefault(entry => IdEquals(entry.ItemId, itemId));
 
     /// <summary>
-    /// Gets a dictionary of manual bindings keyed by item ID.
+    /// Finds the match the owner set for an item.
     /// </summary>
-    /// <returns>Dictionary keyed by item ID.</returns>
-    public Dictionary<string, ManualBindingEntry> GetManualBindingsDictionary()
-    {
-        var result = new Dictionary<string, ManualBindingEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in ManualBindings)
-        {
-            if (!string.IsNullOrEmpty(entry.ItemId))
-            {
-                result[entry.ItemId] = entry;
-            }
-        }
-
-        return result;
-    }
+    /// <param name="itemId">Item ID.</param>
+    /// <returns>The entry, or null.</returns>
+    public ManualBindingEntry? FindBinding(Guid itemId)
+        => ManualBindings.LastOrDefault(entry => IdEquals(entry.ItemId, itemId));
 
     /// <summary>
-    /// Drops the oldest skip-list entries once the list exceeds <see cref="MaxPersistedListEntries"/>.
+    /// Gets the excluded item IDs.
     /// </summary>
-    public void TrimSkippedItems()
-    {
-        if (SkippedItems.Count <= MaxPersistedListEntries)
-        {
-            return;
-        }
-
-        var keep = SkippedItems
-            .OrderByDescending(entry => entry.SkippedUtc)
-            .Take(MaxPersistedListEntries)
-            .ToList();
-
-        SkippedItems.Clear();
-        foreach (var entry in keep)
-        {
-            SkippedItems.Add(entry);
-        }
-    }
+    /// <returns>A set of IDs.</returns>
+    public HashSet<Guid> GetSkippedIds()
+        => SkippedItems.Select(entry => Guid.TryParse(entry.ItemId, out var id) ? id : Guid.Empty).Where(id => id != Guid.Empty).ToHashSet();
 
     /// <summary>
-    /// Drops the oldest manual bindings once the list exceeds <see cref="MaxPersistedListEntries"/>.
-    /// </summary>
-    public void TrimManualBindings()
-    {
-        if (ManualBindings.Count <= MaxPersistedListEntries)
-        {
-            return;
-        }
-
-        var keep = ManualBindings
-            .OrderByDescending(entry => entry.BoundAt)
-            .Take(MaxPersistedListEntries)
-            .ToList();
-
-        ManualBindings.Clear();
-        foreach (var entry in keep)
-        {
-            ManualBindings.Add(entry);
-        }
-    }
-
-    /// <summary>
-    /// Removes skip-list and binding entries whose item is no longer present in the library.
-    /// </summary>
-    /// <param name="itemExists">Predicate telling whether an item ID still resolves.</param>
-    /// <returns>How many entries were dropped.</returns>
-    public int PruneMissingItems(Func<string, bool> itemExists)
-    {
-        ArgumentNullException.ThrowIfNull(itemExists);
-
-        var removed = 0;
-
-        foreach (var entry in SkippedItems.Where(entry => !itemExists(entry.ItemId)).ToList())
-        {
-            SkippedItems.Remove(entry);
-            removed++;
-        }
-
-        foreach (var entry in ManualBindings.Where(entry => !itemExists(entry.ItemId)).ToList())
-        {
-            ManualBindings.Remove(entry);
-            removed++;
-        }
-
-        return removed;
-    }
-
-    /// <summary>
-    /// Clamps configuration values to documented safe ranges. Called at load time.
+    /// Clamps every value to its documented range.
     /// </summary>
     public void NormalizeBounds()
     {
-        // Sync interval 1-168 hours
-        SyncIntervalHours = Math.Clamp(SyncIntervalHours, 1, 168);
+        AudioSettings ??= new MediaTypeConfiguration { FetchType = FetchType.All, IgnoreOverlapping = true, Volume = 0.5 };
+        VideoSettings ??= new MediaTypeConfiguration { FetchType = FetchType.None, IgnoreOverlapping = true, IgnoreThemesWithCredits = true, Volume = 0.5 };
+        foreach (var settings in new[] { AudioSettings, VideoSettings })
+        {
+            settings.Volume = Math.Clamp(double.IsFinite(settings.Volume) ? settings.Volume : 0.5, 0.0, 1.0);
+            if (settings.FetchType == FetchType.AllPerSeason)
+            {
+                settings.FetchType = FetchType.All;
+            }
+        }
 
-        // Download timeout 15-300 seconds
-        DownloadTimeoutSeconds = Math.Clamp(DownloadTimeoutSeconds, 15, 300);
-
-        // Max themes per season 1-50
         MaxThemesPerSeason = Math.Clamp(MaxThemesPerSeason, 1, 50);
-
-        // Degree of parallelism 1-8
-        DegreeOfParallelism = Math.Clamp(DegreeOfParallelism, 1, 8);
-
-        // Rate limit: the same 1-90 window the HTTP handler enforces. This used to allow up to 300,
-        // so the dashboard advertised rates the handler then silently capped.
-        RateLimitPerMinute = Math.Clamp(
-            RateLimitPerMinute,
-            Http.RateLimitingHandler.MinRatePerMinute,
-            Http.RateLimitingHandler.MaxRatePerMinute);
-
-        // TTLs: the floor is 1, not 0. A zero TTL made every cache lookup expire on read, which
-        // evicted the entry, marked the cache dirty and reserialized the whole file every 30s while
-        // never producing a single hit.
+        DegreeOfParallelism = Math.Clamp(DegreeOfParallelism, 1, 4);
+        DownloadTimeoutSeconds = Math.Clamp(DownloadTimeoutSeconds, 15, 600);
+        RateLimitPerMinute = Math.Clamp(RateLimitPerMinute, Http.ApiThrottle.MinRatePerMinute, Http.ApiThrottle.MaxRatePerMinute);
         PositiveCacheTtlDays = Math.Clamp(PositiveCacheTtlDays, 1, 365);
         NegativeCacheTtlHours = Math.Clamp(NegativeCacheTtlHours, 1, 24 * 30);
+        TitleMatchThreshold = Math.Clamp(double.IsFinite(TitleMatchThreshold) ? TitleMatchThreshold : 0.8, 0.5, 1.0);
+    }
 
-        // Title threshold 0.5 - 1.0
-        TitleMatchThreshold = Math.Clamp(TitleMatchThreshold, 0.5, 1.0);
+    /// <summary>
+    /// Drops the oldest entries of the persisted lists once they pass <see cref="MaxPersistedListEntries"/>.
+    /// </summary>
+    public void TrimLists()
+    {
+        Trim(SkippedItems, entry => entry.SkippedUtc);
+        Trim(ManualBindings, entry => entry.BoundAt);
+    }
 
-        // Volume 0.0 - 1.0 for audio/video settings
-        if (AudioSettings != null)
+    private static void Trim<T>(Collection<T> list, Func<T, DateTime> stamp)
+    {
+        if (list.Count <= MaxPersistedListEntries)
         {
-            AudioSettings.Volume = Math.Clamp(AudioSettings.Volume, 0.0, 1.0);
+            return;
         }
 
-        if (VideoSettings != null)
+        var keep = list.OrderByDescending(stamp).Take(MaxPersistedListEntries).ToList();
+        list.Clear();
+        foreach (var entry in keep)
         {
-            VideoSettings.Volume = Math.Clamp(VideoSettings.Volume, 0.0, 1.0);
-        }
-
-        if (MovieSettings?.VideoSettings != null)
-        {
-            MovieSettings.VideoSettings.Volume = Math.Clamp(MovieSettings.VideoSettings.Volume, 0.0, 1.0);
+            list.Add(entry);
         }
     }
+
+    private static bool IdEquals(string? stored, Guid itemId)
+        => Guid.TryParse(stored, out var parsed) && parsed == itemId;
 }

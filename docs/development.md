@@ -1,114 +1,42 @@
-# Development
+# Development and releases
 
-Requirements: .NET 9 SDK, Node.js 20, npm.
+## Layout
+
+| Folder | What |
+|---|---|
+| `Jellyfin.Plugin.KometaThemes/AnimeThemes`, `AniList`, `Http` | Remote APIs: client, retries without Polly, shared request budgets. |
+| `Resolving` | Matching: manual matches, external IDs, title search, seasons through AniList sequels (`SeasonMatcher` is pure). |
+| `Themes` | Which songs a folder should hold (`ThemeCatalog`, `ThemePlanner`, both pure), file names, the per-folder state file, the installer (download, ffmpeg, rename, prune). |
+| `Library` | Managed libraries, folders of an item, the library summary, library events, Jellyfin refresh. |
+| `Sync` | One-anime processing, the full check, problems with backoff, activity. |
+| `Api` | The plugin's HTTP API and its DTOs. |
+| `Web` | The page (`kometa.js`, `kometa.css`), the ♪ button (`item-button.js`), the File Transformation hook. |
+| `Configuration` | Settings, migration from 1.x, the page shell. |
+
+The frontend is plain JavaScript without a build step. Jellyfin loads `kometa.js` as an ES module
+through `data-controller="__plugin/KometaThemesJs"`. It reads Jellyfin 12's `--jf-palette-*` CSS
+variables, so it follows the user's theme.
 
 ## Build and test
 
-```bash
-dotnet restore
-dotnet build -c Release --no-restore
-dotnet test -c Release --no-build
-
-npm ci
-npx playwright install chromium
-npm run test:browser
-```
-
-Narrower runs:
+Requires the .NET 10 SDK, Node 20 and ffmpeg (for the installer tests).
 
 ```bash
-npm run test:e2e     # Playwright end-to-end only
-npm run test:a11y    # axe accessibility audit only
+dotnet build -c Release
+dotnet test -c Release
+npm ci && npx playwright install chromium
+npm run test:browser          # page, ♪ button, axe WCAG 2.1 AA in Dark and Light
 ```
 
-The browser suite loads the real embedded page shells against a local Jellyfin API
-fixture, so it exercises the shipped frontend rather than a copy. Playwright covers
-the critical flows and axe-core checks WCAG A/AA serious and critical violations.
+Build against a newer server API with `-p:JellyfinVersion=12.2.0`. Releases are always built
+against 12.0.0, the oldest supported server.
 
-## How the pieces fit together
+`tests/browser/server.js` serves the page in a shell that imitates Jellyfin's dashboard, with a
+mock API fed by real animethemes.moe data from `Jellyfin.Plugin.KometaThemes.Tests/Fixtures`.
+Run it with `node tests/browser/server.js` and open `http://127.0.0.1:4173/web/host.html`.
 
-```text
-Jellyfin library
-      │
-      ▼
-LibrarySelection ──► CompositeResolver ──► AnimeThemes API
-  pattern/type          │ provider IDs        │ themes + seasons
-  eligibility           └ title fallback      ▼
-      │                                   Download engine
-      │                                 ffmpeg + resilience
-      ▼                                         │
-Item sync / scheduler ──────────────────────────┤
-      │                                         │
-      │            YouTube import ──────────────┤
-      │              yt-dlp                     │
-      ▼                                         ▼
-      ├── JsonResolutionCache            Theme files + repair
-      ├── FailedItemsStore                      │
-      ├── manual bindings                       ▼
-      └── excluded items                 Global M3U playlist
-```
+## Releases
 
-The frontend has no separate build step. Three HTML shells load a versioned chain of
-plain JavaScript modules:
-
-```text
-Jellyfin page shells
-  └── kometa-loader.js
-      ├── kometa-core.js       API, i18n, dialogs, sync, preview, lifecycle
-      ├── kometa-a11y.js       tabs, listbox, busy state, announcements
-      ├── config.js
-      ├── search.js
-      └── item.js
-```
-
-## Design decisions worth knowing
-
-**YouTube extraction has two backends.** A managed extractor (YoutubeExplode) ships inside the
-plugin package, so the feature works on a stock server with nothing to install — which is how
-comparable Jellyfin plugins behave. When `yt-dlp` is present it is preferred instead, because it is
-maintained continuously against YouTube's changes while the bundled copy is pinned to a plugin
-release. Neither is required.
-
-Because of that, the release archive is **not** a single DLL. It carries
-`Jellyfin.Plugin.KometaThemes.dll`, `YoutubeExplode.dll`, `AngleSharp.dll` and
-`JsonExtensions.dll`. It must not carry anything else: building with
-`CopyLocalLockFileAssemblies` also drops around thirty Jellyfin and `Microsoft.Extensions`
-assemblies into the output folder, and shipping those would place a second copy of the server's own
-types in the plugin directory. CI packs an explicit list and fails if the archive contents change.
-
-**Video is muxed rather than taken pre-muxed.** YouTube's pre-muxed streams top out at 360p — on
-every video measured, a single 360p stream was the only pre-muxed option. The extractor instead
-takes a container-matched video-only and audio-only pair and joins them with `ffmpeg -c copy`, which
-costs no re-encode. Pairing across containers is what would break: it downloads fine and then fails
-the copy, because webm cannot carry AAC. `ManagedYouTubeStreamSelectionTests` pins that behaviour.
-
-**No path re-encodes video.** With yt-dlp the format selector asks for an already-muxed file
-and ffmpeg stream-copies it; with the bundled extractor the pair is joined with `-c copy`.
-Re-encoding to VP9 was measured at roughly 0.27x realtime on four cores, which turns a
-normal-length theme into minutes of full-CPU work, against seconds for a copy. Audio is still
-encoded to MP3, because that is what Jellyfin theme songs are.
-
-**The pasted YouTube URL never reaches the command line.** It is reduced server-side
-to an eleven-character video ID, the URL is rebuilt from that ID, and it is passed
-after `--`.
-
-## Release flow
-
-Versions are `Major.Minor.Build.Revision`. Feature work increments Minor or Build,
-focused fixes increment Revision.
-
-CI builds and tests on every push, then produces a DLL-only `KometaThemes.zip` and
-prints its MD5. Publishing stays explicit:
-
-1. Bump the assembly version and the frontend version badges together.
-2. Push, then tag.
-3. Publish the GitHub release with the built ZIP and its checksum.
-4. Add the new version to the top of the plugin's `versions` array in the catalog
-   manifest, then push that repository.
-
-A release that is not in the manifest is invisible to users, and a manifest entry
-whose checksum or URL does not resolve makes installation fail inside Jellyfin, so
-steps 3 and 4 belong to the same piece of work.
-
-Deploying to a Jellyfin server is intentionally not automated. Administrators install
-through the plugin catalog.
+See `AGENTS.md`: version in `Directory.Build.props`, `configPage.html`, `kometa.js` and
+`package.json`; the zip holds `Jellyfin.Plugin.KometaThemes.dll`, `YoutubeExplode.dll` and
+`meta.json`; every release goes to GitHub and to the catalog.

@@ -1,0 +1,513 @@
+{
+ "anime": {
+  "id": 4136,
+  "name": "Sousou no Frieren",
+  "media_format": "TV",
+  "season": "Fall",
+  "slug": "sousou_no_frieren",
+  "synopsis": "The adventure is over but life goes on for an elf mage just beginning to learn what living is all about. Elf mage Frieren and her courageous fellow adventurers have defeated the Demon King and brought peace to the land. But Frieren will long outlive the rest of her former party. How will she come to understand what life means to the people around her? Decades after their victory, the funeral of one her friends confronts Frieren with her own near immortality. Frieren sets out to fulfill the last wishes of her comrades and finds herself beginning a new adventure… \n\r\n\n\r\n(Source: Crunchyroll)",
+  "year": 2023,
+  "animethemes": [
+   {
+    "id": 12476,
+    "sequence": 1,
+    "slug": "OP1",
+    "type": "OP",
+    "song": {
+     "id": 12437,
+     "title": "Yuusha",
+     "artists": [
+      {
+       "id": 726,
+       "name": "YOASOBI",
+       "slug": "yoasobi",
+       "information": null,
+       "artistsong": {
+        "id": 20660,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 14598,
+      "episodes": "1-16",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 671,
+      "videos": [
+       {
+        "id": 17172,
+        "basename": "SousouNoFrieren-OP1.webm",
+        "filename": "SousouNoFrieren-OP1",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-OP1.webm",
+        "resolution": 720,
+        "size": 41177481,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
+        "audio": {
+         "id": 12981,
+         "basename": "SousouNoFrieren-OP1-NCBD1080.ogg",
+         "filename": "SousouNoFrieren-OP1-NCBD1080",
+         "path": "2023/Fall/SousouNoFrieren-OP1-NCBD1080.ogg",
+         "size": 3723284,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 17573,
+        "basename": "SousouNoFrieren-OP1-NCBD1080.webm",
+        "filename": "SousouNoFrieren-OP1-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-OP1-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 57620830,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm",
+        "audio": {
+         "id": 12981,
+         "basename": "SousouNoFrieren-OP1-NCBD1080.ogg",
+         "filename": "SousouNoFrieren-OP1-NCBD1080",
+         "path": "2023/Fall/SousouNoFrieren-OP1-NCBD1080.ogg",
+         "size": 3723284,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": 12477,
+    "sequence": 1,
+    "slug": "ED1",
+    "type": "ED",
+    "song": {
+     "id": 12438,
+     "title": "Anytime Anywhere",
+     "artists": [
+      {
+       "id": 278,
+       "name": "milet",
+       "slug": "milet",
+       "information": null,
+       "artistsong": {
+        "id": 5372,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 14599,
+      "episodes": "1-14, 16",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 440,
+      "videos": [
+       {
+        "id": 17173,
+        "basename": "SousouNoFrieren-ED1.webm",
+        "filename": "SousouNoFrieren-ED1",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-ED1.webm",
+        "resolution": 720,
+        "size": 47339588,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-ED1.webm",
+        "audio": {
+         "id": 12982,
+         "basename": "SousouNoFrieren-ED1-NCBD1080.ogg",
+         "filename": "SousouNoFrieren-ED1-NCBD1080",
+         "path": "2023/Fall/SousouNoFrieren-ED1-NCBD1080.ogg",
+         "size": 3698515,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-ED1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 17574,
+        "basename": "SousouNoFrieren-ED1-NCBD1080.webm",
+        "filename": "SousouNoFrieren-ED1-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-ED1-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 59906615,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-ED1-NCBD1080.webm",
+        "audio": {
+         "id": 12982,
+         "basename": "SousouNoFrieren-ED1-NCBD1080.ogg",
+         "filename": "SousouNoFrieren-ED1-NCBD1080",
+         "path": "2023/Fall/SousouNoFrieren-ED1-NCBD1080.ogg",
+         "size": 3698515,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-ED1-NCBD1080.ogg"
+        }
+       }
+      ]
+     },
+     {
+      "id": 14823,
+      "episodes": "17-27",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 2,
+      "tracks_count": 82,
+      "videos": [
+       {
+        "id": 17438,
+        "basename": "SousouNoFrieren-ED1v2.webm",
+        "filename": "SousouNoFrieren-ED1v2",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-ED1v2.webm",
+        "resolution": 720,
+        "size": 38692783,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-ED1v2.webm",
+        "audio": {
+         "id": 12855,
+         "basename": "SousouNoFrieren-ED1v2.ogg",
+         "filename": "SousouNoFrieren-ED1v2",
+         "path": "2023/Fall/SousouNoFrieren-ED1v2.ogg",
+         "size": 2260613,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-ED1v2.ogg"
+        }
+       }
+      ]
+     },
+     {
+      "id": 14965,
+      "episodes": "28",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": true,
+      "version": 3,
+      "tracks_count": 4,
+      "videos": [
+       {
+        "id": 17651,
+        "basename": "SousouNoFrieren-ED1v3.webm",
+        "filename": "SousouNoFrieren-ED1v3",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "Transition",
+        "path": "2023/Fall/SousouNoFrieren-ED1v3.webm",
+        "resolution": 720,
+        "size": 27123320,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-ED1v3.webm",
+        "audio": {
+         "id": 13044,
+         "basename": "SousouNoFrieren-ED1v3.ogg",
+         "filename": "SousouNoFrieren-ED1v3",
+         "path": "2023/Fall/SousouNoFrieren-ED1v3.ogg",
+         "size": 2257328,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-ED1v3.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": 12478,
+    "sequence": null,
+    "slug": "ED1-TV",
+    "type": "ED",
+    "song": {
+     "id": 12439,
+     "title": "bliss",
+     "artists": [
+      {
+       "id": 278,
+       "name": "milet",
+       "slug": "milet",
+       "information": null,
+       "artistsong": {
+        "id": 5373,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 14600,
+      "episodes": "1",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 88,
+      "videos": [
+       {
+        "id": 17174,
+        "basename": "SousouNoFrieren-ED1-TV.webm",
+        "filename": "SousouNoFrieren-ED1-TV",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-ED1-TV.webm",
+        "resolution": 720,
+        "size": 28210060,
+        "source": "RAW",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-ED1-TV.webm",
+        "audio": {
+         "id": 12983,
+         "basename": "SousouNoFrieren-ED1-TV-NCBD1080.ogg",
+         "filename": "SousouNoFrieren-ED1-TV-NCBD1080",
+         "path": "2023/Fall/SousouNoFrieren-ED1-TV-NCBD1080.ogg",
+         "size": 3631350,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-ED1-TV-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 17575,
+        "basename": "SousouNoFrieren-ED1-TV-NCBD1080.webm",
+        "filename": "SousouNoFrieren-ED1-TV-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-ED1-TV-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 48371407,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-ED1-TV-NCBD1080.webm",
+        "audio": {
+         "id": 12983,
+         "basename": "SousouNoFrieren-ED1-TV-NCBD1080.ogg",
+         "filename": "SousouNoFrieren-ED1-TV-NCBD1080",
+         "path": "2023/Fall/SousouNoFrieren-ED1-TV-NCBD1080.ogg",
+         "size": 3631350,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-ED1-TV-NCBD1080.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": 12663,
+    "sequence": 2,
+    "slug": "OP2",
+    "type": "OP",
+    "song": {
+     "id": 12616,
+     "title": "Haru",
+     "artists": [
+      {
+       "id": 1201,
+       "name": "Yorushika",
+       "slug": "yorushika",
+       "information": null,
+       "artistsong": {
+        "id": 8981,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 14824,
+      "episodes": "17-28",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 673,
+      "videos": [
+       {
+        "id": 17439,
+        "basename": "SousouNoFrieren-OP2.webm",
+        "filename": "SousouNoFrieren-OP2",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2023/Fall/SousouNoFrieren-OP2.webm",
+        "resolution": 720,
+        "size": 43602091,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/SousouNoFrieren-OP2.webm",
+        "audio": {
+         "id": 12856,
+         "basename": "SousouNoFrieren-OP2.ogg",
+         "filename": "SousouNoFrieren-OP2",
+         "path": "2023/Fall/SousouNoFrieren-OP2.ogg",
+         "size": 2187224,
+         "link": "https://a.animethemes.moe/SousouNoFrieren-OP2.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "resources": [
+   {
+    "id": 32423,
+    "external_id": 52991,
+    "link": "https://myanimelist.net/anime/52991",
+    "site": "MyAnimeList",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32424,
+    "external_id": 154587,
+    "link": "https://anilist.co/anime/154587",
+    "site": "AniList",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32425,
+    "external_id": 17617,
+    "link": "https://anidb.net/anime/17617",
+    "site": "aniDB",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32426,
+    "external_id": 26334,
+    "link": "https://www.animenewsnetwork.com/encyclopedia/anime.php?id=26334",
+    "site": "Anime News Network",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32427,
+    "external_id": 21435,
+    "link": "https://www.anime-planet.com/anime/frieren-beyond-journeys-end",
+    "site": "Anime-Planet",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32428,
+    "external_id": null,
+    "link": "https://x.com/Anime_Frieren",
+    "site": "X",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32429,
+    "external_id": null,
+    "link": "https://frieren-anime.jp",
+    "site": "Official Website",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32430,
+    "external_id": 46474,
+    "link": "https://kitsu.app/anime/46474",
+    "site": "Kitsu",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 40257,
+    "external_id": null,
+    "link": "https://www.crunchyroll.com/series/GG5H5XQX4",
+    "site": "Crunchyroll",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 40258,
+    "external_id": 81726714,
+    "link": "https://www.netflix.com/title/81726714",
+    "site": "Netflix",
+    "animeresource": {
+     "as": null
+    }
+   }
+  ],
+  "images": [
+   {
+    "id": 11345,
+    "facet": "Large Cover",
+    "path": "anime/large-cover/h30TFwGNgWbYB8uBi2VjoCt0FACcvq5H2KTesWLt.jpg",
+    "link": "https://pub-92474f7785774e91a790e086dfa6b2ef.r2.dev/anime/large-cover/h30TFwGNgWbYB8uBi2VjoCt0FACcvq5H2KTesWLt.jpg"
+   },
+   {
+    "id": 11346,
+    "facet": "Small Cover",
+    "path": "anime/small-cover/xPc4FBadGmZBbiglJkG5OADioqbffV3nbj2fpfrZ.avif",
+    "link": "https://pub-92474f7785774e91a790e086dfa6b2ef.r2.dev/anime/small-cover/xPc4FBadGmZBbiglJkG5OADioqbffV3nbj2fpfrZ.avif"
+   }
+  ]
+ }
+}

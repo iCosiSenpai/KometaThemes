@@ -3,38 +3,43 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
-/// Enum of all possible video sources.
+/// Where a theme video was ripped from.
 /// </summary>
-[JsonConverter(typeof(JsonStringEnumConverter))]
+[JsonConverter(typeof(VideoSourceConverter))]
 public enum VideoSource
 {
-    /// <summary>
-    /// WEB.
-    /// </summary>
+    /// <summary>Not reported or not known to this version.</summary>
+    Unknown,
+
+    /// <summary>Web stream.</summary>
     WEB,
 
-    /// <summary>
-    /// RAW.
-    /// </summary>
+    /// <summary>TV broadcast.</summary>
     RAW,
 
-    /// <summary>
-    /// Bluray Disc.
-    /// </summary>
+    /// <summary>Blu-ray.</summary>
     BD,
 
-    /// <summary>
-    /// DVD.
-    /// </summary>
+    /// <summary>DVD.</summary>
     DVD,
 
-    /// <summary>
-    /// VHS.
-    /// </summary>
+    /// <summary>VHS.</summary>
     VHS,
 
-    /// <summary>
-    /// LD.
-    /// </summary>
+    /// <summary>LaserDisc.</summary>
     LD
+}
+
+/// <summary>
+/// Lenient converter for <see cref="VideoSource"/>.
+/// </summary>
+public sealed class VideoSourceConverter : LenientEnumConverter<VideoSource>
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="VideoSourceConverter"/> class.
+    /// </summary>
+    public VideoSourceConverter()
+        : base(VideoSource.Unknown)
+    {
+    }
 }

@@ -3,11 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-using Jellyfin.Plugin.KometaThemes.Models;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Entities;
 using Microsoft.Extensions.Logging;
@@ -15,364 +13,211 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.KometaThemes.Sync;
 
 /// <summary>
-/// Persistent store of items that failed to resolve or download, so the
-/// dashboard can surface them with retry/blacklist actions.
+/// Why an item needs attention.
+/// </summary>
+public enum ProblemKind
+{
+    /// <summary>No anime entry was found.</summary>
+    Unresolved,
+
+    /// <summary>The entry was found but files could not be downloaded.</summary>
+    DownloadFailed
+}
+
+/// <summary>
+/// An item that needs attention, with when to try it again.
+/// </summary>
+public sealed class ProblemEntry
+{
+    /// <summary>Gets or sets the item ID.</summary>
+    [JsonPropertyName("itemId")]
+    public string ItemId { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the item name.</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the item year.</summary>
+    [JsonPropertyName("productionYear")]
+    public int? ProductionYear { get; set; }
+
+    /// <summary>Gets or sets the kind of problem.</summary>
+    [JsonPropertyName("reason")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ProblemKind Reason { get; set; }
+
+    /// <summary>Gets or sets the last error.</summary>
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+
+    /// <summary>Gets or sets when the item was last tried.</summary>
+    [JsonPropertyName("lastAttemptUtc")]
+    public DateTime LastAttemptUtc { get; set; }
+
+    /// <summary>Gets or sets how many times in a row it failed.</summary>
+    [JsonPropertyName("attempts")]
+    public int Attempts { get; set; }
+
+    /// <summary>Gets or sets when the next automatic attempt is due.</summary>
+    [JsonPropertyName("nextAttemptUtc")]
+    public DateTime NextAttemptUtc { get; set; }
+
+    /// <summary>Gets or sets a hash of the item's names and IDs when it failed; a change retries at once.</summary>
+    [JsonPropertyName("fingerprint")]
+    public string? Fingerprint { get; set; }
+}
+
+/// <summary>
+/// Remembers items that need attention and spaces out automatic retries.
 /// </summary>
 /// <remarks>
-/// Backed by a <see cref="ConcurrentDictionary{TKey, TValue}"/>. The previous version took a
-/// blocking <c>SemaphoreSlim.Wait()</c> on every operation including reads, and entries were mutated
-/// in place while <see cref="GetAll"/> handed the very same instances to a controller for
-/// serialization — so a response could contain a half-updated entry. Updates now replace the entry
-/// with a new object and readers get copies.
+/// 1.x retried unresolved items on every check: on the owner's server two anime had been looked up
+/// 209 times each. Unresolved items now wait 1, 3, 7 and then 30 days between automatic attempts,
+/// failed downloads 1, 6 and 24 hours; a change to the item's titles or IDs retries at once, and the
+/// owner can always retry by hand.
 /// </remarks>
 public sealed class FailedItemsStore : IDisposable
 {
-    /// <summary>
-    /// Ceiling on tracked failures. Permanently unresolvable items accumulate one entry each and
-    /// nothing ever aged them out, so the file and the dashboard list grew without bound.
-    /// </summary>
-    private const int MaxEntries = 5000;
+    private static readonly TimeSpan[] UnresolvedBackoff = [TimeSpan.FromDays(1), TimeSpan.FromDays(3), TimeSpan.FromDays(7), TimeSpan.FromDays(30)];
+    private static readonly TimeSpan[] DownloadBackoff = [TimeSpan.FromHours(1), TimeSpan.FromHours(6), TimeSpan.FromHours(24)];
 
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        WriteIndented = false,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
-    private readonly string _storePath;
-    private readonly ILogger<FailedItemsStore> _logger;
-    private readonly SemaphoreSlim _fileLock = new(1, 1);
-    private readonly Timer _flushTimer;
-    private readonly ConcurrentDictionary<string, FailedItemEntry> _entries = new(StringComparer.OrdinalIgnoreCase);
-
-    private bool _dirty;
-    private bool _disposed;
+    private readonly ConcurrentDictionary<Guid, ProblemEntry> _entries = new();
+    private readonly JsonFileStore<List<ProblemEntry>> _file;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FailedItemsStore"/> class.
     /// </summary>
-    /// <param name="applicationPaths">Application paths for finding the plugin data directory.</param>
-    /// <param name="logger">Logger instance.</param>
-    public FailedItemsStore(IApplicationPaths applicationPaths, ILogger<FailedItemsStore> logger)
+    /// <param name="paths">Application paths.</param>
+    /// <param name="logger">Logger.</param>
+    public FailedItemsStore(IApplicationPaths paths, ILogger<FailedItemsStore> logger)
     {
-        _logger = logger;
+        ArgumentNullException.ThrowIfNull(paths);
+        _file = new JsonFileStore<List<ProblemEntry>>(Path.Combine(paths.PluginConfigurationsPath, "KometaThemes", "failed-items.json"), logger);
+        foreach (var entry in _file.Load())
+        {
+            if (Guid.TryParse(entry.ItemId, out var id))
+            {
+                // 1.x entries have no schedule: retry them once, soon.
+                if (entry.NextAttemptUtc == default)
+                {
+                    entry.Attempts = 0;
+                    entry.NextAttemptUtc = DateTime.UtcNow;
+                }
 
-        var pluginDir = Path.Combine(applicationPaths.PluginConfigurationsPath, "KometaThemes");
-        Directory.CreateDirectory(pluginDir);
-        _storePath = Path.Combine(pluginDir, "failed-items.json");
-
-        LoadFromDisk();
-
-        _flushTimer = new Timer(FlushTimerCallback, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+                _entries[id] = entry;
+            }
+        }
     }
 
     /// <summary>
-    /// Gets the number of tracked failed items.
+    /// Records a failure.
     /// </summary>
-    public int Count => _entries.Count;
-
-    /// <summary>
-    /// Records a failure for an item, bumping the attempt counter if it already exists.
-    /// </summary>
-    /// <param name="item">The library item that failed.</param>
-    /// <param name="reason">Why the item failed.</param>
-    /// <param name="error">Optional error message of this attempt.</param>
-    public void Record(BaseItem item, FailedItemReason reason, string? error)
+    /// <param name="item">The item.</param>
+    /// <param name="kind">Kind of problem.</param>
+    /// <param name="error">Explanation.</param>
+    public void Record(BaseItem item, ProblemKind kind, string? error)
     {
-        var key = NormalizeId(item.Id.ToString());
-        if (key.Length == 0)
-        {
-            return;
-        }
-
-        // AddOrUpdate with a fresh instance rather than mutating the stored one, so a concurrent
-        // GetAll can never observe an entry mid-update.
+        ArgumentNullException.ThrowIfNull(item);
+        var now = DateTime.UtcNow;
+        var fingerprint = Fingerprint(item);
         _entries.AddOrUpdate(
-            key,
-            _ => new FailedItemEntry
-            {
-                ItemId = item.Id.ToString(),
-                Name = item.Name ?? string.Empty,
-                Type = item.GetBaseItemKind().ToString(),
-                ProductionYear = item.ProductionYear,
-                Reason = reason,
-                Error = error,
-                LastAttemptUtc = DateTime.UtcNow,
-                Attempts = 1
-            },
-            (_, existing) => new FailedItemEntry
-            {
-                ItemId = existing.ItemId,
-                Name = item.Name ?? existing.Name,
-                Type = existing.Type,
-                ProductionYear = existing.ProductionYear,
-                Reason = reason,
-                Error = error,
-                LastAttemptUtc = DateTime.UtcNow,
-                Attempts = existing.Attempts + 1
-            });
-
-        Volatile.Write(ref _dirty, true);
-        EnforceCap();
+            item.Id,
+            _ => Create(item, kind, error, 1, now, fingerprint),
+            (_, existing) => Create(item, kind, error, existing.Reason == kind ? existing.Attempts + 1 : 1, now, fingerprint));
+        Persist();
     }
 
     /// <summary>
-    /// Drops the least recently attempted entries once the store exceeds <see cref="MaxEntries"/>.
+    /// Forgets an item's problem after a success, an exclusion or a manual match.
     /// </summary>
-    private void EnforceCap()
+    /// <param name="itemId">Item ID.</param>
+    public void Remove(Guid itemId)
     {
-        if (_entries.Count <= MaxEntries)
+        if (_entries.TryRemove(itemId, out _))
         {
-            return;
-        }
-
-        var excess = _entries.Count - MaxEntries;
-        var oldest = _entries.ToArray()
-            .OrderBy(pair => pair.Value.LastAttemptUtc)
-            .Take(excess)
-            .Select(pair => pair.Key);
-
-        foreach (var staleKey in oldest)
-        {
-            _entries.TryRemove(staleKey, out _);
-        }
-
-        _logger.LogInformation("Failed-items store exceeded {Max} entries; dropped {Count} oldest", MaxEntries, excess);
-    }
-
-    /// <summary>
-    /// Removes an item from the failed list (after a later success, a dismiss, or a blacklist).
-    /// No-op when the item is not tracked.
-    /// </summary>
-    /// <param name="itemId">The Jellyfin item ID.</param>
-    /// <returns>True when an entry was removed.</returns>
-    public bool Remove(Guid itemId)
-    {
-        return Remove(itemId.ToString());
-    }
-
-    /// <summary>
-    /// Removes an item from the failed list by its string ID.
-    /// </summary>
-    /// <param name="itemId">The Jellyfin item ID.</param>
-    /// <returns>True when an entry was removed.</returns>
-    public bool Remove(string itemId)
-    {
-        var key = NormalizeId(itemId);
-        if (key.Length == 0)
-        {
-            return false;
-        }
-
-        if (_entries.TryRemove(key, out _))
-        {
-            Volatile.Write(ref _dirty, true);
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Removes an item only when its current reason is <see cref="FailedItemReason.Unresolved"/>.
-    /// Used when a resolver succeeds but the download outcome is still unknown.
-    /// </summary>
-    /// <param name="itemId">The Jellyfin item ID.</param>
-    public void RemoveIfUnresolved(Guid itemId)
-    {
-        var key = NormalizeId(itemId.ToString());
-        if (key.Length == 0)
-        {
-            return;
-        }
-
-        // Compare-and-remove: only drop the entry if it is still the Unresolved one we looked at,
-        // so a failure recorded in between is not lost.
-        if (_entries.TryGetValue(key, out var entry) &&
-            entry.Reason == FailedItemReason.Unresolved &&
-            _entries.TryRemove(new KeyValuePair<string, FailedItemEntry>(key, entry)))
-        {
-            Volatile.Write(ref _dirty, true);
+            Persist();
         }
     }
 
     /// <summary>
-    /// Gets all failed items, newest attempt first.
+    /// Gets an item's problem.
     /// </summary>
-    /// <returns>Snapshot list of failed item entries.</returns>
-    public IReadOnlyList<FailedItemEntry> GetAll()
+    /// <param name="itemId">Item ID.</param>
+    /// <returns>The entry, or null.</returns>
+    public ProblemEntry? Get(Guid itemId) => _entries.TryGetValue(itemId, out var entry) ? entry : null;
+
+    /// <summary>
+    /// Tells whether an automatic check should try an item now.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <param name="now">Current time.</param>
+    /// <returns>True when the item has no problem, its wait is over, or it changed since.</returns>
+    public bool IsDue(BaseItem item, DateTime now)
     {
-        // Copies, not the stored instances: the caller serializes these on a request thread while
-        // a sync may be recording new failures.
-        return _entries.Values
-            .OrderByDescending(e => e.LastAttemptUtc)
-            .Select(entry => new FailedItemEntry
-            {
-                ItemId = entry.ItemId,
-                Name = entry.Name,
-                Type = entry.Type,
-                ProductionYear = entry.ProductionYear,
-                Reason = entry.Reason,
-                Error = entry.Error,
-                LastAttemptUtc = entry.LastAttemptUtc,
-                Attempts = entry.Attempts
-            })
-            .ToArray();
+        ArgumentNullException.ThrowIfNull(item);
+        return !_entries.TryGetValue(item.Id, out var entry)
+            || now >= entry.NextAttemptUtc
+            || !string.Equals(entry.Fingerprint, Fingerprint(item), StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// Clears all failed items.
+    /// Gets every entry.
     /// </summary>
-    /// <returns>The number of removed entries.</returns>
-    public int Clear()
+    /// <returns>Entries keyed by item ID.</returns>
+    public IReadOnlyDictionary<Guid, ProblemEntry> All() => new Dictionary<Guid, ProblemEntry>(_entries);
+
+    /// <summary>
+    /// Makes every item due again, for "retry everything".
+    /// </summary>
+    public void ResetSchedules()
     {
-        var count = _entries.Count;
-        if (count > 0)
+        foreach (var entry in _entries.Values)
         {
-            _entries.Clear();
-            Volatile.Write(ref _dirty, true);
+            entry.NextAttemptUtc = DateTime.UtcNow;
         }
 
-        return count;
+        Persist();
     }
 
     /// <summary>
-    /// Disposes the store, flushing remaining data to disk.
+    /// Computes the wait before the next attempt.
     /// </summary>
-    public void Dispose()
+    /// <param name="kind">Kind of problem.</param>
+    /// <param name="attempts">Failures in a row.</param>
+    /// <returns>The wait.</returns>
+    internal static TimeSpan Backoff(ProblemKind kind, int attempts)
     {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        _flushTimer.Dispose();
-        try
-        {
-            FlushToDiskAsync().GetAwaiter().GetResult();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed items store flush failed during dispose");
-        }
-
-        _fileLock.Dispose();
+        var steps = kind == ProblemKind.Unresolved ? UnresolvedBackoff : DownloadBackoff;
+        return steps[Math.Clamp(attempts - 1, 0, steps.Length - 1)];
     }
 
-    private static string NormalizeId(string id)
+    /// <summary>
+    /// Hashes what identifies an item to the resolver: its names, year and provider IDs.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>A short hash.</returns>
+    internal static string Fingerprint(BaseItem item)
     {
-        if (string.IsNullOrWhiteSpace(id))
-        {
-            return string.Empty;
-        }
-
-        if (Guid.TryParse(id, out var guid))
-        {
-            return guid.ToString("N").ToUpperInvariant();
-        }
-
-        return id.Replace("-", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
+        var ids = string.Join(';', (item.ProviderIds ?? new Dictionary<string, string>()).OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + "=" + p.Value));
+        var text = string.Join('|', item.Name, item.OriginalTitle, item.ProductionYear, ids);
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)), 0, 8);
     }
 
-    private void LoadFromDisk()
+    /// <inheritdoc />
+    public void Dispose() => _file.Dispose();
+
+    private static ProblemEntry Create(BaseItem item, ProblemKind kind, string? error, int attempts, DateTime now, string fingerprint) => new()
     {
-        try
-        {
-            if (!File.Exists(_storePath))
-            {
-                return;
-            }
+        ItemId = item.Id.ToString("D"),
+        Name = item.Name ?? string.Empty,
+        ProductionYear = item.ProductionYear,
+        Reason = kind,
+        Error = error,
+        LastAttemptUtc = now,
+        Attempts = attempts,
+        NextAttemptUtc = now + Backoff(kind, attempts),
+        Fingerprint = fingerprint,
+    };
 
-            var json = File.ReadAllText(_storePath);
-            List<FailedItemEntry>? entries;
-            try
-            {
-                entries = JsonSerializer.Deserialize<List<FailedItemEntry>>(json);
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, "Failed items store at {Path} is corrupt; quarantining it", _storePath);
-                try
-                {
-                    File.Move(_storePath, _storePath + ".corrupt", overwrite: true);
-                }
-                catch (Exception moveEx)
-                {
-                    _logger.LogWarning(moveEx, "Failed to quarantine corrupt failed items store");
-                }
-
-                entries = null;
-            }
-
-            _entries.Clear();
-            if (entries != null)
-            {
-                foreach (var entry in entries)
-                {
-                    var key = NormalizeId(entry.ItemId);
-                    if (key.Length > 0)
-                    {
-                        _entries[key] = entry;
-                    }
-                }
-            }
-
-            _logger.LogInformation("Loaded {Count} entries from failed items store", _entries.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load failed items store from disk");
-        }
-    }
-
-    private async void FlushTimerCallback(object? state)
-    {
-        try
-        {
-            await FlushToDiskAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed items store flush timer failed");
-        }
-    }
-
-    private async Task FlushToDiskAsync()
-    {
-        // Volatile: writers set _dirty outside this method, so a plain read could observe a stale
-        // false and skip the flush entirely.
-        if (!Volatile.Read(ref _dirty))
-        {
-            return;
-        }
-
-        await _fileLock.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            if (!Volatile.Read(ref _dirty))
-            {
-                return;
-            }
-
-            var json = JsonSerializer.Serialize(_entries.Values.ToList(), _jsonOptions);
-
-            // Temp file plus rename: WriteAllTextAsync truncates the target before streaming into
-            // it, so a crash mid-flush left unparseable JSON that was then silently loaded as an
-            // empty store, erasing the entire Unresolved list.
-            var tempPath = _storePath + ".tmp";
-            await File.WriteAllTextAsync(tempPath, json).ConfigureAwait(false);
-            File.Move(tempPath, _storePath, overwrite: true);
-            Volatile.Write(ref _dirty, false);
-            _logger.LogDebug("Flushed {Count} failed item entries to disk", _entries.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to flush failed items store to disk");
-        }
-        finally
-        {
-            _fileLock.Release();
-        }
-    }
+    private void Persist() => _file.Save(() => _entries.Values.ToList());
 }

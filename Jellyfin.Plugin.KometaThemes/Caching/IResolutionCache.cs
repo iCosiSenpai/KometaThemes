@@ -3,48 +3,57 @@ using Jellyfin.Plugin.KometaThemes.Models;
 namespace Jellyfin.Plugin.KometaThemes.Caching;
 
 /// <summary>
-/// Interface for the resolution cache that stores anime lookup results.
+/// Remembers lookups against animethemes.moe and AniList between checks.
 /// </summary>
 public interface IResolutionCache
 {
     /// <summary>
-    /// Tries to get a cached result for the given key.
+    /// Looks up anime stored under a key.
     /// </summary>
     /// <param name="key">Cache key.</param>
-    /// <param name="result">Cached anime array if found (null for negative cache entries).</param>
-    /// <returns>True if the key exists in cache and is not expired.</returns>
+    /// <param name="result">The anime, or null for a remembered "not found".</param>
+    /// <returns>Whether the key was cached and fresh.</returns>
     bool TryGet(string key, out Anime[]? result);
 
-    /// <summary>
-    /// Stores a positive result in the cache.
-    /// </summary>
+    /// <summary>Stores anime found for a key.</summary>
     /// <param name="key">Cache key.</param>
-    /// <param name="anime">The resolved anime.</param>
+    /// <param name="anime">The anime.</param>
     void SetPositive(string key, Anime[] anime);
 
-    /// <summary>
-    /// Stores a negative result (no match found) in the cache to avoid re-querying.
-    /// </summary>
+    /// <summary>Remembers that a key found nothing.</summary>
     /// <param name="key">Cache key.</param>
     void SetNegative(string key);
 
     /// <summary>
-    /// Clears all cached entries.
+    /// Looks up a text value, such as a serialized AniList chain.
     /// </summary>
+    /// <param name="key">Cache key.</param>
+    /// <param name="value">The value.</param>
+    /// <returns>Whether the key was cached and fresh.</returns>
+    bool TryGetText(string key, out string? value);
+
+    /// <summary>Stores a text value.</summary>
+    /// <param name="key">Cache key.</param>
+    /// <param name="value">The value.</param>
+    void SetText(string key, string value);
+
+    /// <summary>Forgets one key.</summary>
+    /// <param name="key">Cache key.</param>
+    void Remove(string key);
+
+    /// <summary>Forgets everything.</summary>
     void Clear();
 
-    /// <summary>
-    /// Gets statistics about the cache.
-    /// </summary>
-    /// <returns>Cache statistics.</returns>
+    /// <summary>Gets entry counts and hit statistics.</summary>
+    /// <returns>The statistics.</returns>
     CacheStats GetStats();
 }
 
 /// <summary>
-/// Statistics about the resolution cache.
+/// Cache statistics.
 /// </summary>
-/// <param name="PositiveEntries">Number of positive (successful) cache entries.</param>
-/// <param name="NegativeEntries">Number of negative (miss) cache entries.</param>
-/// <param name="TotalHits">Total number of cache hits since startup.</param>
-/// <param name="TotalMisses">Total number of cache misses since startup.</param>
+/// <param name="PositiveEntries">Remembered matches.</param>
+/// <param name="NegativeEntries">Remembered misses.</param>
+/// <param name="TotalHits">Lookups answered from the cache.</param>
+/// <param name="TotalMisses">Lookups that went to the network.</param>
 public record CacheStats(int PositiveEntries, int NegativeEntries, long TotalHits, long TotalMisses);

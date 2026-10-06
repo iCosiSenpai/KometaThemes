@@ -4,24 +4,18 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
-/// An anime theme entry API resource represents a version of an anime theme.
-///
-/// For example, the ED theme of the Bakemonogatari anime has three anime theme entries to represent three versions.
+/// One version of a theme.
 /// </summary>
-/// <param name="Id">The primary key of the resource.</param>
-/// <param name="Version">The version number of the theme.</param>
-/// <param name="Episodes">The episodes that the theme is used for.</param>
-/// <param name="Nsfw">Whether not safe for work content is included.</param>
-/// <param name="Spoiler">Whether content is included that may spoil the viewer.</param>
-/// <param name="Videos">Videos for the entry.</param>
-public record AnimeThemeEntry(
+/// <param name="Id">Entry ID.</param>
+/// <param name="Version">Version number, missing for the first.</param>
+/// <param name="Episodes">Episodes this version airs in, for example <c>2, 4-12</c>.</param>
+/// <param name="Nsfw">Whether the video is flagged not safe for work.</param>
+/// <param name="Spoiler">Whether the video spoils the story.</param>
+/// <param name="Videos">Available encodes.</param>
+public sealed record AnimeThemeEntry(
     [property: JsonPropertyName("id")] int Id,
-    [property: JsonPropertyName("version")]
-    int? Version,
-    [property: JsonPropertyName("episodes")]
-    string? Episodes,
+    [property: JsonPropertyName("version")] int? Version,
+    [property: JsonPropertyName("episodes")] string? Episodes,
     [property: JsonPropertyName("nsfw")] bool Nsfw,
-    [property: JsonPropertyName("spoiler")]
-    bool Spoiler,
-    [property: JsonPropertyName("videos")] Collection<Video> Videos
-);
+    [property: JsonPropertyName("spoiler")] bool Spoiler,
+    [property: JsonPropertyName("videos")] Collection<Video>? Videos);

@@ -1,73 +1,73 @@
 # Configuration reference
 
-The section names below are the tab labels as they appear in the plugin.
+Everything here is edited on the plugin page (**Anime themes → Settings**). The values live in
+Jellyfin's plugin configuration file; property names in brackets are the ones in that file.
 
-| Tab | Purpose |
-|---|---|
-| **General** | Interface language, library filter, schedule, auto-sync, cleanup, notifications |
-| **Themes & Download** | Series/movie media modes, volume, OP/ED and credit filters, season behaviour, download parallelism, dry-run, YouTube import |
-| **Providers & Matching** | Provider order, fuzzy title threshold, API rate, positive/negative cache TTLs, cache controls |
-| **Excluded** | Blacklisted items and restore controls, global playlist configuration, M3U export |
-| **Bindings** | Persistent manual matches, unlock/recalculate, optional removal of downloaded files |
-| **Unresolved** | Retry, manual resolution, blacklist, dismiss, clear |
+## Libraries [`LibraryIds`]
 
-## Fetch modes
+The libraries KometaThemes manages. Other libraries are never read or written. After an upgrade
+from 1.x the old name pattern (`LibraryPattern`) is turned into this list once.
 
-Audio and video are configured separately, and series and movies are configured
-separately, so a library can download audio themes for series only.
+## What to download
 
-| Stored value | Shown in the UI as | Behaviour |
+Separately for theme songs [`AudioSettings`] and theme videos [`VideoSettings`]:
+
+| Setting | Default (songs / videos) | Meaning |
 |---|---|---|
-| `None` | *None* | Do not download this media type |
-| `Single` | *Best theme only* | Download the best eligible theme |
-| `All` | *All themes* | Download all eligible themes |
-| `AllPerSeason` | *All, per season* | Keep eligible themes grouped and named per detected season |
+| Download [`FetchType`] | on / off | `None` off, `Single` only the main theme (first opening, or first ending when openings are off), `All` every theme. |
+| Openings, Endings [`IgnoreOPs`, `IgnoreEDs`] | both | Which kinds. |
+| Skip versions with episode scenes over the song [`IgnoreOverlapping`] | on / on | A theme with no clean version is skipped. |
+| Only creditless videos [`IgnoreThemesWithCredits`] | — / on | A theme with no creditless version gets no video. |
+| Volume [`Volume`] | 50% | Baked into the file; changing it downloads the files again. |
 
-`AllPerSeason` only groups by season when the detected theme groups actually partition
-the seasons. When they do not, the plugin does not guess: it falls back rather than
-attaching a theme to the wrong season.
+| Setting | Default | Meaning |
+|---|---|---|
+| Each season gets its own themes [`PerSeasonThemes`] | on | Seasons after the first are matched through AniList sequels when year and episode count agree. Otherwise the season plays the series themes. |
+| Most themes per series, season or movie [`MaxThemesPerSeason`] | 5 | For each kind, songs and videos. |
 
-## Library filter
+When animethemes.moe lists the same song twice (an English dub `ED1-EN` next to `ED1`), only one is kept.
 
-`Library Pattern` decides which libraries the plugin touches, both for automatic work
-and for UI injection. The default `Anime` keeps everything scoped to libraries whose
-name matches, which is why an item outside them reports as not eligible.
+## Automatic work
 
-## Matching
+| Setting | Default | Meaning |
+|---|---|---|
+| Add themes to new anime as they arrive [`AutoSyncOnItemAdded`] | on | Two minutes after Jellyfin adds an item, and again when its metadata is downloaded. |
+| Delete an anime's themes when it leaves the library [`CleanupThemesOnItemRemoved`] | off | Only files KometaThemes wrote. |
 
-Titles are resolved through provider IDs first — AniDB, AniList, MyAnimeList, Kitsu
-and AniSearch, in the order you configure — and only then through a fuzzy title
-search.
+The full check follows **Dashboard → Scheduled tasks → Check anime themes** (every 12 hours by default).
 
-The similarity threshold guards that last step. Lowering it produces confident wrong
-matches, which are harder to notice than a missing theme, so raise it if you see bad
-matches rather than lowering it to force results.
+## YouTube
 
-Resolution results are cached with separate TTLs for hits and misses, so a title that
-genuinely has no themes is not re-queried on every sync.
+| Setting | Default | Meaning |
+|---|---|---|
+| Allow adding songs from YouTube links [`EnableYouTubeImport`] | off | Shows the YouTube form on anime pages. |
+| yt-dlp path [`YtDlpPath`] | empty | Empty uses yt-dlp when installed, otherwise the bundled extractor. |
 
-## Reliability and security behaviour
+## Advanced
 
-- API calls use the current Jellyfin `MediaBrowser` token and same-origin credentials.
-- Remote media is accepted only from same-origin HTTP(S) or HTTPS AnimeThemes domains.
-  Credentials embedded in URLs are rejected.
-- YouTube links are reduced to a canonical video ID server-side, so the pasted text
-  never reaches the extractor's command line.
-- Theme files are published atomically, so a failed conversion cannot leave a broken
-  file behind.
-- Deletion is driven by what the plugin recorded, so it never removes files it did not
-  create, including your own artwork in `backdrops/`.
-- A damaged cache file is quarantined rather than silently emptied.
-- Requests use rate limiting, retries and circuit-breaker behaviour, and `ffmpeg`
-  concurrency is capped across the whole plugin.
-- Stale async responses are discarded when navigation changes context, and every
-  mutating action guards against double submission.
+| Setting | Default | Range |
+|---|---|---|
+| IDs tried, in order [`ProviderPriority`] | AniDB, AniList, MyAnimeList, Kitsu, AniSearch | |
+| Match by title when no ID works [`EnableTitleFallback`] | on | |
+| Title match confidence [`TitleMatchThreshold`] | 80% | 50–100% |
+| Requests per minute to animethemes.moe [`RateLimitPerMinute`] | 60 | 1–90 |
+| Downloads at once per anime [`DegreeOfParallelism`] | 2 | 1–4 |
+| Conversion time limit [`DownloadTimeoutSeconds`] | 120 s | 15–600 s |
+| Reuse matches for [`PositiveCacheTtlDays`] | 7 days | 1–365 |
+| Remember misses for [`NegativeCacheTtlHours`] | 24 hours | 1–720 |
 
-## Accessibility
+AniList is always queried at most 25 times a minute.
 
-The frontend ships keyboard tab navigation, focus-trapped dialogs with Escape and
-focus restoration, live status regions and `aria-busy` states, listbox navigation in
-the Theme Finder, and responsive dark/light design tokens.
+## Lists
 
-Asset loading is sequential and versioned, with visible failure handling rather than a
-silently broken page.
+Exclusions [`SkippedItems`] and manual matches [`ManualBindings`] are edited from each anime's
+page. A manual match can be set for a series, a single season or a movie.
+
+## Files kept by the plugin
+
+In Jellyfin's plugin configuration folder, `KometaThemes/`:
+
+- `resolution-cache-v2.json`: animethemes.moe and AniList lookups.
+- `failed-items.json`: anime that need attention, with when they are retried
+  (1, 3, 7, then every 30 days when not found; 1, 6, 24 hours when downloads failed).
+- `activity.json`: the Activity list.

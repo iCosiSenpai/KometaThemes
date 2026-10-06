@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -5,59 +6,57 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
-/// Represents an anime from the AnimeThemes API.
+/// An anime entry on animethemes.moe.
 /// </summary>
-/// <param name="Id">The primary key of the resource.</param>
-/// <param name="Name">The primary title of the anime.</param>
-/// <param name="Slug">The URL slug of the anime.</param>
-/// <param name="Year">The premiere year of the anime.</param>
-/// <param name="Themes">The themes of the anime.</param>
-/// <param name="Resources">External resources linked to this anime.</param>
-public record Anime(
+/// <param name="Id">Anime ID.</param>
+/// <param name="Name">Display name.</param>
+/// <param name="Slug">URL slug.</param>
+/// <param name="Year">Premiere year.</param>
+/// <param name="Themes">Openings and endings.</param>
+/// <param name="Resources">Links to other sites, which carry their IDs.</param>
+public sealed record Anime(
     [property: JsonPropertyName("id")] int Id,
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("slug")] string Slug,
     [property: JsonPropertyName("year")] int? Year,
-    [property: JsonPropertyName("animethemes")]
-    Collection<AnimeTheme> Themes,
-    [property: JsonPropertyName("resources")]
-    Collection<Resource>? Resources
-)
+    [property: JsonPropertyName("animethemes")] Collection<AnimeTheme>? Themes,
+    [property: JsonPropertyName("resources")] Collection<Resource>? Resources)
 {
-    /// <summary>
-    /// Gets the premiere season of the anime.
-    /// </summary>
+    /// <summary>Gets the premiere season, such as <c>Winter</c>.</summary>
     [JsonPropertyName("season")]
     public string? Season { get; init; }
 
-    /// <summary>
-    /// Gets the media format of the anime.
-    /// </summary>
+    /// <summary>Gets the format, such as <c>TV</c> or <c>Movie</c>.</summary>
     [JsonPropertyName("media_format")]
     public string? MediaFormat { get; init; }
 
-    /// <summary>
-    /// Gets the synopsis of the anime.
-    /// </summary>
+    /// <summary>Gets the synopsis.</summary>
     [JsonPropertyName("synopsis")]
     public string? Synopsis { get; init; }
 
-    /// <summary>
-    /// Gets image resources for the anime.
-    /// </summary>
+    /// <summary>Gets the cover images.</summary>
     [JsonPropertyName("images")]
     public Collection<AnimeImage>? Images { get; init; }
 
     /// <summary>
-    /// Gets the external ID for a given site.
+    /// Gets this anime's ID on another site.
     /// </summary>
-    /// <param name="site">The site name (e.g. "AniDB", "MyAnimeList").</param>
-    /// <returns>The external ID if found, null otherwise.</returns>
+    /// <param name="site">Site name, compared case-insensitively.</param>
+    /// <returns>The ID, or null.</returns>
     public int? GetExternalId(string site)
+        => Resources?.FirstOrDefault(r => string.Equals(r.Site, site, StringComparison.OrdinalIgnoreCase) && r.ExternalId.HasValue)?.ExternalId;
+
+    /// <summary>
+    /// Gets a cover image URL.
+    /// </summary>
+    /// <param name="large">Whether to prefer the large cover.</param>
+    /// <returns>The URL, or null.</returns>
+    public string? GetCover(bool large)
     {
-        return Resources?
-            .Where(r => r.Site == site)
-            .Select(r => r.ExternalId)
-            .FirstOrDefault();
+        var images = Images ?? [];
+        var preferred = large ? "Large Cover" : "Small Cover";
+        var fallback = large ? "Small Cover" : "Large Cover";
+        return (images.FirstOrDefault(i => string.Equals(i.Facet, preferred, StringComparison.OrdinalIgnoreCase))
+            ?? images.FirstOrDefault(i => string.Equals(i.Facet, fallback, StringComparison.OrdinalIgnoreCase)))?.Link;
     }
 }

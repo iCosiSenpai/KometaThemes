@@ -7,32 +7,46 @@ on:
     branches: [main]
 
 jobs:
-  build-test:
+  backend:
+    name: Backend (Jellyfin ${{ matrix.jellyfin }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        jellyfin: ['12.0.0', '12.1.0', '12.2.0']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: ffmpeg for the installer tests
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Versions agree
+        run: python3 tools/check_versions.py
+      - name: Build
+        run: dotnet build -c Release -p:JellyfinVersion=${{ matrix.jellyfin }}
+      - name: Test
+        run: dotnet test --no-build -c Release -p:JellyfinVersion=${{ matrix.jellyfin }} --logger "trx;LogFileName=test-results.trx"
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.jellyfin }}
+          path: '**/TestResults/*.trx'
+
+  browser:
+    name: Browser and accessibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.x
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20.18.2
           cache: npm
-
-      - name: Install browser test dependencies
-        run: npm ci
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser and accessibility tests
-        run: npm run test:browser
-
-      - name: Upload browser test report
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -42,57 +56,34 @@ jobs:
             test-results/
           if-no-files-found: ignore
 
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore -c Release
-
-      - name: Test
-        run: dotnet test --no-build -c Release --logger "trx;LogFileName=test-results.trx"
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
+  package:
+    name: Package
+    needs: [backend, browser]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          name: test-results
-          path: '**/TestResults/*.trx'
-
-      - name: Package plugin
-        if: success()
+          dotnet-version: 10.0.x
+      # Always against the oldest supported server, so one DLL loads on every Jellyfin 12.x.
+      - name: Build against Jellyfin 12.0.0
+        run: dotnet build Jellyfin.Plugin.KometaThemes/Jellyfin.Plugin.KometaThemes.csproj -c Release -p:JellyfinVersion=12.0.0
+      - name: Zip
         run: |
+          out=Jellyfin.Plugin.KometaThemes/bin/Release/net10.0
           mkdir -p artifacts
-          out=Jellyfin.Plugin.KometaThemes/bin/Release/net9.0
-
-          # Explicit list, not the whole output folder. Building with
-          # CopyLocalLockFileAssemblies also drops ~30 Jellyfin and Microsoft.Extensions
-          # assemblies there; shipping those would put a second copy of the server's own
-          # types next to it. Only the plugin and the extractor it needs travel.
-          zip -j artifacts/KometaThemes.zip \
-            "$out/Jellyfin.Plugin.KometaThemes.dll" \
-            "$out/YoutubeExplode.dll" \
-            "$out/AngleSharp.dll" \
-            "$out/JsonExtensions.dll"
-
-          echo "--- archive contents ---"
+          python3 tools/release_meta.py artifacts/meta.json
+          # An explicit list: never ship server assemblies next to the plugin.
+          zip -j artifacts/KometaThemes.zip "$out/Jellyfin.Plugin.KometaThemes.dll" "$out/YoutubeExplode.dll" artifacts/meta.json
           unzip -l artifacts/KometaThemes.zip
-
-          # Fail the build if the archive ever gains or loses a file, so a dependency
-          # change cannot silently ship or silently go missing at runtime.
           actual=$(unzip -Z1 artifacts/KometaThemes.zip | sort | tr '\n' ' ')
-          expected="AngleSharp.dll Jellyfin.Plugin.KometaThemes.dll JsonExtensions.dll YoutubeExplode.dll "
+          expected="Jellyfin.Plugin.KometaThemes.dll YoutubeExplode.dll meta.json "
           if [ "$actual" != "$expected" ]; then
-            echo "::error::unexpected package contents"
-            echo "expected: $expected"
-            echo "actual:   $actual"
+            echo "::error::unexpected package contents: $actual"
             exit 1
           fi
-
           md5sum artifacts/KometaThemes.zip
-
-      - name: Upload plugin artifact
-        if: success()
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: KometaThemes-plugin
           path: artifacts/KometaThemes.zip

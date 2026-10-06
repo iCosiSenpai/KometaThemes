@@ -1,0 +1,469 @@
+{
+ "anime": {
+  "id": 1387,
+  "name": "Kaguya-sama wa Kokurasetai?: Tensai-tachi no Renai Zunousen",
+  "media_format": "TV",
+  "season": "Spring",
+  "slug": "kaguya_sama_wa_kokurasetai_tensai_tachi_no_renai_zunousen_2020",
+  "synopsis": "After a slow but eventful summer vacation, Shuchiin Academy's second term is now starting in full force. As August transitions into September, Miyuki Shirogane's birthday looms ever closer, leaving Kaguya Shinomiya in a serious predicament as to how to celebrate it. Furthermore, the tenure of the school's 67th student council is coming to an end. Due to the council members being in different classes, the only time Kaguya and Miyuki have to be together will soon disappear, putting all of their cunning plans at risk.\n\nA long and difficult election that will decide the fate of the new student council awaits, as multiple challengers fight for the coveted title of president.",
+  "year": 2020,
+  "animethemes": [
+   {
+    "id": 9702,
+    "sequence": null,
+    "slug": "OP1",
+    "type": "OP",
+    "song": {
+     "id": 9703,
+     "title": "DADDY! DADDY! DO! feat. Airi Suzuki",
+     "artists": [
+      {
+       "id": 526,
+       "name": "Masayuki Suzuki",
+       "slug": "masayuki_suzuki",
+       "information": null,
+       "artistsong": {
+        "id": 6577,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      },
+      {
+       "id": 571,
+       "name": "Airi Suzuki",
+       "slug": "airi_suzuki",
+       "information": null,
+       "artistsong": {
+        "id": 6798,
+        "alias": null,
+        "as": null,
+        "member_alias": null,
+        "member_as": null,
+        "relevance": null
+       }
+      }
+     ]
+    },
+    "animethemeentries": [
+     {
+      "id": 11399,
+      "episodes": "1-10",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 554,
+      "videos": [
+       {
+        "id": 11625,
+        "basename": "KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 54157054,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.webm",
+        "audio": {
+         "id": 8844,
+         "basename": "KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.ogg",
+         "size": 3531081,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11626,
+        "basename": "KaguyaSamaWaKokurasetaiS2-OP1.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-OP1",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-OP1.webm",
+        "resolution": 720,
+        "size": 38913854,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-OP1.webm",
+        "audio": {
+         "id": 8844,
+         "basename": "KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.ogg",
+         "size": 3531081,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-OP1-NCBD1080.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": 9703,
+    "sequence": null,
+    "slug": "ED1",
+    "type": "ED",
+    "song": {
+     "id": 9704,
+     "title": "Kaze ni Fukarete",
+     "artists": []
+    },
+    "animethemeentries": [
+     {
+      "id": 11400,
+      "episodes": "2-3",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 1,
+      "tracks_count": 114,
+      "videos": [
+       {
+        "id": 11617,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 52436327,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11618,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1.webm",
+        "resolution": 720,
+        "size": 34241815,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       }
+      ]
+     },
+     {
+      "id": 11401,
+      "episodes": "4, 6-8",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 2,
+      "tracks_count": 3,
+      "videos": [
+       {
+        "id": 11619,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1v2-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1v2-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1v2-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 52667383,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1v2-NCBD1080.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11620,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1v2.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1v2",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1v2.webm",
+        "resolution": 720,
+        "size": 34734608,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1v2.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       }
+      ]
+     },
+     {
+      "id": 11402,
+      "episodes": "9-10",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 3,
+      "tracks_count": 3,
+      "videos": [
+       {
+        "id": 11621,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1v3-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1v3-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1v3-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 52672747,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1v3-NCBD1080.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11622,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1v3.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1v3",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1v3.webm",
+        "resolution": 720,
+        "size": 34605681,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1v3.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       }
+      ]
+     },
+     {
+      "id": 11403,
+      "episodes": "11",
+      "notes": null,
+      "nsfw": false,
+      "spoiler": false,
+      "version": 4,
+      "tracks_count": 16,
+      "videos": [
+       {
+        "id": 11623,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1v4-NCBD1080.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1v4-NCBD1080",
+        "lyrics": false,
+        "nc": true,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1v4-NCBD1080.webm",
+        "resolution": 1080,
+        "size": 52648214,
+        "source": "BD",
+        "subbed": false,
+        "uncen": false,
+        "tags": "NCBD1080",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1v4-NCBD1080.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       },
+       {
+        "id": 11624,
+        "basename": "KaguyaSamaWaKokurasetaiS2-ED1v4.webm",
+        "filename": "KaguyaSamaWaKokurasetaiS2-ED1v4",
+        "lyrics": false,
+        "nc": false,
+        "overlap": "None",
+        "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1v4.webm",
+        "resolution": 720,
+        "size": 33821057,
+        "source": "WEB",
+        "subbed": false,
+        "uncen": false,
+        "tags": "",
+        "link": "https://v.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1v4.webm",
+        "audio": {
+         "id": 8843,
+         "basename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "filename": "KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080",
+         "path": "2020/Spring/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg",
+         "size": 3651369,
+         "link": "https://a.animethemes.moe/KaguyaSamaWaKokurasetaiS2-ED1-NCBD1080.ogg"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "resources": [
+   {
+    "id": 3168,
+    "external_id": 40591,
+    "link": "https://myanimelist.net/anime/40591",
+    "site": "MyAnimeList",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 9437,
+    "external_id": 112641,
+    "link": "https://anilist.co/anime/112641",
+    "site": "AniList",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 10040,
+    "external_id": 42632,
+    "link": "https://kitsu.app/anime/42632",
+    "site": "Kitsu",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 13006,
+    "external_id": 15207,
+    "link": "https://anidb.net/anime/15207",
+    "site": "aniDB",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 20484,
+    "external_id": 22587,
+    "link": "https://www.animenewsnetwork.com/encyclopedia/anime.php?id=22587",
+    "site": "Anime News Network",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 25239,
+    "external_id": 14130,
+    "link": "https://www.anime-planet.com/anime/kaguya-sama-love-is-war-2",
+    "site": "Anime-Planet",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 35883,
+    "external_id": null,
+    "link": "https://kaguya.love/2nd/",
+    "site": "Official Website",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 32907,
+    "external_id": null,
+    "link": "https://x.com/anime_kaguya",
+    "site": "X",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 35882,
+    "external_id": 81061754,
+    "link": "https://www.netflix.com/title/81061754",
+    "site": "Netflix",
+    "animeresource": {
+     "as": null
+    }
+   },
+   {
+    "id": 35880,
+    "external_id": null,
+    "link": "https://www.crunchyroll.com/kaguya-sama-love-is-war",
+    "site": "Crunchyroll",
+    "animeresource": {
+     "as": null
+    }
+   }
+  ],
+  "images": [
+   {
+    "id": 2765,
+    "facet": "Large Cover",
+    "path": "anime/large-cover/h0RLPV1DYQUmQ7dokdl8wcfIVXbHHs9cfTgWbRXz.jpg",
+    "link": "https://pub-92474f7785774e91a790e086dfa6b2ef.r2.dev/anime/large-cover/h0RLPV1DYQUmQ7dokdl8wcfIVXbHHs9cfTgWbRXz.jpg"
+   },
+   {
+    "id": 2766,
+    "facet": "Small Cover",
+    "path": "anime/small-cover/VekdiFC5gK0bHnxl0OEj8OfMyRmrQUBNkMmLcy0d.avif",
+    "link": "https://pub-92474f7785774e91a790e086dfa6b2ef.r2.dev/anime/small-cover/VekdiFC5gK0bHnxl0OEj8OfMyRmrQUBNkMmLcy0d.avif"
+   }
+  ]
+ }
+}

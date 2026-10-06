@@ -1,30 +1,19 @@
-using System.Text.Json.Serialization;
-
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
-/// Enum describing the fetch types for themes.
+/// How many themes to download per media type.
 /// </summary>
-[JsonConverter(typeof(FetchTypeJsonConverter))]
 public enum FetchType
 {
-    /// <summary>
-    /// Don't fetch any themes.
-    /// </summary>
+    /// <summary>Do not download this media type.</summary>
     None,
 
-    /// <summary>
-    /// Fetch only the first/best theme.
-    /// </summary>
+    /// <summary>Only the main theme: the first opening, or the first ending when openings are off.</summary>
     Single,
 
-    /// <summary>
-    /// Fetch all available themes.
-    /// </summary>
+    /// <summary>Every theme, up to the per-season limit.</summary>
     All,
 
-    /// <summary>
-    /// Fetch all themes for the detected season (multi-OP/ED per season).
-    /// </summary>
+    /// <summary>Kept so 1.x configuration files still load; treated as <see cref="All"/>.</summary>
     AllPerSeason
 }

@@ -1,60 +1,46 @@
 # Troubleshooting
 
-## Themes download but do not play
+## Themes are downloaded but do not play
 
-Check `Settings → Display → Play theme songs` in the affected user's profile first.
-Jellyfin upgrades sometimes reset it, and it is by far the most common cause.
+1. In the user's profile, **Settings → Display**: turn on **Theme songs** (and **Theme videos**).
+2. Open the anime page in KometaThemes and check that the songs show a solid **Song** button and
+   appear under *Files in this folder*.
+3. Run **Check again** on that anime: it also asks Jellyfin to register the files.
 
-If it is already enabled, open the item's KometaThemes page and read its registration
-banner, run a Jellyfin library scan, then use **Repair links**.
+## An anime says "Needs attention"
 
-## The ♪ shortcut does not appear on item pages
+animethemes.moe has no entry for its IDs or title. Open it and use **Find a match**: search by the
+Japanese or English title and pick the entry whose year and format match. Not every anime is on
+animethemes.moe; for those, enable YouTube import and add the song from a link.
 
-Install and enable **File Transformation**, restart Jellyfin, then hard-refresh the
-web client with `Ctrl+Shift+R`.
+KometaThemes retries such anime by itself after 1, 3, 7 and then every 30 days, and at once if
+the anime's titles or IDs change in Jellyfin.
 
-The shortcut is deliberately narrow: it is visible only to administrators, only on
-series and movie pages, and only when the owning library matches `Library Pattern`.
+## A season plays the series themes
 
-## YouTube import is not offered in the Theme Finder
+That season could not be matched with confidence: AniList has no sequel whose premiere year and
+episode count agree with the season in your library. The season tab says why. Use **Find a match**
+on that tab to choose its entry yourself.
 
-The import card is only shown when it can actually work, so its absence means one of two
-things.
+## The wrong anime was matched
 
-Either the feature is off — it is off by default, and lives in **Themes & Download → YouTube
-import**. Or a `yt-dlp path` was set by hand and does not resolve; clearing that field falls
-back to the extractor bundled with the plugin. The settings page says which case you are in,
-directly below those two settings.
+Use **Change match** on the series, season or movie tab. The files of the old match are replaced at
+once. **Use the automatic match** removes your choice again.
 
-Nothing has to be installed for import to work. If `yt-dlp` is present it is preferred
-automatically, because it tracks YouTube's changes faster than a bundled copy can, but it is
-not required.
+## The ♪ button is missing on item pages
 
-## An item never resolves
+- It needs the **File Transformation** plugin. Its 3.0.1 release only runs on Jellyfin 12.1 or newer.
+- It shows only to administrators, and only on anime in the libraries KometaThemes manages.
+- After installing File Transformation, restart Jellyfin and reload the web client (`Ctrl+Shift+R`).
+- Without File Transformation, the same button can be added with the JavaScript Injector plugin by
+  loading `../KometaThemes/ItemButton.js`.
 
-Open **Unresolved** to retry, or search and bind the item by hand.
+## A YouTube import fails
 
-If the title genuinely does not exist on AnimeThemes, either add the theme from a
-YouTube link, or blacklist the item so it stops being searched on every sync.
+YouTube changes often. If yt-dlp is installed it is used and usually keeps up; otherwise the bundled
+extractor is updated with each KometaThemes release. Only videos up to 30 minutes and 512 MB are accepted.
 
-Before lowering the matching safeguards, review the item's provider IDs, its year, the
-title-similarity threshold and the live activity log. A too-low threshold produces
-confident wrong matches, which are harder to notice than a missing theme.
+## Where to look
 
-## The whole Jellyfin web UI breaks after a plugin update
-
-Look in the Jellyfin log for a web-injection plugin throwing
-`ObjectDisposedException`. This happens when an injector holds on to a disposed
-service provider across a plugin reload, and it is not specific to this plugin.
-
-Perform a full Jellyfin restart, then re-enable web injectors one at a time to find
-the one at fault. Do not replace the KometaThemes DLL by hand: install through the
-plugin catalog so the version and the manifest stay consistent.
-
-## Where the logs are
-
-Plugin activity is readable from the plugin dashboard, and through
-`GET /Plugins/KometaThemes/Logs?lines=200` with an elevated token.
-
-The Jellyfin server log itself is the place to look for injection and startup
-problems.
+- **Anime themes → Activity**: what happened, in plain words.
+- Jellyfin's log (**Dashboard → Logs**): lines from `Jellyfin.Plugin.KometaThemes`.
