@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -12,8 +13,20 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.KometaThemes.AniList;
 
 /// <summary>
-/// Reads the sequel chain of an anime from AniList, which is how a later season finds its own entry.
+/// Reads the sequels of an anime from AniList. Optional: season matching works without it.
 /// </summary>
+/// <remarks>
+/// <para>
+/// 2.0 followed sequels only through TV entries, so a chain stopped at the first movie or OVA: Sword
+/// Art Online never reached Alicization (after the Ordinal Scale movie), KonoSuba never reached its
+/// third season (after the Crimson Legend movie). Sequels are now followed through every format, and
+/// the season matcher decides which of them are seasons.
+/// </para>
+/// <para>
+/// AniList can switch its API off entirely ("temporarily disabled due to severe stability issues",
+/// answered with 403, as on 2026-10-21). After such an answer no request is sent for an hour.
+/// </para>
+/// </remarks>
 public sealed class AniListClient
 {
     /// <summary>Name of the configured HTTP client.</summary>
@@ -22,7 +35,7 @@ public sealed class AniListClient
     private const string MediaQuery = """
         query ($id: Int) {
           Media(id: $id, type: ANIME) {
-            id idMal format episodes
+            id format episodes
             startDate { year month }
             title { romaji english }
             relations { edges { relationType node { id type format episodes startDate { year month } title { romaji english } } } }
@@ -30,11 +43,11 @@ public sealed class AniListClient
         }
         """;
 
-    /// <summary>Formats that count as a season of a series.</summary>
-    private static readonly string[] SeasonFormats = ["TV", "TV_SHORT", "ONA"];
+    private static readonly TimeSpan PauseAfterRefusal = TimeSpan.FromHours(1);
 
     private readonly IHttpClientFactory _clientFactory;
     private readonly ILogger<AniListClient> _logger;
+    private DateTime _pausedUntilUtc = DateTime.MinValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AniListClient"/> class.
@@ -48,69 +61,82 @@ public sealed class AniListClient
     }
 
     /// <summary>
-    /// Follows SEQUEL relations from an anime, keeping only entries that are a season of a series.
+    /// Follows SEQUEL relations from an anime through every format except music videos.
     /// </summary>
     /// <param name="rootId">AniList ID of the first season.</param>
-    /// <param name="maxLength">Longest chain to build, root included.</param>
+    /// <param name="maxEntries">Most entries to read, root included.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The chain starting with the root; only the root when AniList does not know it.</returns>
-    /// <exception cref="HttpRequestException">AniList could not be reached.</exception>
-    public async Task<IReadOnlyList<AniListSeason>> GetSequelChainAsync(int rootId, int maxLength, CancellationToken cancellationToken)
+    /// <returns>The root and its sequels in premiere order; only the root when AniList does not know it.</returns>
+    /// <exception cref="HttpRequestException">AniList could not be reached or refused the request.</exception>
+    public async Task<IReadOnlyList<AniListSeason>> GetSequelChainAsync(int rootId, int maxEntries, CancellationToken cancellationToken)
     {
-        var chain = new List<AniListSeason>();
-        var seen = new HashSet<int>();
-        int? next = rootId;
+        var found = new List<AniListSeason>();
+        var queued = new HashSet<int> { rootId };
+        var queue = new Queue<int>();
+        queue.Enqueue(rootId);
 
-        while (next is { } id && chain.Count < maxLength && seen.Add(id))
+        while (queue.Count > 0 && found.Count < maxEntries)
         {
-            var media = await GetMediaAsync(id, cancellationToken).ConfigureAwait(false);
+            var media = await GetMediaAsync(queue.Dequeue(), cancellationToken).ConfigureAwait(false);
             if (media == null)
             {
-                break;
+                continue;
             }
 
-            chain.Add(ToSeason(media));
-            next = PickSequel(media);
+            found.Add(ToSeason(media));
+            foreach (var next in Sequels(media).Where(queued.Add))
+            {
+                queue.Enqueue(next);
+            }
         }
 
-        _logger.LogDebug("AniList sequel chain from {Root}: {Chain}", rootId, string.Join(" > ", chain.Select(s => s.Id)));
-        return chain;
+        _logger.LogDebug("AniList sequels of {Root}: {Chain}", rootId, string.Join(", ", found.Select(s => s.Id)));
+        return found
+            .OrderBy(s => s.Year ?? int.MaxValue)
+            .ThenBy(s => s.Month ?? 13)
+            .ThenBy(s => s.Id)
+            .ToList();
     }
 
     /// <summary>
-    /// Picks the sequel that continues the series: a TV-like format, earliest start first.
+    /// Lists the sequels of an entry, earliest first.
     /// </summary>
-    /// <param name="media">The current entry.</param>
-    /// <returns>The next entry's ID, or null.</returns>
-    internal static int? PickSequel(AniListMedia media)
+    /// <param name="media">The entry.</param>
+    /// <returns>AniList IDs.</returns>
+    internal static IEnumerable<int> Sequels(AniListMedia media)
         => (media.Relations?.Edges ?? [])
             .Where(edge => string.Equals(edge.RelationType, "SEQUEL", StringComparison.Ordinal)
-                && edge.Node != null
-                && string.Equals(edge.Node.Type, "ANIME", StringComparison.Ordinal)
-                && SeasonFormats.Contains(edge.Node.Format, StringComparer.Ordinal))
-            .OrderBy(edge => Array.IndexOf(SeasonFormats, edge.Node!.Format) == 2 ? 1 : 0)
-            .ThenBy(edge => edge.Node!.StartDate?.Year ?? int.MaxValue)
+                && edge.Node is { Type: "ANIME" }
+                && !string.Equals(edge.Node.Format, "MUSIC", StringComparison.Ordinal))
+            .OrderBy(edge => edge.Node!.StartDate?.Year ?? int.MaxValue)
             .ThenBy(edge => edge.Node!.StartDate?.Month ?? 13)
-            .Select(edge => (int?)edge.Node!.Id)
-            .FirstOrDefault();
+            .Select(edge => edge.Node!.Id);
 
     private static AniListSeason ToSeason(AniListMedia media)
         => new(media.Id, media.Format, media.Episodes, media.StartDate?.Year, media.StartDate?.Month, media.Title?.English ?? media.Title?.Romaji);
 
     private async Task<AniListMedia?> GetMediaAsync(int id, CancellationToken cancellationToken)
     {
+        if (DateTime.UtcNow < _pausedUntilUtc)
+        {
+            throw new HttpRequestException("AniList refused requests recently; trying again later.", null, HttpStatusCode.Forbidden);
+        }
+
         var client = _clientFactory.CreateClient(HttpClientName);
         var request = new GraphQlRequest(MediaQuery, new Dictionary<string, int> { ["id"] = id });
         using var response = await client.PostAsJsonAsync(string.Empty, request, cancellationToken).ConfigureAwait(false);
 
-        GraphQlResponse? payload;
+        GraphQlResponse? payload = null;
         try
         {
             payload = await response.Content.ReadFromJsonAsync<GraphQlResponse>(cancellationToken).ConfigureAwait(false);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
-            throw new HttpRequestException("AniList sent a response that is not valid JSON.", ex);
+            if (response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException("AniList sent a response that is not valid JSON.", ex);
+            }
         }
 
         if (payload?.Data?.Media is { } media)
@@ -118,8 +144,16 @@ public sealed class AniListClient
             return media;
         }
 
+        if (response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _pausedUntilUtc = DateTime.UtcNow + PauseAfterRefusal;
+            var reason = payload?.Errors is { Count: > 0 } refused ? refused[0].Message : null;
+            _logger.LogWarning("AniList refused the request ({Reason}); season matching goes on without it for an hour", reason ?? "403");
+            throw new HttpRequestException("AniList refused the request: " + (reason ?? "403"), null, response.StatusCode);
+        }
+
         // GraphQL reports "not found" as 404 with an errors array; anything else non-successful is an outage.
-        if (!response.IsSuccessStatusCode && (int)response.StatusCode != 404)
+        if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound)
         {
             throw new HttpRequestException($"AniList answered {(int)response.StatusCode}.", null, response.StatusCode);
         }
@@ -180,7 +214,7 @@ public sealed record AniListRelations([property: JsonPropertyName("edges")] IRea
 public sealed record AniListEdge([property: JsonPropertyName("relationType")] string? RelationType, [property: JsonPropertyName("node")] AniListMedia? Node);
 
 /// <summary>
-/// One link of a sequel chain.
+/// One entry of a sequel chain.
 /// </summary>
 /// <param name="Id">AniList ID.</param>
 /// <param name="Format">Format.</param>

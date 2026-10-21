@@ -31,6 +31,9 @@ public enum MatchState
 /// <param name="Manual">Whether the owner chose the match.</param>
 public sealed record Resolution(MatchState State, IReadOnlyList<Anime> Animes, string Method, bool Manual)
 {
+    /// <summary>Gets the episodes of the entry this folder holds, when several seasons share one long entry.</summary>
+    public EpisodeWindow? Window { get; init; }
+
     /// <summary>
     /// Creates a match.
     /// </summary>

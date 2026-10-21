@@ -176,9 +176,9 @@ public sealed class CheckRequest
 /// <param name="Format">Format.</param>
 /// <param name="Cover">Cover URL.</param>
 /// <param name="Link">Page on animethemes.moe.</param>
-/// <param name="Themes">Number of openings and endings.</param>
+/// <param name="Themes">Number of openings and endings, when known.</param>
 /// <param name="Score">Match score against the item, 0 to 100, when ranked.</param>
-public sealed record AnimeDto(int Id, string Name, string Slug, int? Year, string? Season, string? Format, string? Cover, string Link, int Themes, int? Score);
+public sealed record AnimeDto(int Id, string Name, string Slug, int? Year, string? Season, string? Format, string? Cover, string Link, int? Themes, int? Score);
 
 /// <summary>A theme with what the folder holds of it.</summary>
 /// <param name="ThemeId">Theme ID.</param>
@@ -238,7 +238,8 @@ public sealed record FileDto(string Directory, string FileName, string Source, s
 /// <param name="Method">How, in words.</param>
 /// <param name="Manual">Whether the owner chose it.</param>
 /// <param name="Anime">Matched entries.</param>
-public sealed record MatchDto(string State, string Method, bool Manual, IReadOnlyList<AnimeDto> Anime);
+/// <param name="Window">First and last episode of the entry the folder holds, when seasons share one long entry.</param>
+public sealed record MatchDto(string State, string Method, bool Manual, IReadOnlyList<AnimeDto> Anime, IReadOnlyList<int>? Window);
 
 /// <summary>One folder of an item: the series or movie itself, or a season.</summary>
 /// <param name="ItemId">ID of the series, season or movie.</param>

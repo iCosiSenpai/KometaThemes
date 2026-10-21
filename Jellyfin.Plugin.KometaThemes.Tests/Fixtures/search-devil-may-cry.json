@@ -1,0 +1,23 @@
+{
+  "search": {
+    "anime": [
+      {
+        "id": 597,
+        "name": "Devil May Cry",
+        "slug": "devil_may_cry",
+        "year": 2007,
+        "season": "Summer",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Devil May Cry: The Animated Series"
+          },
+          {
+            "text": "DmC"
+          }
+        ],
+        "series": []
+      }
+    ]
+  }
+}

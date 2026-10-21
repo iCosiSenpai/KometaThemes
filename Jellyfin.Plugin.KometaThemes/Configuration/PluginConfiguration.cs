@@ -29,6 +29,9 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Largest number of entries kept in the exclusion and match lists.</summary>
     public const int MaxPersistedListEntries = 2000;
 
+    /// <summary>Release whose "what's new" note is shown on the page, until it is dismissed.</summary>
+    public const string WhatsNewRelease = "2.1";
+
     /// <summary>
     /// Initializes a new instance of the <see cref="PluginConfiguration"/> class.
     /// </summary>
@@ -67,8 +70,8 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets the schema version whose first-run setup the owner has completed. 0 shows the setup.</summary>
     public int SetupCompletedVersion { get; set; }
 
-    /// <summary>Gets or sets a value indicating whether the "what's new in 2.0" note was dismissed.</summary>
-    public bool WhatsNewDismissed { get; set; }
+    /// <summary>Gets or sets the release whose "what's new" note the owner dismissed.</summary>
+    public string? WhatsNewSeen { get; set; }
 
     /// <summary>Gets the IDs of the libraries KometaThemes manages.</summary>
     public Collection<string> LibraryIds { get; } = new();
@@ -85,7 +88,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Gets or sets what to download as theme videos.</summary>
     public MediaTypeConfiguration VideoSettings { get; set; }
 
-    /// <summary>Gets or sets the most themes of each media type written to one series, season or movie.</summary>
+    /// <summary>Gets or sets the most openings, and separately the most endings, of each media type in one folder.</summary>
     public int MaxThemesPerSeason { get; set; }
 
     /// <summary>Gets or sets a value indicating whether each season gets the themes of its own anime entry.</summary>

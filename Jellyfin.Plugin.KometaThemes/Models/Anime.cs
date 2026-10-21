@@ -6,6 +6,23 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
+/// Another title of an anime.
+/// </summary>
+/// <param name="Text">The title.</param>
+public sealed record AnimeSynonym([property: JsonPropertyName("text")] string? Text);
+
+/// <summary>
+/// A franchise on animethemes.moe, such as every season and movie of Kaguya-sama.
+/// </summary>
+/// <param name="Id">Series ID.</param>
+/// <param name="Name">Name.</param>
+/// <param name="Slug">Slug.</param>
+public sealed record AnimeSeries(
+    [property: JsonPropertyName("id")] int Id,
+    [property: JsonPropertyName("name")] string? Name,
+    [property: JsonPropertyName("slug")] string? Slug);
+
+/// <summary>
 /// An anime entry on animethemes.moe.
 /// </summary>
 /// <param name="Id">Anime ID.</param>
@@ -30,13 +47,22 @@ public sealed record Anime(
     [JsonPropertyName("media_format")]
     public string? MediaFormat { get; init; }
 
-    /// <summary>Gets the synopsis.</summary>
-    [JsonPropertyName("synopsis")]
-    public string? Synopsis { get; init; }
-
     /// <summary>Gets the cover images.</summary>
     [JsonPropertyName("images")]
     public Collection<AnimeImage>? Images { get; init; }
+
+    /// <summary>Gets the other titles and abbreviations, such as an English title or <c>DanMachi</c>.</summary>
+    [JsonPropertyName("animesynonyms")]
+    public Collection<AnimeSynonym>? Synonyms { get; init; }
+
+    /// <summary>Gets the franchises animethemes.moe groups this anime into.</summary>
+    [JsonPropertyName("series")]
+    public Collection<AnimeSeries>? Series { get; init; }
+
+    /// <summary>Gets every title of the anime: its name first, then its synonyms.</summary>
+    [JsonIgnore]
+    public System.Collections.Generic.IEnumerable<string> Titles
+        => new[] { Name }.Concat((Synonyms ?? []).Select(synonym => synonym.Text)).Where(title => !string.IsNullOrWhiteSpace(title)).Select(title => title!);
 
     /// <summary>
     /// Gets this anime's ID on another site.

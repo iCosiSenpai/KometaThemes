@@ -5,7 +5,7 @@
 | Folder | What |
 |---|---|
 | `Jellyfin.Plugin.KometaThemes/AnimeThemes`, `AniList`, `Http` | Remote APIs: client, retries without Polly, shared request budgets. |
-| `Resolving` | Matching: manual matches, external IDs, title search, seasons through AniList sequels (`SeasonMatcher` is pure). |
+| `Resolving` | Matching: manual matches, external IDs, titles (`TitleMatcher`, pure), seasons against the franchise (`SeasonMatcher`, pure). |
 | `Themes` | Which songs a folder should hold (`ThemeCatalog`, `ThemePlanner`, both pure), file names, the per-folder state file, the installer (download, ffmpeg, rename, prune). |
 | `Library` | Managed libraries, folders of an item, the library summary, library events, Jellyfin refresh. |
 | `Sync` | One-anime processing, the full check, problems with backoff, activity. |
@@ -37,6 +37,6 @@ Run it with `node tests/browser/server.js` and open `http://127.0.0.1:4173/web/h
 
 ## Releases
 
-See `AGENTS.md`: version in `Directory.Build.props`, `configPage.html`, `kometa.js` and
-`package.json`; the zip holds `Jellyfin.Plugin.KometaThemes.dll`, `YoutubeExplode.dll` and
+See `AGENTS.md`: version in `Directory.Build.props`, `configPage.html`, `kometa.js`,
+`package.json` and `build.yaml` (`python3 tools/check_versions.py` checks them); the zip holds `Jellyfin.Plugin.KometaThemes.dll`, `YoutubeExplode.dll` and
 `meta.json`; every release goes to GitHub and to the catalog.

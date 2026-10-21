@@ -43,6 +43,7 @@ public sealed class KometaItemsController : KometaControllerBase
     private readonly ItemDetailsBuilder _details;
     private readonly ItemProcessor _processor;
     private readonly AnimeResolver _resolver;
+    private readonly SeasonResolver _seasons;
     private readonly AnimeThemesClient _client;
     private readonly ThemeInstaller _installer;
     private readonly ItemRefresher _refresher;
@@ -62,6 +63,7 @@ public sealed class KometaItemsController : KometaControllerBase
     /// <param name="details">Detail builder.</param>
     /// <param name="processor">Item processor.</param>
     /// <param name="resolver">Anime resolver.</param>
+    /// <param name="seasons">Season resolver.</param>
     /// <param name="client">animethemes.moe client.</param>
     /// <param name="installer">Theme installer.</param>
     /// <param name="refresher">Item refresher.</param>
@@ -78,6 +80,7 @@ public sealed class KometaItemsController : KometaControllerBase
         ItemDetailsBuilder details,
         ItemProcessor processor,
         AnimeResolver resolver,
+        SeasonResolver seasons,
         AnimeThemesClient client,
         ThemeInstaller installer,
         ItemRefresher refresher,
@@ -94,6 +97,7 @@ public sealed class KometaItemsController : KometaControllerBase
         _details = details;
         _processor = processor;
         _resolver = resolver;
+        _seasons = seasons;
         _client = client;
         _installer = installer;
         _refresher = refresher;
@@ -159,9 +163,57 @@ public sealed class KometaItemsController : KometaControllerBase
             return error!;
         }
 
+        // Ask again: the IDs and titles, then the franchise of whatever they find, so a season added
+        // to animethemes.moe since the last check is seen now rather than in a week.
         _resolver.Forget(owner);
+        try
+        {
+            var resolution = (await _resolver.ResolveAsync([owner], Config, HttpContext.RequestAborted).ConfigureAwait(false))[owner.Id];
+            if (resolution.State == MatchState.Matched)
+            {
+                var root = resolution.Animes[0];
+                _seasons.Forget(root, root.GetExternalId(Sites.AniList));
+                _resolver.ForgetAnime([root.Id]);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogDebug(ex, "Could not refresh the lookups of {Name}", owner.Name);
+        }
+
         await RunAsync(owner, redownload).ConfigureAwait(false);
         return await DetailAsync(owner).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lists the entries animethemes.moe groups with an anime, for the match dialog of a season.
+    /// </summary>
+    /// <param name="itemId">Series, season or movie ID.</param>
+    /// <returns>Entries in premiere order; empty when the anime has no match.</returns>
+    [HttpGet("Items/{itemId}/Franchise")]
+    public async Task<ActionResult> GetFranchise([FromRoute] Guid itemId)
+    {
+        var owner = Owner(itemId, out var error);
+        if (owner == null)
+        {
+            return error!;
+        }
+
+        try
+        {
+            var resolution = (await _resolver.ResolveAsync([owner], Config, HttpContext.RequestAborted).ConfigureAwait(false))[owner.Id];
+            if (resolution.State != MatchState.Matched)
+            {
+                return Json(Array.Empty<AnimeDto>());
+            }
+
+            var entries = await _seasons.GetFranchiseAsync(resolution.Animes[0], owner, HttpContext.RequestAborted).ConfigureAwait(false);
+            return Json(entries.Select(anime => ItemDetailsBuilder.ToDto(anime)));
+        }
+        catch (HttpRequestException)
+        {
+            return Error(StatusCodes.Status502BadGateway, "animethemes.moe could not be reached. Try again in a moment.");
+        }
     }
 
     /// <summary>
@@ -420,7 +472,7 @@ public sealed class KometaItemsController : KometaControllerBase
         try
         {
             var results = await _client.SearchAsync(q.Trim(), HttpContext.RequestAborted).ConfigureAwait(false);
-            var ranked = TitleSearchResolver.Rank(item is MediaBrowser.Controller.Entities.TV.Season season ? season.Series : item, q, results);
+            var ranked = TitleSearchResolver.Rank(item, q, results);
             return Json(ranked.Take(12).Select(r => ItemDetailsBuilder.ToDto(r.Anime, r.Score)));
         }
         catch (HttpRequestException)
@@ -510,8 +562,9 @@ public sealed class KometaItemsController : KometaControllerBase
 
                 var record = new ThemeRecord
                 {
-                    // Negative and derived from the video, so it never collides with animethemes.moe IDs.
-                    ThemeId = -Math.Abs(HashCode.Combine(videoId, media.Media, sequence, type) % int.MaxValue) - 1,
+                    // Negative and derived from the video, so it never collides with animethemes.moe IDs
+                    // and stays the same across restarts (HashCode.Combine is seeded per process).
+                    ThemeId = ImportedThemeId(videoId, media.Media, sequence, type),
                     Type = type,
                     Sequence = sequence,
                     Slug = videoId,
@@ -540,6 +593,12 @@ public sealed class KometaItemsController : KometaControllerBase
         }
 
         return await DetailAsync(owner).ConfigureAwait(false);
+    }
+
+    private static int ImportedThemeId(string videoId, MediaType media, int sequence, ThemeType type)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(string.Create(CultureInfo.InvariantCulture, $"{videoId}|{media}|{sequence}|{type}")));
+        return -(int)(BitConverter.ToUInt32(bytes, 0) % int.MaxValue) - 1;
     }
 
     private BaseItem? Owner(Guid itemId, out ActionResult? error)

@@ -59,8 +59,6 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
 
     private DateTime _lastSweepUtc = DateTime.UtcNow;
     private bool _dirty;
-    private long _hits;
-    private long _misses;
     private bool _disposed;
 
     /// <summary>
@@ -74,11 +72,13 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
 
         var pluginDir = Path.Combine(applicationPaths.PluginConfigurationsPath, "KometaThemes");
         Directory.CreateDirectory(pluginDir);
-        _cachePath = Path.Combine(pluginDir, "resolution-cache-v2.json");
+        _cachePath = Path.Combine(pluginDir, "resolution-cache-v3.json");
 
-        // The 1.x cache holds anime without song titles; reusing it would delay the 2.0 file names
-        // by up to a week. It is dropped once instead.
+        // Older caches are dropped once. 1.x stored anime without song titles; 2.0 stored manual and
+        // title matches without their themes (an unscoped API filter) and AniList chains that stopped
+        // at the first movie.
         TryDeleteLegacyCache(Path.Combine(pluginDir, "resolution-cache.json"));
+        TryDeleteLegacyCache(Path.Combine(pluginDir, "resolution-cache-v2.json"));
 
         LoadFromDisk();
 
@@ -113,7 +113,6 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
         {
             if (!entry.IsExpired(PositiveTtl, NegativeTtl))
             {
-                Interlocked.Increment(ref _hits);
                 return true;
             }
 
@@ -123,7 +122,6 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
             }
         }
 
-        Interlocked.Increment(ref _misses);
         entry = null;
         return false;
     }
@@ -201,27 +199,6 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
         _cache.Clear();
         Volatile.Write(ref _dirty, true);
         _logger.LogInformation("Resolution cache cleared");
-    }
-
-    /// <inheritdoc />
-    public CacheStats GetStats()
-    {
-        var positive = 0;
-        var negative = 0;
-
-        foreach (var entry in _cache.Values)
-        {
-            if (entry.IsNegative)
-            {
-                negative++;
-            }
-            else
-            {
-                positive++;
-            }
-        }
-
-        return new CacheStats(positive, negative, Interlocked.Read(ref _hits), Interlocked.Read(ref _misses));
     }
 
     /// <summary>
@@ -378,6 +355,10 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
                 return;
             }
 
+            // Cleared before the snapshot: a write that lands while this one is serialized marks the
+            // cache dirty again and is saved by the next flush instead of being lost.
+            Volatile.Write(ref _dirty, false);
+
             // Snapshot before serializing: the dictionary is live and a concurrent write would
             // otherwise be able to change it mid-serialization.
             var snapshot = _cache.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
@@ -390,11 +371,11 @@ public sealed class JsonResolutionCache : IResolutionCache, IDisposable
             var tempPath = _cachePath + ".tmp";
             await File.WriteAllTextAsync(tempPath, json).ConfigureAwait(false);
             File.Move(tempPath, _cachePath, overwrite: true);
-            Volatile.Write(ref _dirty, false);
             _logger.LogDebug("Flushed {Count} cache entries to disk", snapshot.Count);
         }
         catch (Exception ex)
         {
+            Volatile.Write(ref _dirty, true);
             _logger.LogWarning(ex, "Failed to flush resolution cache to disk");
         }
         finally

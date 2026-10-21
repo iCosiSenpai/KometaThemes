@@ -1,0 +1,93 @@
+{
+  "search": {
+    "anime": [
+      {
+        "id": 1448,
+        "name": "Karakai Jouzu no Takagi-san",
+        "slug": "karakai_jouzu_no_takagi_san",
+        "year": 2018,
+        "season": "Winter",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Karakai Jozu no Takagi-san"
+          },
+          {
+            "text": "Skilled Teaser Takagi-san"
+          },
+          {
+            "text": "Teasing Master Takagi-san"
+          },
+          {
+            "text": "からかい上手の高木さん"
+          }
+        ],
+        "series": [
+          {
+            "id": 263,
+            "name": "Karakai Jouzu no Takagi-san",
+            "slug": "karakai_jouzu_no_takagi_san"
+          }
+        ]
+      },
+      {
+        "id": 3624,
+        "name": "Karakai Jouzu no Takagi-san 3",
+        "slug": "karakai_jouzu_no_takagi_san_3",
+        "year": 2022,
+        "season": "Winter",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Karakai Jozu no Takagi-san 3"
+          },
+          {
+            "text": "Skilled Teaser Takagi-san 3rd Season"
+          },
+          {
+            "text": "Teasing Master Takagi-san Season 3"
+          },
+          {
+            "text": "からかい上手の高木さん３"
+          }
+        ],
+        "series": [
+          {
+            "id": 263,
+            "name": "Karakai Jouzu no Takagi-san",
+            "slug": "karakai_jouzu_no_takagi_san"
+          }
+        ]
+      },
+      {
+        "id": 1449,
+        "name": "Karakai Jouzu no Takagi-san 2",
+        "slug": "karakai_jouzu_no_takagi_san_2",
+        "year": 2019,
+        "season": "Summer",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Karakai Jozu no Takagi-san 2"
+          },
+          {
+            "text": "Skilled Teaser Takagi-san 2nd Season"
+          },
+          {
+            "text": "Teasing Master Takagi-san Season 2"
+          },
+          {
+            "text": "からかい上手の高木さん 2"
+          }
+        ],
+        "series": [
+          {
+            "id": 263,
+            "name": "Karakai Jouzu no Takagi-san",
+            "slug": "karakai_jouzu_no_takagi_san"
+          }
+        ]
+      }
+    ]
+  }
+}

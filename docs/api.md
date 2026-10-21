@@ -45,8 +45,10 @@ movie whose folder it is.
 | DELETE | `Items/{itemId}/Excluded` | Manage it again. |
 | PUT | `Items/{itemId}/Themes/{themeId}` | Body `{ "change": "audio", "audio": false }`: keep (`true`), keep out (`false`) or follow the settings (`null`). |
 | DELETE | `Items/{itemId}/Files?directory=&name=` | Delete one file KometaThemes wrote; `404` for any other file. |
-| GET | `Items/{itemId}/Search?q=` | animethemes.moe search, ranked against the item. |
+| GET | `Items/{itemId}/Search?q=` | animethemes.moe search, ranked against the search text. |
+| GET | `Items/{itemId}/Franchise` | The entries animethemes.moe groups with the anime, in premiere order. |
 | GET | `Anime/{animeId}` | An entry with its songs, for previews. |
 | POST | `Items/{itemId}/YouTube` | Body `{ "url", "type": "OP"|"ED", "sequence", "title", "format": "audio"|"video"|"both" }`. |
 
-Item actions return the updated anime page, so a client never needs a second request.
+Item actions return the updated anime page, so a client never needs a second request. In it, each
+folder's `match.window` is `[first, last]` when the folder holds only some episodes of a long entry.

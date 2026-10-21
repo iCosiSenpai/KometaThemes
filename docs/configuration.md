@@ -16,16 +16,18 @@ Separately for theme songs [`AudioSettings`] and theme videos [`VideoSettings`]:
 |---|---|---|
 | Download [`FetchType`] | on / off | `None` off, `Single` only the main theme (first opening, or first ending when openings are off), `All` every theme. |
 | Openings, Endings [`IgnoreOPs`, `IgnoreEDs`] | both | Which kinds. |
-| Skip versions with episode scenes over the song [`IgnoreOverlapping`] | on / on | A theme with no clean version is skipped. |
+| Skip versions with episode scenes over the song [`IgnoreOverlapping`] | on / on | A version that only fades into the episode is used when there is no clean one. |
 | Only creditless videos [`IgnoreThemesWithCredits`] | — / on | A theme with no creditless version gets no video. |
 | Volume [`Volume`] | 50% | Baked into the file; changing it downloads the files again. |
 
 | Setting | Default | Meaning |
 |---|---|---|
-| Each season gets its own themes [`PerSeasonThemes`] | on | Seasons after the first are matched through AniList sequels when year and episode count agree. Otherwise the season plays the series themes. |
-| Most themes per series, season or movie [`MaxThemesPerSeason`] | 5 | For each kind, songs and videos. |
+| Each season gets its own themes [`PerSeasonThemes`] | on | Seasons are matched to the entries animethemes.moe groups with the series, by premiere date and episodes ([how](../README.md#how-seasons-are-matched)). Otherwise the season plays the series themes. |
+| Most openings and most endings per folder [`MaxThemesPerSeason`] | 5 | Counted separately for openings and endings, and for songs and videos. |
 
-When animethemes.moe lists the same song twice (an English dub `ED1-EN` next to `ED1`), only one is kept.
+When animethemes.moe lists the same song twice (an English dub `ED1-EN` next to `ED1`), only one is
+kept. Among the versions of a song, a clean, creditless one without subtitles or lyrics burned into
+the picture is preferred.
 
 ## Automatic work
 
@@ -47,7 +49,7 @@ The full check follows **Dashboard → Scheduled tasks → Check anime themes** 
 
 | Setting | Default | Range |
 |---|---|---|
-| IDs tried, in order [`ProviderPriority`] | AniDB, AniList, MyAnimeList, Kitsu, AniSearch | |
+| IDs tried, in order [`ProviderPriority`] | AniDB, AniList, MyAnimeList, Kitsu | The sites animethemes.moe links anime to. |
 | Match by title when no ID works [`EnableTitleFallback`] | on | |
 | Title match confidence [`TitleMatchThreshold`] | 80% | 50–100% |
 | Requests per minute to animethemes.moe [`RateLimitPerMinute`] | 60 | 1–90 |
@@ -56,7 +58,8 @@ The full check follows **Dashboard → Scheduled tasks → Check anime themes** 
 | Reuse matches for [`PositiveCacheTtlDays`] | 7 days | 1–365 |
 | Remember misses for [`NegativeCacheTtlHours`] | 24 hours | 1–720 |
 
-AniList is always queried at most 25 times a minute.
+AniList is queried at most 25 times a minute, and only when animethemes.moe alone leaves a season
+open. When AniList refuses requests, it is left alone for an hour.
 
 ## Lists
 
@@ -67,7 +70,8 @@ page. A manual match can be set for a series, a single season or a movie.
 
 In Jellyfin's plugin configuration folder, `KometaThemes/`:
 
-- `resolution-cache-v2.json`: animethemes.moe and AniList lookups.
+- `resolution-cache-v3.json`: animethemes.moe and AniList lookups (older versions are deleted).
 - `failed-items.json`: anime that need attention, with when they are retried
-  (1, 3, 7, then every 30 days when not found; 1, 6, 24 hours when downloads failed).
+  (1, 3, 7, then every 30 days when not found; 1, 6, 24 hours when downloads failed). After an
+  upgrade that changes how anime are matched, every one of them is retried at the next check.
 - `activity.json`: the Activity list.

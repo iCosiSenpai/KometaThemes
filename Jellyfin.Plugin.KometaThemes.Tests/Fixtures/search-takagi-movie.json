@@ -1,0 +1,32 @@
+{
+  "search": {
+    "anime": [
+      {
+        "id": 4006,
+        "name": "Karakai Jouzu no Takagi-san Movie",
+        "slug": "karakai_jouzu_no_takagi_san_movie",
+        "year": 2022,
+        "season": "Spring",
+        "media_format": "Movie",
+        "animesynonyms": [
+          {
+            "text": "Teasing Master Takagi-san: The Movie"
+          },
+          {
+            "text": "Gekijouban Karakai Jouzu no Takagi-san"
+          },
+          {
+            "text": "劇場版 からかい上手の高木さん"
+          }
+        ],
+        "series": [
+          {
+            "id": 263,
+            "name": "Karakai Jouzu no Takagi-san",
+            "slug": "karakai_jouzu_no_takagi_san"
+          }
+        ]
+      }
+    ]
+  }
+}

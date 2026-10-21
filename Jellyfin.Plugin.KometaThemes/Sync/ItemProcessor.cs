@@ -154,17 +154,22 @@ public sealed class ItemProcessor
         }
 
         var targets = _targets.For(owner);
+        var plan = targets.AllSeasons.Count > 0
+            ? await _seasons.ResolveAsync(owner, resolution, targets.AllSeasons, config, cancellationToken).ConfigureAwait(false)
+            : new SeasonPlan(resolution, new Dictionary<Guid, Resolution>(), []);
+
         FolderResult? root = null;
         if (targets.Root != null)
         {
-            root = await _installer.ApplyAsync(targets.Root, resolution.Animes, config, redownload, cancellationToken).ConfigureAwait(false);
+            root = await _installer.ApplyAsync(targets.Root, plan.Root.Animes, plan.Root.Window, config, redownload, cancellationToken).ConfigureAwait(false);
         }
 
         var seasonReports = new List<SeasonReport>();
         foreach (var season in targets.Seasons)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var seasonResolution = await _seasons.ResolveAsync(owner, resolution, season.Season.Id, season.Info, config, cancellationToken).ConfigureAwait(false);
+            var seasonResolution = plan.Seasons.GetValueOrDefault(season.Season.Id)
+                ?? Resolution.Without(MatchState.Inherit, "plays the series themes");
             if (seasonResolution.State == MatchState.Unavailable)
             {
                 seasonReports.Add(new SeasonReport(season.Info.Number, seasonResolution, null));
@@ -172,9 +177,9 @@ public sealed class ItemProcessor
             }
 
             // A season without its own entry holds no theme files: Jellyfin plays the series themes
-            // there. Applying an empty list also clears what 1.x wrongly put in season folders.
+            // there. Applying an empty list also clears what an earlier match put in the folder.
             var animes = seasonResolution.State == MatchState.Matched ? seasonResolution.Animes : [];
-            var result = await _installer.ApplyAsync(season.Folder, animes, config, redownload, cancellationToken).ConfigureAwait(false);
+            var result = await _installer.ApplyAsync(season.Folder, animes, seasonResolution.Window, config, redownload, cancellationToken).ConfigureAwait(false);
             seasonReports.Add(new SeasonReport(season.Info.Number, seasonResolution, result));
             if (result.Changed)
             {

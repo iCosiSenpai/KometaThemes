@@ -1,61 +1,44 @@
-using System.Collections.Generic;
-using System.Linq;
 using Jellyfin.Plugin.KometaThemes.Api;
-using Xunit;
 
 namespace Jellyfin.Plugin.KometaThemes.Tests;
 
+/// <summary>
+/// The external sites animethemes.moe can look anime up by.
+/// </summary>
 public class SitesTests
 {
     [Fact]
-    public void DefaultPriority_Contains_AllProviders()
+    public void DefaultPriority_HasTheFourSitesAnimeThemesKnows()
     {
-        Assert.Equal(5, Sites.DefaultPriority.Length);
-        Assert.Contains("AniDB", Sites.DefaultPriority);
-        Assert.Contains("AniList", Sites.DefaultPriority);
-        Assert.Contains("MyAnimeList", Sites.DefaultPriority);
-        Assert.Contains("Kitsu", Sites.DefaultPriority);
-        Assert.Contains("AniSearch", Sites.DefaultPriority);
+        Assert.Equal(["AniDB", "AniList", "MyAnimeList", "Kitsu"], Sites.DefaultPriority);
+        Assert.Equal(Sites.DefaultPriority.Count, Sites.ProviderToSite.Count);
     }
 
     [Fact]
-    public void NormalizeProviderPriority_Appends_Missing_Defaults()
+    public void NormalizeProviderPriority_AppendsMissingDefaults()
     {
-        var input = new List<string> { "AniList" };
-        var result = Sites.NormalizeProviderPriority(input);
-        Assert.Equal(5, result.Count);
+        var result = Sites.NormalizeProviderPriority(["AniList"]);
+
+        Assert.Equal(4, result.Count);
         Assert.Equal("AniList", result[0]);
         Assert.Contains("AniDB", result);
     }
 
     [Fact]
-    public void NormalizeProviderPriority_Ignores_Unknowns()
+    public void NormalizeProviderPriority_DropsAniSearchAndUnknowns()
     {
-        var input = new List<string> { "AniList", "garbage-provider" };
-        var result = Sites.NormalizeProviderPriority(input);
-        Assert.DoesNotContain("garbage-provider", result);
+        // aniSearch was offered by 2.0, but animethemes.moe stores no aniSearch IDs.
+        var result = Sites.NormalizeProviderPriority(["AniSearch", "garbage-provider", "kitsu"]);
+
+        Assert.Equal(["Kitsu", "AniDB", "AniList", "MyAnimeList"], result);
     }
 
     [Fact]
-    public void NormalizeProviderPriority_Deduplicates()
+    public void NormalizeProviderPriority_CollapsesAccumulatedDuplicates()
     {
-        var input = new List<string> { "AniList", "AniList", "AniDB" };
-        var result = Sites.NormalizeProviderPriority(input);
-        Assert.Equal(5, result.Distinct().Count());
-    }
+        // The XmlSerializer collection-append bug of 1.0 grew the saved list on every load.
+        var bloated = Enumerable.Range(0, 7).SelectMany(_ => new[] { "AniDB", "AniList", "MyAnimeList", "Kitsu", "AniSearch" }).ToList();
 
-    [Fact]
-    public void NormalizeProviderPriority_Collapses_AccumulatedDuplicates()
-    {
-        // Regression: the XmlSerializer collection-append bug grew the saved list by
-        // the full default sequence on every load/save cycle (observed: 35 = 5 x 7).
-        // Normalization must collapse it back to exactly the five canonical providers
-        // in first-seen order.
-        var bloated = Enumerable.Range(0, 7).SelectMany(_ => Sites.DefaultPriority).ToList();
-        Assert.Equal(35, bloated.Count);
-
-        var result = Sites.NormalizeProviderPriority(bloated);
-
-        Assert.Equal(Sites.DefaultPriority, result);
+        Assert.Equal(Sites.DefaultPriority, Sites.NormalizeProviderPriority(bloated));
     }
 }

@@ -28,4 +28,12 @@ public sealed record Video(
     /// <summary>Gets the file size in bytes.</summary>
     [JsonPropertyName("size")]
     public long? Size { get; init; }
+
+    /// <summary>Gets a value indicating whether dialogue subtitles are burned into the picture.</summary>
+    [JsonPropertyName("subbed")]
+    public bool Subbed { get; init; }
+
+    /// <summary>Gets a value indicating whether the song lyrics are burned into the picture.</summary>
+    [JsonPropertyName("lyrics")]
+    public bool Lyrics { get; init; }
 }

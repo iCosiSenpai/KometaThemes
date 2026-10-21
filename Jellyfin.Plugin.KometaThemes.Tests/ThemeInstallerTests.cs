@@ -101,7 +101,7 @@ public sealed class ThemeInstallerTests : IDisposable
             Path.Combine(Show_, FolderStateStore.FileName),
             """[{"ThemeId":2,"Type":"ED","Sequence":0,"Slug":"ED1","FileName":"ED0 - Ed1__50.mp3"},{"ThemeId":99,"Type":"OP","Sequence":9,"Slug":"OP9","FileName":"OP9 - Old__50.mp3"}]""");
 
-        var result = await installer.ApplyAsync(target, [Show], config, false, CancellationToken.None);
+        var result = await installer.ApplyAsync(target, [Show], null, config, false, CancellationToken.None);
 
         Assert.Equal(0, result.Failed);
         Assert.Equal(1, result.Downloaded);
@@ -120,7 +120,7 @@ public sealed class ThemeInstallerTests : IDisposable
         Assert.All(state.Records, r => Assert.Equal(50, r.EffectiveVolume));
 
         // Nothing left to do the second time.
-        var again = await installer.ApplyAsync(target, [Show], config, false, CancellationToken.None);
+        var again = await installer.ApplyAsync(target, [Show], null, config, false, CancellationToken.None);
         Assert.False(again.Changed);
     }
 
@@ -136,7 +136,7 @@ public sealed class ThemeInstallerTests : IDisposable
         Directory.CreateDirectory(Show_);
         File.WriteAllText(Path.Combine(Show_, "theme.mp3"), "the owner's own theme");
 
-        await installer.ApplyAsync(new ThemeFolder(_itemId, Show_, 0, true), [Show], config, false, CancellationToken.None);
+        await installer.ApplyAsync(new ThemeFolder(_itemId, Show_, 0, true), [Show], null, config, false, CancellationToken.None);
 
         Assert.Equal("the owner's own theme", File.ReadAllText(Path.Combine(Show_, "theme.mp3")));
     }
@@ -156,12 +156,12 @@ public sealed class ThemeInstallerTests : IDisposable
         var season = new ThemeFolder(_itemId, Path.Combine(Show_, "Season 02"), 2, false);
         Directory.CreateDirectory(season.Folder);
 
-        var first = await installer.ApplyAsync(season, [Show], config, false, CancellationToken.None);
+        var first = await installer.ApplyAsync(season, [Show], null, config, false, CancellationToken.None);
         Assert.Equal(1, first.Downloaded);
         Assert.True(File.Exists(Path.Combine(season.Folder, "backdrops", "OP1 - First.webm")));
 
         // The season turns out to have no entry of its own: its files go, the folder is tidied.
-        var cleared = await installer.ApplyAsync(season, [], config, false, CancellationToken.None);
+        var cleared = await installer.ApplyAsync(season, [], null, config, false, CancellationToken.None);
         Assert.Equal(1, cleared.Deleted);
         Assert.False(Directory.Exists(Path.Combine(season.Folder, "backdrops")));
         Assert.False(File.Exists(Path.Combine(season.Folder, FolderStateStore.FileName)));
@@ -178,12 +178,12 @@ public sealed class ThemeInstallerTests : IDisposable
         var (installer, config) = Build();
         var target = new ThemeFolder(_itemId, Show_, 0, true);
         Directory.CreateDirectory(Show_);
-        await installer.ApplyAsync(target, [Show], config, false, CancellationToken.None);
+        await installer.ApplyAsync(target, [Show], null, config, false, CancellationToken.None);
 
         Assert.NotNull(await installer.DeleteRecordedFileAsync(Show_, "theme-music", "ED1 - Ending.mp3", CancellationToken.None));
         Assert.Null(await installer.DeleteRecordedFileAsync(Show_, "theme-music", "../escape.mp3", CancellationToken.None));
 
-        var after = await installer.ApplyAsync(target, [Show], config, false, CancellationToken.None);
+        var after = await installer.ApplyAsync(target, [Show], null, config, false, CancellationToken.None);
         Assert.Equal(0, after.Downloaded);
         Assert.False(File.Exists(MusicFile("ED1 - Ending.mp3")));
     }
@@ -202,7 +202,7 @@ public sealed class ThemeInstallerTests : IDisposable
         var broken = TestSupport.Anime(600, new AnimeTheme(7, ThemeType.OP, 1, "OP1", new Song(7, "Broken", null), [entry]));
         Directory.CreateDirectory(Show_);
 
-        var result = await installer.ApplyAsync(new ThemeFolder(_itemId, Show_, 0, true), [broken], config, false, CancellationToken.None);
+        var result = await installer.ApplyAsync(new ThemeFolder(_itemId, Show_, 0, true), [broken], null, config, false, CancellationToken.None);
 
         Assert.Equal(1, result.Failed);
         Assert.Single(result.Errors);

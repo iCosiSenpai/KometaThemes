@@ -1,87 +1,51 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
-
-#pragma warning disable CA1002, CA1305, CS1591, SA1513
 
 namespace Jellyfin.Plugin.KometaThemes.Resolving;
 
-public static class EpisodeRangeParser
+/// <summary>
+/// Reads the episode lists animethemes.moe writes, such as <c>1-12</c> or <c>2, 4-12</c>.
+/// </summary>
+public static partial class EpisodeRangeParser
 {
-    public static List<EpisodeRange> Parse(string? episodesString)
+    /// <summary>
+    /// Parses an episode list. Parts that are not a number or a range are skipped.
+    /// </summary>
+    /// <param name="episodes">The list.</param>
+    /// <returns>The ranges, in their written order, without duplicates.</returns>
+    public static IReadOnlyList<EpisodeRange> Parse(string? episodes)
     {
+        if (string.IsNullOrWhiteSpace(episodes))
+        {
+            return [];
+        }
+
         var ranges = new List<EpisodeRange>();
-
-        if (string.IsNullOrWhiteSpace(episodesString))
+        foreach (var part in episodes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            return ranges;
-        }
-
-        var parts = episodesString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var part in parts)
-        {
-            var match = Regex.Match(part, @"^(\d+)(?:-(\d+))?$");
-            if (!match.Success)
+            var match = RangeRegex().Match(part);
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var start))
             {
                 continue;
             }
 
-            if (!int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.None, CultureInfo.InvariantCulture, out var start) || start < 0)
+            var end = start;
+            if (match.Groups[2].Success
+                && int.TryParse(match.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var last)
+                && last >= start)
             {
-                continue;
+                end = last;
             }
 
-            int? end = null;
-            if (match.Groups[2].Success)
-            {
-                if (int.TryParse(match.Groups[2].Value, System.Globalization.NumberStyles.None, CultureInfo.InvariantCulture, out var e) && e >= start)
-                {
-                    end = e;
-                }
-            }
-
-            ranges.Add(new EpisodeRange(start, end ?? start));
+            ranges.Add(new EpisodeRange(start, end));
         }
 
-        // Deduplicate while preserving order
-        var seen = new HashSet<(int, int)>();
-        var deduped = new List<EpisodeRange>();
-        foreach (var r in ranges)
-        {
-            var key = (r.StartEpisode, r.EndEpisode);
-            if (seen.Add(key))
-            {
-                deduped.Add(r);
-            }
-        }
-        return deduped;
+        return ranges.Distinct().ToList();
     }
 
-    public static (int Start, int? End) GetBounds(List<EpisodeRange> ranges)
-    {
-        if (ranges.Count == 0)
-        {
-            return (1, null);
-        }
-
-        var start = int.MaxValue;
-        int? end = null;
-
-        foreach (var range in ranges)
-        {
-            if (range.StartEpisode < start)
-            {
-                start = range.StartEpisode;
-            }
-
-            if (range.EndEpisode > (end ?? int.MinValue))
-            {
-                end = range.EndEpisode;
-            }
-        }
-
-        return (start, end);
-    }
+    [GeneratedRegex(@"^(\d{1,4})(?:\s*-\s*(\d{1,4}))?$", RegexOptions.CultureInvariant)]
+    private static partial Regex RangeRegex();
 }

@@ -63,7 +63,7 @@ public sealed class ItemDetailsBuilder
             anime.MediaFormat,
             anime.GetCover(large: false),
             "https://animethemes.moe/anime/" + Uri.EscapeDataString(anime.Slug ?? string.Empty),
-            (anime.Themes ?? []).Count(t => t.Type is ThemeType.OP or ThemeType.ED),
+            anime.Themes?.Count(t => t.Type is ThemeType.OP or ThemeType.ED),
             score);
     }
 
@@ -73,7 +73,7 @@ public sealed class ItemDetailsBuilder
     /// <param name="anime">The entry.</param>
     /// <returns>Themes.</returns>
     public static IReadOnlyList<ThemeDto> Themes(Anime anime)
-        => ThemeCatalog.All([anime]).Select(choice => ToDto(choice, Off(choice, MediaType.Audio), Off(choice, MediaType.Video))).ToList();
+        => ThemeCatalog.All([anime]).Select(choice => ToDto(choice, Off(choice, MediaType.Audio), Off(choice, MediaType.Video), null)).ToList();
 
     /// <summary>
     /// Builds the page data of a series or movie.
@@ -89,17 +89,21 @@ public sealed class ItemDetailsBuilder
 
         var resolution = (await _resolver.ResolveAsync([owner], config, cancellationToken).ConfigureAwait(false))[owner.Id];
         var targets = _targets.For(owner);
+        var plan = targets.AllSeasons.Count > 0
+            ? await _seasons.ResolveAsync(owner, resolution, targets.AllSeasons, config, cancellationToken).ConfigureAwait(false)
+            : new SeasonPlan(resolution, new Dictionary<Guid, Resolution>(), []);
         var folders = new List<FolderDto>();
 
         if (targets.Root != null)
         {
             var label = owner is MediaBrowser.Controller.Entities.Movies.Movie ? "Movie" : "Series";
-            folders.Add(await FolderAsync(owner.Id, label, 0, 0, owner.ProductionYear, targets.Root.Folder, resolution, config, cancellationToken).ConfigureAwait(false));
+            var firstSeason = targets.AllSeasons.Count > 0 ? targets.AllSeasons[0].Info.EpisodeCount : 0;
+            folders.Add(await FolderAsync(owner.Id, label, 0, plan.Root.Window != null ? firstSeason : 0, owner.ProductionYear, targets.Root.Folder, plan.Root, config, cancellationToken).ConfigureAwait(false));
         }
 
         foreach (var season in targets.Seasons)
         {
-            var seasonResolution = await _seasons.ResolveAsync(owner, resolution, season.Season.Id, season.Info, config, cancellationToken).ConfigureAwait(false);
+            var seasonResolution = plan.Seasons.GetValueOrDefault(season.Season.Id) ?? Resolution.Without(MatchState.Inherit, "plays the series themes");
             folders.Add(await FolderAsync(
                 season.Season.Id,
                 season.Season.Name ?? "Season " + season.Info.Number,
@@ -139,14 +143,16 @@ public sealed class ItemDetailsBuilder
     {
         var state = await _store.LoadAsync(folder, cancellationToken).ConfigureAwait(false);
         var animes = resolution.State == MatchState.Matched ? resolution.Animes : [];
-        var audio = ThemeCatalog.Select(animes, config.AudioSettings, config.MaxThemesPerSeason).Select(c => c.Theme.Id).ToHashSet();
-        var video = ThemeCatalog.Select(animes, config.VideoSettings, config.MaxThemesPerSeason).Select(c => c.Theme.Id).ToHashSet();
+        var window = resolution.Window;
+        var audio = ThemeCatalog.Select(animes, config.AudioSettings, config.MaxThemesPerSeason, window).Select(c => c.Theme.Id).ToHashSet();
+        var video = ThemeCatalog.Select(animes, config.VideoSettings, config.MaxThemesPerSeason, window).Select(c => c.Theme.Id).ToHashSet();
 
-        var themes = ThemeCatalog.All(animes)
+        var themes = ThemeCatalog.All(animes, window)
             .Select(choice => ToDto(
                 choice,
                 State(choice, MediaType.Audio, audio.Contains(choice.Theme.Id), state, folder),
-                State(choice, MediaType.Video, video.Contains(choice.Theme.Id), state, folder)))
+                State(choice, MediaType.Video, video.Contains(choice.Theme.Id), state, folder),
+                window))
             .ToList();
 
         var match = new MatchDto(
@@ -159,7 +165,8 @@ public sealed class ItemDetailsBuilder
             },
             resolution.Method,
             resolution.Manual,
-            animes.Select(a => ToDto(a)).ToList());
+            animes.Select(a => ToDto(a)).ToList(),
+            window == null ? null : [window.First, window.Last]);
 
         return new FolderDto(itemId, label, seasonNumber, episodes, year, match, themes, Files(folder, state), state.CheckedUtc);
     }
@@ -178,7 +185,7 @@ public sealed class ItemDetailsBuilder
     private static MediaStateDto Off(ThemeChoice choice, MediaType media)
         => new(false, false, null, null, choice.Link(media));
 
-    private static ThemeDto ToDto(ThemeChoice choice, MediaStateDto audio, MediaStateDto video)
+    private static ThemeDto ToDto(ThemeChoice choice, MediaStateDto audio, MediaStateDto video, EpisodeWindow? window)
         => new(
             choice.Theme.Id,
             choice.Anime.Id,
@@ -187,7 +194,7 @@ public sealed class ItemDetailsBuilder
             choice.Title,
             choice.Artists,
             choice.Episodes,
-            MergeRanges(EpisodeRangeParser.Parse(choice.Episodes)),
+            MergeRanges(EpisodeRangeParser.Parse(choice.Episodes), window),
             audio,
             video,
             choice.Video.Creditless,
@@ -201,10 +208,18 @@ public sealed class ItemDetailsBuilder
     /// Sorts episode ranges and joins the ones that touch, so "2-3, 4, 6-8, 9-10" reads as 2-4, 6-10.
     /// </summary>
     /// <param name="ranges">Parsed ranges.</param>
+    /// <param name="window">When the folder holds part of a long entry, ranges are cut to it and numbered from its start.</param>
     /// <returns>Start-end pairs.</returns>
-    internal static List<int[]> MergeRanges(IEnumerable<EpisodeRange> ranges)
+    internal static List<int[]> MergeRanges(IEnumerable<EpisodeRange> ranges, EpisodeWindow? window = null)
     {
         var merged = new List<int[]>();
+        if (window != null)
+        {
+            ranges = ranges
+                .Where(r => r.StartEpisode <= window.Last && r.EndEpisode >= window.First)
+                .Select(r => new EpisodeRange(Math.Max(r.StartEpisode, window.First) - window.First + 1, Math.Min(r.EndEpisode, window.Last) - window.First + 1));
+        }
+
         foreach (var range in ranges.OrderBy(r => r.StartEpisode).ThenBy(r => r.EndEpisode))
         {
             if (merged.Count > 0 && range.StartEpisode <= merged[^1][1] + 1)

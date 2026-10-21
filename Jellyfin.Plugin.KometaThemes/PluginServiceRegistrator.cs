@@ -73,9 +73,14 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
                 client.BaseAddress = new Uri("https://api.animethemes.moe/");
                 client.DefaultRequestHeaders.UserAgent.Add(userAgent);
                 client.DefaultRequestHeaders.UserAgent.Add(contact);
-                client.Timeout = TimeSpan.FromMinutes(5);
+
+                // Covers every retry: four attempts of up to 100 seconds each.
+                client.Timeout = TimeSpan.FromMinutes(8);
             })
-            .AddHttpMessageHandler(provider => Retry(provider, TimeSpan.FromSeconds(45)))
+
+            // animethemes.moe can take a minute to answer a request that includes every theme file
+            // (measured on 2026-10-21); a shorter limit turned slow answers into outages.
+            .AddHttpMessageHandler(provider => Retry(provider, TimeSpan.FromSeconds(100)))
             .AddHttpMessageHandler(provider => new ThrottleHandler(provider.GetRequiredKeyedService<ApiThrottle>(AnimeThemesBudget)));
 
         serviceCollection.AddHttpClient(AniListClient.HttpClientName, client =>

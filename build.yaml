@@ -1,7 +1,7 @@
 ---
 name: "KometaThemes"
 guid: "48c98707-45d1-43ac-94b8-f74d875ad29c"
-version: "2.0.0.0"
+version: "2.1.0.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 overview: "Anime openings and endings on Jellyfin."
@@ -15,12 +15,13 @@ artifacts:
   - "Jellyfin.Plugin.KometaThemes.dll"
   - "YoutubeExplode.dll"
 changelog: |-
-  v2.0.0.0
-  - Jellyfin 12 only: rebuilt for .NET 10 and the Jellyfin 12 API. 1.x crashed on Jellyfin 12 after every download.
-  - New interface written from scratch: library, anime page with an episode map, activity, settings, first-run setup, ♪ button on item pages.
-  - Each season gets its own themes through AniList sequels, accepted only when year and episodes agree. 1.x handed a show's later endings to later seasons.
-  - Files are named after the song and tagged; 1.x files are renamed, not downloaded again.
-  - Removes the duplicate theme.mp3 copies 1.x made, only when identical to a song it downloaded.
-  - Registers new themes with a light refresh instead of re-downloading all metadata of the series.
-  - Fixes: manual matches ignored by the scheduled sync, one network error stopping a whole sync, unresolved anime retried on every sync, several entries for one ID deleting each other's files, concurrent writes to the same file, Theme Finder downloads not tracked, anonymous endpoint echoing HTML.
-  - Removed: .m3u playlist, dry run, presets, raw log viewer, library name pattern (libraries are picked by name now).
+  v2.1.0.0
+  - Fix: anime matched by title or by hand got their entry without a single theme (an API filter that also emptied the included themes). Title matching never worked in 2.0, and a manual match removed the files instead of downloading them.
+  - Title matching knows every title of an entry (synonyms and abbreviations such as "DanMachi"), folds romanizations (Jouzu/Jozu), reads the folder name and its year, and tells movies from series and remakes from originals.
+  - Seasons are matched to the entries animethemes.moe groups with the series, by premiere date, episodes, a season number in the name and their order. Works without AniList (its API was switched off on 2026-10-21), across movies and OVAs between seasons, for split cours in one season and for long entries split into several seasons, each with the themes of its own episodes.
+  - AniList is optional: sequels are followed through every format, and requests stop for an hour when AniList refuses them.
+  - Openings and endings are capped separately: long series keep their endings.
+  - Versions that only fade into the episode are used when no clean one exists; videos with burned-in subtitles or lyrics are avoided.
+  - Jellyfin registers new themes with a validation refresh: no metadata provider is queried.
+  - Anime page: a Seasons list shows how every season plays its themes; Change match lists the entries of the same franchise first; the poster list is no longer stretched.
+  - Removed: aniSearch IDs (animethemes.moe does not store them) and leftover 1.x code.

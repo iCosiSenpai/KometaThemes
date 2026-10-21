@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.KometaThemes.Configuration;
 using Jellyfin.Plugin.KometaThemes.Models;
+using Jellyfin.Plugin.KometaThemes.Resolving;
 using Jellyfin.Plugin.KometaThemes.Sync;
 using MediaBrowser.Controller.MediaEncoding;
 using Microsoft.Extensions.Logging;
@@ -109,11 +110,12 @@ public sealed class ThemeInstaller
     /// </summary>
     /// <param name="target">The folder.</param>
     /// <param name="animes">Anime entries of the folder; empty when it should hold no themes of its own.</param>
+    /// <param name="window">The episodes of the entry the folder holds, when several seasons share one entry.</param>
     /// <param name="config">Settings.</param>
     /// <param name="redownload">Whether to fetch every wanted file again.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>What changed.</returns>
-    public async Task<FolderResult> ApplyAsync(ThemeFolder target, IReadOnlyList<Anime> animes, PluginConfiguration config, bool redownload, CancellationToken cancellationToken)
+    public async Task<FolderResult> ApplyAsync(ThemeFolder target, IReadOnlyList<Anime> animes, EpisodeWindow? window, PluginConfiguration config, bool redownload, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(animes);
@@ -124,10 +126,10 @@ public sealed class ThemeInstaller
 
         var state = await _store.LoadAsync(target.Folder, cancellationToken).ConfigureAwait(false);
         var max = config.MaxThemesPerSeason;
-        var catalog = ThemeCatalog.All(animes);
+        var catalog = ThemeCatalog.All(animes, window);
         var desired = ThemePlanner.Desired(
-            ThemeCatalog.Select(animes, config.AudioSettings, max),
-            ThemeCatalog.Select(animes, config.VideoSettings, max),
+            ThemeCatalog.Select(animes, config.AudioSettings, max, window),
+            ThemeCatalog.Select(animes, config.VideoSettings, max, window),
             catalog,
             state,
             config.AudioSettings.VolumePercent,

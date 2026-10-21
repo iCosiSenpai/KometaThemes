@@ -1,0 +1,131 @@
+{
+  "search": {
+    "anime": [
+      {
+        "id": 3060,
+        "name": "Uma Musume: Pretty Derby",
+        "slug": "uma_musume_pretty_derby",
+        "year": 2018,
+        "season": "Spring",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Umamusume: Pretty Derby"
+          },
+          {
+            "text": "ウマ娘 プリティーダービー"
+          }
+        ],
+        "series": [
+          {
+            "id": 176,
+            "name": "Uma Musume",
+            "slug": "uma_musume"
+          }
+        ]
+      },
+      {
+        "id": 4157,
+        "name": "Uma Musume: Pretty Derby Season 3",
+        "slug": "uma_musume_pretty_derby_season_3",
+        "year": 2023,
+        "season": "Fall",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Umamusume: Pretty Derby Season 3"
+          },
+          {
+            "text": "ウマ娘 プリティーダービー Season 3"
+          }
+        ],
+        "series": [
+          {
+            "id": 176,
+            "name": "Uma Musume",
+            "slug": "uma_musume"
+          }
+        ]
+      },
+      {
+        "id": 3062,
+        "name": "Uma Musume: Pretty Derby Season 2",
+        "slug": "uma_musume_pretty_derby_season_2",
+        "year": 2021,
+        "season": "Winter",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Umamusume: Pretty Derby Season 2"
+          },
+          {
+            "text": "ウマ娘 プリティーダービー Season 2"
+          }
+        ],
+        "series": [
+          {
+            "id": 176,
+            "name": "Uma Musume",
+            "slug": "uma_musume"
+          }
+        ]
+      },
+      {
+        "id": 3061,
+        "name": "Uma Musume: Pretty Derby - BNW no Chikai",
+        "slug": "uma_musume_pretty_derby_bnw_no_chikai",
+        "year": 2018,
+        "season": "Fall",
+        "media_format": "Special",
+        "animesynonyms": [
+          {
+            "text": "Uma Musume: Pretty Derby Specials"
+          }
+        ],
+        "series": [
+          {
+            "id": 176,
+            "name": "Uma Musume",
+            "slug": "uma_musume"
+          }
+        ]
+      },
+      {
+        "id": 4580,
+        "name": "Uma Musume: Pretty Derby - Shin Jidai no Tobira",
+        "slug": "uma_musume_pretty_derby_shin_jidai_no_tobira",
+        "year": 2024,
+        "season": "Spring",
+        "media_format": "Movie",
+        "animesynonyms": [
+          {
+            "text": "ウマ娘 プリティーダービー 新時代の扉"
+          }
+        ],
+        "series": [
+          {
+            "id": 176,
+            "name": "Uma Musume",
+            "slug": "uma_musume"
+          }
+        ]
+      },
+      {
+        "id": 4068,
+        "name": "Uma Musume: Pretty Derby - Road to the Top",
+        "slug": "uma_musume_pretty_derby_road_to_the_top",
+        "year": 2023,
+        "season": "Spring",
+        "media_format": "ONA",
+        "animesynonyms": [],
+        "series": [
+          {
+            "id": 176,
+            "name": "Uma Musume",
+            "slug": "uma_musume"
+          }
+        ]
+      }
+    ]
+  }
+}

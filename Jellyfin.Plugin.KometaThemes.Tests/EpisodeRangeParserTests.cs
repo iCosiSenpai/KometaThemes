@@ -1,9 +1,10 @@
-using System.Collections.Generic;
 using Jellyfin.Plugin.KometaThemes.Resolving;
-using Xunit;
 
 namespace Jellyfin.Plugin.KometaThemes.Tests;
 
+/// <summary>
+/// The episode lists animethemes.moe writes.
+/// </summary>
 public class EpisodeRangeParserTests
 {
     [Theory]
@@ -65,7 +66,6 @@ public class EpisodeRangeParserTests
     public void Parse_ReversedRangeIgnoredEnd()
     {
         var result = EpisodeRangeParser.Parse("5-3");
-        // Implementation treats as single 5 if end < start
         Assert.Single(result);
         Assert.Equal(5, result[0].StartEpisode);
         Assert.Equal(5, result[0].EndEpisode);
@@ -76,27 +76,5 @@ public class EpisodeRangeParserTests
     {
         var result = EpisodeRangeParser.Parse("1-2,1-2,3");
         Assert.Equal(2, result.Count);
-    }
-
-    [Fact]
-    public void GetBounds_Empty_ReturnsDefault()
-    {
-        var bounds = EpisodeRangeParser.GetBounds(new List<EpisodeRange>());
-        Assert.Equal(1, bounds.Start);
-        Assert.Null(bounds.End);
-    }
-
-    [Fact]
-    public void GetBounds_MultipleRanges()
-    {
-        var ranges = new List<EpisodeRange>
-        {
-            new EpisodeRange(5, 7),
-            new EpisodeRange(1, 3),
-            new EpisodeRange(10, 10)
-        };
-        var bounds = EpisodeRangeParser.GetBounds(ranges);
-        Assert.Equal(1, bounds.Start);
-        Assert.Equal(10, bounds.End);
     }
 }

@@ -14,24 +14,36 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.KometaThemes.AnimeThemes;
 
 /// <summary>
-/// Client of the animethemes.moe API.
+/// Client of the animethemes.moe JSON:API.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Failures are reported in one way only: a request that could not be answered (network error,
 /// timeout, 5xx after retries, unreadable body) throws <see cref="HttpRequestException"/>, while an
 /// answer that simply has no data returns an empty result. Callers can then tell "not on
-/// animethemes.moe" from "animethemes.moe is unreachable", which 1.x mixed up: an outage was cached as
-/// "not found" for a day, and some calls threw types no caller handled.
+/// animethemes.moe" from "animethemes.moe is unreachable".
+/// </para>
+/// <para>
+/// Filters are always scoped to the anime type (<c>filter[anime][id]</c>). The API applies an
+/// unscoped filter to every included relation too, so 2.0's <c>filter[id]=1386</c> also filtered the
+/// themes, resources and images by that ID and returned an anime with none of them: every title match
+/// and every manual match then looked like an entry without themes.
+/// </para>
 /// </remarks>
 public sealed class AnimeThemesClient
 {
     /// <summary>Name of the configured HTTP client.</summary>
     public const string HttpClientName = "AnimeThemes";
 
-    /// <summary>Relations included with every anime: covers, songs and artists, entries, videos, audio, external IDs.</summary>
-    internal const string DetailInclude = "images,animethemes.song.artists,animethemes.animethemeentries.videos.audio,resources";
+    /// <summary>Relations included with every anime: covers, songs and artists, versions, files, external IDs, franchise, other titles.</summary>
+    internal const string DetailInclude = "images,animethemes.song.artists,animethemes.animethemeentries.videos.audio,resources,series,animesynonyms";
 
+    /// <summary>Largest page the API serves.</summary>
     private const int PageSize = 100;
+
+    /// <summary>Anime per detail request: each carries all its themes and files, so pages stay small.</summary>
+    private const int DetailBatch = 10;
+
     private const int MaxPages = 5;
 
     private readonly IHttpClientFactory _clientFactory;
@@ -51,6 +63,10 @@ public sealed class AnimeThemesClient
     /// <summary>
     /// Finds anime by their ID on another site, in batches.
     /// </summary>
+    /// <remarks>
+    /// The resource filter also limits the included resources to that site, so the anime returned
+    /// here carry only the link that matched. <see cref="GetAnimeAsync(IEnumerable{int}, CancellationToken)"/> returns them all.
+    /// </remarks>
     /// <param name="site">Site name as animethemes.moe spells it, such as <c>AniList</c>.</param>
     /// <param name="ids">IDs on that site.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -126,11 +142,11 @@ public sealed class AnimeThemesClient
     }
 
     /// <summary>
-    /// Searches anime by title.
+    /// Searches anime by title, synonyms included.
     /// </summary>
     /// <param name="title">Search text.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Matching anime with covers and theme stubs, best first as ranked by the API.</returns>
+    /// <returns>Matching anime with covers, other titles, franchise and theme stubs, best first as ranked by the API.</returns>
     /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
     public async Task<Anime[]> SearchAsync(string title, CancellationToken cancellationToken)
     {
@@ -143,7 +159,8 @@ public sealed class AnimeThemesClient
         {
             ["q"] = title.Trim(),
             ["fields[search]"] = "anime",
-            ["include[anime]"] = "images,animethemes",
+            ["include[anime]"] = "images,animethemes,animesynonyms,series",
+            ["page[limit]"] = "15",
         });
 
         var response = await GetJsonAsync<SearchResponse>(uri, cancellationToken).ConfigureAwait(false);
@@ -159,38 +176,63 @@ public sealed class AnimeThemesClient
     /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
     public async Task<Anime?> GetAnimeAsync(int id, CancellationToken cancellationToken)
     {
-        var uri = QueryHelpers.AddQueryString("anime", new Dictionary<string, string?>
-        {
-            ["filter[id]"] = id.ToString(CultureInfo.InvariantCulture),
-            ["include"] = DetailInclude,
-        });
-
-        var response = await GetJsonAsync<AnimeResponse>(uri, cancellationToken).ConfigureAwait(false);
-        return response?.Anime?.FirstOrDefault(anime => anime.Id == id);
+        var found = await GetAnimeAsync([id], cancellationToken).ConfigureAwait(false);
+        return found.Count > 0 ? found[0] : null;
     }
 
     /// <summary>
-    /// Gets one anime by slug with all its themes.
+    /// Gets several anime with all their themes.
     /// </summary>
-    /// <param name="slug">Anime slug.</param>
+    /// <param name="ids">animethemes.moe anime IDs.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The anime, or null when it does not exist.</returns>
+    /// <returns>The anime that exist, in no particular order.</returns>
     /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
-    public async Task<Anime?> GetAnimeBySlugAsync(string slug, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Anime>> GetAnimeAsync(IEnumerable<int> ids, CancellationToken cancellationToken)
+    {
+        var wanted = ids.Where(id => id > 0).Distinct().ToArray();
+        var result = new List<Anime>();
+        foreach (var batch in wanted.Chunk(DetailBatch))
+        {
+            var uri = QueryHelpers.AddQueryString("anime", new Dictionary<string, string?>
+            {
+                ["filter[anime][id]"] = string.Join(',', batch.Select(id => id.ToString(CultureInfo.InvariantCulture))),
+                ["page[size]"] = PageSize.ToString(CultureInfo.InvariantCulture),
+                ["include"] = DetailInclude,
+            });
+
+            // Re-check the IDs: an ignored filter must never hand back unrelated anime.
+            result.AddRange((await GetAllPagesAsync(uri, cancellationToken).ConfigureAwait(false)).Where(anime => batch.Contains(anime.Id)));
+        }
+
+        return result.DistinctBy(anime => anime.Id).ToList();
+    }
+
+    /// <summary>
+    /// Gets the anime animethemes.moe groups into one franchise.
+    /// </summary>
+    /// <param name="slug">Series slug, such as <c>kaguya_sama_wa_kokurasetai</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The entries of the franchise without their themes; empty when the series does not exist.</returns>
+    /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
+    public async Task<IReadOnlyList<Anime>> GetSeriesAsync(string slug, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
-            return null;
+            return [];
         }
 
-        var uri = QueryHelpers.AddQueryString("anime/" + Uri.EscapeDataString(slug.Trim()), "include", DetailInclude);
+        var uri = QueryHelpers.AddQueryString("series/" + Uri.EscapeDataString(slug.Trim()), "include", "anime");
         using var document = await GetDocumentAsync(uri, cancellationToken).ConfigureAwait(false);
-        if (document == null || !document.RootElement.TryGetProperty("anime", out var element) || element.ValueKind != JsonValueKind.Object)
+        if (document == null
+            || !document.RootElement.TryGetProperty("series", out var series)
+            || series.ValueKind != JsonValueKind.Object
+            || !series.TryGetProperty("anime", out var members)
+            || members.ValueKind != JsonValueKind.Array)
         {
-            return null;
+            return [];
         }
 
-        return Read<Anime>(element);
+        return Read<List<Anime>>(members) ?? [];
     }
 
     private async Task<List<Anime>> GetAllPagesAsync(string firstUri, CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-// A stateful stand-in for the KometaThemes 2.0 API, shaped like the C# DTOs (camelCase).
+// A stateful stand-in for the KometaThemes 2.1 API, shaped like the C# DTOs (camelCase).
 // Theme data comes from real animethemes.moe responses saved as test fixtures.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -144,7 +144,7 @@ class MockApi {
       audio: { enabled: true, amount: 'all', openings: true, endings: true, skipOverlaps: true, creditlessOnly: false, volume: 50 },
       video: { enabled: !this.setupRequired, amount: 'all', openings: true, endings: true, skipOverlaps: true, creditlessOnly: true, volume: 50 },
       maxPerFolder: 5, perSeason: true, autoOnAdd: true, cleanupOnRemove: false, titleFallback: true, titleThreshold: 80,
-      providerPriority: ['AniDB', 'AniList', 'MyAnimeList', 'Kitsu', 'AniSearch'], rateLimit: 60, matchCacheDays: 7, missCacheHours: 24,
+      providerPriority: ['AniDB', 'AniList', 'MyAnimeList', 'Kitsu'], rateLimit: 60, matchCacheDays: 7, missCacheHours: 24,
       convertTimeout: 120, parallel: 2, youTube: true, ytDlpPath: null
     };
     this.activity = [
@@ -187,7 +187,7 @@ class MockApi {
 
   state() {
     return {
-      version: '2.0.0.0',
+      version: '2.1.0.0',
       setupRequired: this.setupRequired,
       whatsNew: this.whatsNew,
       libraries: [
@@ -239,23 +239,23 @@ class MockApi {
     let problem = null;
     if (row.id === KAGUYA) {
       folders = [
-        this.folder(KAGUYA, 'Series', 0, 0, 2019, this.kaguya1, { state: 'matched', method: 'AniList ID 101921', manual: false, anime: [animeDto(this.kaguya1)] }),
-        this.folder(KAGUYA_S1, 'Season 1', 1, 12, 2019, null, { state: 'inherit', method: 'plays the series themes', manual: false, anime: [] }),
-        this.folder(KAGUYA_S2, 'Season 2', 2, 12, 2020, this.kaguya2, { state: 'matched', method: 'sequel on AniList, aired 2020, 12 episodes', manual: false, anime: [animeDto(this.kaguya2)] }, () => ({ audio: true, video: false }))
+        this.folder(KAGUYA, 'Series', 0, 0, 2019, this.kaguya1, { state: 'matched', method: 'AniList ID 101921', manual: false, anime: [animeDto(this.kaguya1)], window: null }),
+        this.folder(KAGUYA_S1, 'Season 1', 1, 12, 2019, null, { state: 'inherit', method: 'plays the series themes, which are its own: premiered Jan 2019, 12 episodes', manual: false, anime: [], window: null }),
+        this.folder(KAGUYA_S2, 'Season 2', 2, 12, 2020, this.kaguya2, { state: 'matched', method: 'premiered Apr 2020, 11 episodes', manual: false, anime: [animeDto(this.kaguya2)], window: null }, () => ({ audio: true, video: false }))
       ];
     } else if (row.id === FRIEREN) {
       folders = [
-        this.folder(FRIEREN, 'Series', 0, 0, 2023, this.frieren, { state: 'matched', method: 'matched by you', manual: true, anime: [animeDto(this.frieren)] }, (t) => ({ audio: true, video: t.type === 'OP' }))
+        this.folder(FRIEREN, 'Series', 0, 0, 2023, this.frieren, { state: 'matched', method: 'matched by you', manual: true, anime: [animeDto(this.frieren)], window: null }, (t) => ({ audio: true, video: t.type === 'OP' }))
       ];
     } else if (row.id === UNRESOLVED) {
       problem = { reason: 'Unresolved', error: 'no entry on animethemes.moe for its IDs or title', attempts: 3, nextAttemptUtc: new Date(Date.now() + 6 * 86400000).toISOString() };
       folders = [this.folder(row.id, 'Series', 0, 0, row.year, this.matches[row.id] ? this.kaguya1 : null,
         this.matches[row.id]
-          ? { state: 'matched', method: 'matched by you', manual: true, anime: [animeDto(this.kaguya1)] }
-          : { state: 'notFound', method: 'no entry on animethemes.moe for its IDs or title', manual: false, anime: [] })];
+          ? { state: 'matched', method: 'matched by you', manual: true, anime: [animeDto(this.kaguya1)], window: null }
+          : { state: 'notFound', method: 'no entry on animethemes.moe for its IDs or titles', manual: false, anime: [], window: null })];
       if (this.matches[row.id]) problem = null;
     } else {
-      folders = [this.folder(row.id, row.type === 'Movie' ? 'Movie' : 'Series', 0, 0, row.year, this.frieren, { state: 'matched', method: 'AniDB ID 17617', manual: false, anime: [animeDto(this.frieren)] })];
+      folders = [this.folder(row.id, row.type === 'Movie' ? 'Movie' : 'Series', 0, 0, row.year, this.frieren, { state: 'matched', method: 'AniDB ID 17617', manual: false, anime: [animeDto(this.frieren)], window: null })];
     }
     return { id: row.id, name: row.name, year: row.year, type: row.type, summary, problem, folders, note: null };
   }
@@ -346,6 +346,9 @@ class MockApi {
           this.overrides[key] = Object.assign({}, this.overrides[key], file.directory === 'backdrops' ? { video: false } : { audio: false });
         }
         return json(this.detail(owner));
+      }
+      if (action === 'Franchise' && method === 'GET') {
+        return json(owner === KAGUYA ? [animeDto(this.kaguya1), animeDto(this.kaguya2)] : []);
       }
       if (action === 'Search' && method === 'GET') {
         const all = [this.kaguya1, this.kaguya2, this.frieren];

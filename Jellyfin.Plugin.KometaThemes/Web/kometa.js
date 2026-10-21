@@ -7,7 +7,7 @@
  * from the library, and are never parsed as HTML.
  */
 
-const VERSION = '2.0.0.0';
+const VERSION = '2.1.0.0';
 const PAGE = 'KometaThemes';
 const LIBRARY_PAGE_SIZE = 100;
 
@@ -354,7 +354,6 @@ class KometaPage {
             return;
         }
 
-
         this.tabs = h('div', { class: 'kt-tabs', role: 'tablist', 'aria-label': 'KometaThemes sections' });
         const sections = [['library', 'Library'], ['activity', 'Activity'], ['settings', 'Settings']];
         for (const [id, label] of sections) {
@@ -476,10 +475,10 @@ class KometaPage {
 
     whatsNew() {
         const list = h('ul', {},
-            h('li', { text: 'Files are named after the song, like “OP1 - Love Dramatic.mp3”. Yours are renamed, not downloaded again.' }),
-            h('li', { text: 'Each season gets its own openings and endings when AniList confirms which entry it is.' }),
-            h('li', { text: 'Duplicate theme.mp3 copies and themes 1.x put in the wrong season are removed at the next check.' }));
-        return this.note('info', 'What’s new in KometaThemes 2.0', list, [
+            h('li', { text: 'Anime without an AniDB or AniList ID are found by their titles again, other titles and abbreviations included.' }),
+            h('li', { text: 'Seasons are matched to the entries animethemes.moe groups with the series, also when AniList is down or a movie sits between two seasons.' }),
+            h('li', { text: 'Openings and endings are counted separately, so long series keep their endings.' }));
+        return this.note('info', 'What’s new in KometaThemes 2.1', list, [
             h('button', { class: 'kt-btn kt-btn--ghost', type: 'button', on: { click: async (e) => {
                 await this.busy(e.currentTarget, () => api('POST', 'WhatsNew/Dismiss'));
                 this.state.overview.whatsNew = false;
@@ -727,14 +726,9 @@ class KometaPage {
                     role: 'tab',
                     'aria-selected': String(index === this.state.folderIndex),
                     tabindex: index === this.state.folderIndex ? '0' : '-1',
-                    on: { click: () => {
-                        this.preview.stop();
-                        this.state.folderIndex = index;
-                        const view = this.itemView();
-                        this.panel.querySelector('.kt-detail').replaceWith(view);
-                        view.querySelector('.kt-seasons [aria-selected="true"]').focus();
-                    } }
-                }, folder.label));
+                    'aria-label': folder.seasonNumber > 0 ? `${folder.label}, ${folderState(folder)}` : null,
+                    on: { click: () => this.showFolder(index) }
+                }, folder.seasonNumber > 0 ? h('i', { class: `kt-tabdot kt-tabdot--${folder.match.state}`, 'aria-hidden': 'true' }) : null, folder.label));
             });
             tabs.addEventListener('keydown', (event) => this.tabKeys(event, tabs));
             main.appendChild(tabs);
@@ -747,15 +741,53 @@ class KometaPage {
         return h('div', { class: 'kt-detail' }, side, main);
     }
 
+    showFolder(index) {
+        this.preview.stop();
+        this.state.folderIndex = index;
+        const view = this.itemView();
+        this.panel.querySelector('.kt-detail').replaceWith(view);
+        const tab = view.querySelector('.kt-seasons [aria-selected="true"]');
+        if (tab) tab.focus();
+    }
+
+    seasonPlan(folders) {
+        const list = h('ol', { class: 'kt-plan' });
+        folders.forEach((folder, index) => {
+            if (folder.seasonNumber === 0) return;
+            const own = folder.match.state === 'matched';
+            const entry = own ? folder.match.anime[0] : null;
+            const saved = folder.themes.filter((theme) => theme.audio.file || theme.video.file).length;
+            let detail;
+            if (entry) {
+                detail = folder.match.anime.map((anime) => `${anime.name} (${[anime.season, anime.year].filter(Boolean).join(' ')})`).join(' + ');
+                if (folder.match.window) detail += `, episodes ${folder.match.window[0]}–${folder.match.window[1]}`;
+            } else {
+                detail = inheritWhy(folder.match);
+            }
+            list.appendChild(h('li', {},
+                h('button', { class: 'kt-plan-row', type: 'button', on: { click: () => this.showFolder(index) } },
+                    h('span', { class: 'kt-plan-season', text: folder.label }),
+                    h('span', { class: `kt-plan-state kt-plan-state--${folder.match.state}`, text: folderState(folder) }),
+                    h('span', { class: 'kt-plan-entry', text: detail }),
+                    h('span', { class: 'kt-plan-count', text: entry ? plural(saved, 'theme', 'themes') : '' }))));
+        });
+        return h('section', { class: 'kt-plan-box', 'aria-labelledby': 'kt-plan-title' },
+            h('h3', { id: 'kt-plan-title', text: 'Seasons' }),
+            h('p', { class: 'kt-help', text: 'Jellyfin plays a season’s own themes on its page and its episodes; a season without them plays the series themes.' }),
+            list);
+    }
+
     folderView(folder, excluded) {
         const box = h('section', { class: 'kt-main', 'aria-label': folder.label });
         box.appendChild(this.matchLine(folder, excluded));
+        const folders = this.state.detail.folders;
+        if (folder.seasonNumber === 0 && folders.some((f) => f.seasonNumber > 0)) box.appendChild(this.seasonPlan(folders));
 
         if (folder.themes.length) {
             const map = this.episodeMap(folder);
             if (map) box.appendChild(map);
             box.appendChild(this.trackList(folder, excluded));
-            box.appendChild(h('p', { class: 'kt-legend', text: 'Song and Video show what is in this folder. A dashed button downloads at the next check; a struck one stays out even if your settings would include it. Settings decide the rest.' }));
+            box.appendChild(h('p', { class: 'kt-legend', text: 'A solid Song or Video is in this folder: click it to remove the file and keep it out. Click a struck one to add it. Your choices win over the settings.' }));
         } else if (folder.match.state === 'inherit') {
             box.appendChild(h('p', { class: 'kt-muted', text: 'Jellyfin plays the series themes on this season’s page.' }));
         }
@@ -771,15 +803,14 @@ class KometaPage {
         let why = null;
         if (match.state === 'matched') {
             if (match.manual) how = 'Matched by you';
-            else if (match.method.startsWith('sequel on AniList')) {
-                how = 'Matched as a sequel on AniList';
-                const detail = match.method.replace(/^sequel on AniList,?\s*/, '');
-                why = detail ? `Same ${detail.includes('episodes') ? 'year and episode count' : 'year'} as this season: ${detail}.` : null;
+            else if (folder.seasonNumber > 0) {
+                how = 'Matched to this season';
+                why = capitalize(match.method) + '.';
             } else how = `Matched by ${match.method}`;
+            if (match.window) why = `${why ? why + ' ' : ''}This season holds episodes ${match.window[0]}–${match.window[1]} of the entry.`;
         } else if (match.state === 'inherit') {
             how = 'Plays the series themes';
-            const detail = match.method.replace(/^plays the series themes:?\s*/, '').replace(/^\(|\)$/g, '');
-            why = detail ? detail.charAt(0).toUpperCase() + detail.slice(1) + '.' : null;
+            why = inheritWhy(match);
         } else if (match.state === 'notFound') {
             how = 'Not found on animethemes.moe';
         } else {
@@ -1096,8 +1127,16 @@ class KometaPage {
             const input = h('input', { type: 'search', class: 'kt-input', name: 'kt-match-search', autocomplete: 'off', spellcheck: 'false', value: initial, 'aria-label': 'Search animethemes.moe' });
             const go = h('button', { class: 'kt-btn', type: 'submit' }, icon('search'), 'Search');
             const bar = h('form', { class: 'kt-searchbar', role: 'search' }, input, go);
-            const results = h('div', { role: 'list', 'aria-label': 'Results', 'aria-live': 'polite' });
-            body.appendChild(results);
+            const franchise = h('div', { role: 'list', 'aria-labelledby': 'kt-franchise-title' });
+            const franchiseBox = h('section', { class: 'kt-franchise', hidden: true }, h('h4', { id: 'kt-franchise-title', text: 'Same franchise on animethemes.moe' }), franchise);
+            const results = h('div', { role: 'list', 'aria-label': 'Search results', 'aria-live': 'polite' });
+            body.append(franchiseBox, results);
+            api('GET', `Items/${detail.id}/Franchise`).then((entries) => {
+                if (!entries || entries.length < 2) return;
+                clear(franchise);
+                for (const anime of entries) franchise.appendChild(this.resultRow(anime, false, target, close));
+                franchiseBox.hidden = false;
+            }).catch(() => {});
             foot.appendChild(h('p', { class: 'kt-help', style: 'margin-right:auto', text: 'Results come from animethemes.moe. Pick the entry whose year and format match.' }));
             foot.appendChild(h('button', { class: 'kt-btn kt-btn--ghost', type: 'button', on: { click: close } }, 'Cancel'));
 
@@ -1131,7 +1170,7 @@ class KometaPage {
         const cover = anime.cover
             ? h('img', { class: 'kt-poster', src: anime.cover, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', width: '48', height: '72' })
             : h('span', { class: 'kt-poster', 'aria-hidden': 'true', text: anime.name.charAt(0) });
-        const meta = [anime.season && anime.year ? `${anime.season} ${anime.year}` : anime.year, anime.format, plural(anime.themes, 'theme', 'themes')].filter(Boolean).join(', ');
+        const meta = [anime.season && anime.year ? `${anime.season} ${anime.year}` : anime.year, anime.format, anime.themes == null ? null : plural(anime.themes, 'theme', 'themes')].filter(Boolean).join(', ');
         const toggle = h('button', { class: 'kt-btn kt-btn--ghost', type: 'button', 'aria-expanded': 'false' }, 'Preview');
         const row = h('div', { class: 'kt-result', role: 'listitem', 'aria-expanded': 'false' },
             cover,
@@ -1307,7 +1346,7 @@ class KometaPage {
 
     downloadSection(s) {
         const perSeason = this.checkbox('Each season gets its own themes', s.perSeason, (v) => { s.perSeason = v; },
-            'A later season is matched to its own animethemes.moe entry through AniList, by year and number of episodes. When the match is not certain, the season plays the series themes.');
+            'A later season is matched to its own entry among those animethemes.moe groups with the series, by premiere date and number of episodes; AniList confirms sequels when it is reachable. When the match is not certain, the season plays the series themes.');
         const max = h('input', { class: 'kt-input kt-number', type: 'number', min: '1', max: '50', value: String(s.maxPerFolder) });
         max.addEventListener('input', () => { s.maxPerFolder = clamp(Number(max.value), 1, 50); });
         return h('fieldset', { class: 'kt-section' },
@@ -1316,7 +1355,7 @@ class KometaPage {
             this.mediaGroup(s.audio, 'Theme songs', 'MP3 files in theme-music/. Light and fast.', false),
             this.mediaGroup(s.video, 'Theme videos', 'The opening or ending video in backdrops/. Larger: one video is 20 to 80 MB.', true),
             perSeason,
-            this.field('Most themes per series, season or movie', max, 'Applies to each kind separately, songs and videos.'));
+            this.field('Most openings and most endings per folder', max, 'Counted separately for openings and endings, and for songs and videos. A long series keeps its first ones.'));
     }
 
     mediaGroup(m, title, help, isVideo) {
@@ -1345,7 +1384,7 @@ class KometaPage {
             h('div', { class: 'kt-inline', role: 'radiogroup', 'aria-label': `${title}: how many` },
                 h('label', { class: 'kt-radio' }, one, 'Only the main theme'),
                 h('label', { class: 'kt-radio' }, all, 'Every theme')),
-            this.checkbox('Skip versions with episode scenes over the song', m.skipOverlaps, (v) => { m.skipOverlaps = v; }),
+            this.checkbox('Skip versions with episode scenes over the song', m.skipOverlaps, (v) => { m.skipOverlaps = v; }, 'A version that only fades into the episode is still used when there is no clean one.'),
             isVideo ? this.checkbox('Only creditless videos', m.creditlessOnly, (v) => { m.creditlessOnly = v; }, 'Videos without the staff credits on screen. Some themes have no such version.') : null,
             h('div', { class: 'kt-field' }, h('span', { class: 'kt-field-label', text: 'Volume' }), h('div', { class: 'kt-range' }, volume, out), h('p', { class: 'kt-help', text: 'Baked into the file. Changing it downloads the files again at the next check.' }))
         ].filter(Boolean));
@@ -1479,7 +1518,7 @@ class KometaPage {
             box.appendChild(h('div', { class: 'kt-form' },
                 this.mediaGroup(s.audio, 'Theme songs', 'Openings and endings as MP3, played on the anime’s page.', false),
                 this.mediaGroup(s.video, 'Theme videos', 'The video version, for clients that show theme videos. Larger files.', true),
-                this.checkbox('Each season gets its own themes', s.perSeason, (v) => { s.perSeason = v; }, 'Later seasons are matched to their own entries through AniList.')));
+                this.checkbox('Each season gets its own themes', s.perSeason, (v) => { s.perSeason = v; }, 'Later seasons are matched to their own entries on animethemes.moe.')));
             next.addEventListener('click', () => { this.state.setupStep = 2; this.render(); });
         } else {
             const libs = this.state.overview.libraries.filter((library) => s.libraryIds.includes(library.id)).map((library) => library.name);
@@ -1516,6 +1555,21 @@ class KometaPage {
 
 function capitalize(text) {
     return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
+function folderState(folder) {
+    return {
+        matched: 'own themes',
+        inherit: 'series themes',
+        notFound: 'not found',
+        unavailable: 'not checked'
+    }[folder.match.state] || '';
+}
+
+function inheritWhy(match) {
+    if (match.method.startsWith('plays the series themes, which are its own')) return 'This season is the series’ own entry.';
+    const detail = match.method.replace(/^plays the series themes:?\s*/, '').replace(/^\(|\)$/g, '');
+    return detail ? capitalize(detail) + '.' : null;
 }
 
 function clamp(value, min, max) {

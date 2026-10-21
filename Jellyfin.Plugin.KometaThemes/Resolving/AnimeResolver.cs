@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.KometaThemes.Resolving;
 
 /// <summary>
 /// Finds the animethemes.moe entry of series and movies: the owner's match first, then external IDs
-/// in the configured order, then the title.
+/// in the configured order, then the titles.
 /// </summary>
 public sealed class AnimeResolver
 {
@@ -56,20 +56,18 @@ public sealed class AnimeResolver
         ArgumentNullException.ThrowIfNull(config);
 
         var results = new Dictionary<Guid, Resolution>();
-        var unavailable = (string?)null;
+        string? unavailable = null;
 
         foreach (var item in items)
         {
-            var binding = config.FindBinding(item.Id);
-            if (binding == null)
+            if (config.FindBinding(item.Id) is not { } binding)
             {
                 continue;
             }
 
             try
             {
-                var anime = await GetAnimeAsync(binding.AnimeId, cancellationToken).ConfigureAwait(false);
-                if (anime != null)
+                if (await GetAnimeAsync(binding.AnimeId, cancellationToken).ConfigureAwait(false) is { } anime)
                 {
                     results[item.Id] = Resolution.Found([anime], "matched by you", manual: true);
                 }
@@ -81,23 +79,19 @@ public sealed class AnimeResolver
             catch (HttpRequestException ex)
             {
                 unavailable = ex.Message;
-                results[item.Id] = Resolution.Without(MatchState.Unavailable, "animethemes.moe could not be reached");
+                results[item.Id] = Unreachable();
             }
         }
 
         foreach (var providerKey in Sites.NormalizeProviderPriority(config.ProviderPriority))
         {
-            if (!Sites.ProviderToSite.TryGetValue(providerKey, out var site))
-            {
-                continue;
-            }
-
             var pending = items.Where(item => !results.ContainsKey(item.Id)).ToList();
-            if (pending.Count == 0)
+            if (pending.Count == 0 || unavailable != null)
             {
                 break;
             }
 
+            var site = Sites.ProviderToSite[providerKey];
             var byId = new Dictionary<string, List<BaseItem>>(StringComparer.OrdinalIgnoreCase);
             foreach (var item in pending)
             {
@@ -125,7 +119,7 @@ public sealed class AnimeResolver
                 list.Add(item);
             }
 
-            if (byId.Count == 0 || unavailable != null)
+            if (byId.Count == 0)
             {
                 continue;
             }
@@ -139,7 +133,7 @@ public sealed class AnimeResolver
             {
                 _logger.LogWarning(ex, "animethemes.moe lookup by {Site} failed", site);
                 unavailable = ex.Message;
-                continue;
+                break;
             }
 
             foreach (var (externalId, list) in byId)
@@ -173,10 +167,9 @@ public sealed class AnimeResolver
 
                 try
                 {
-                    var match = await _titles.ResolveAsync(item, config.TitleMatchThreshold, cancellationToken).ConfigureAwait(false);
-                    if (match is { } m)
+                    if (await _titles.ResolveAsync(item, config.TitleMatchThreshold, cancellationToken).ConfigureAwait(false) is { } match)
                     {
-                        results[item.Id] = Resolution.Found([m.Anime], m.Detail);
+                        results[item.Id] = Resolution.Found([match.Anime], match.Detail);
                     }
                 }
                 catch (HttpRequestException ex)
@@ -187,64 +180,47 @@ public sealed class AnimeResolver
             }
         }
 
-        foreach (var item in items)
+        foreach (var item in items.Where(item => !results.ContainsKey(item.Id)))
         {
-            if (!results.ContainsKey(item.Id))
-            {
-                results[item.Id] = unavailable != null
-                    ? Resolution.Without(MatchState.Unavailable, "animethemes.moe could not be reached")
-                    : Resolution.Without(MatchState.NotFound, "no entry on animethemes.moe for its IDs or title");
-            }
+            results[item.Id] = unavailable != null
+                ? Unreachable()
+                : Resolution.Without(MatchState.NotFound, config.EnableTitleFallback
+                    ? "no entry on animethemes.moe for its IDs or titles"
+                    : "no entry on animethemes.moe for its IDs");
         }
 
         return results;
     }
 
     /// <summary>
-    /// Gets an anime by ID, through the cache.
+    /// Gets an anime with all its themes, through the cache.
     /// </summary>
     /// <param name="animeId">animethemes.moe anime ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The anime, or null when it does not exist.</returns>
     /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
     public async Task<Anime?> GetAnimeAsync(int animeId, CancellationToken cancellationToken)
-    {
-        var key = "anime:" + animeId.ToString(CultureInfo.InvariantCulture);
-        if (_cache.TryGet(key, out var cached))
-        {
-            return cached?.FirstOrDefault();
-        }
-
-        var anime = await _client.GetAnimeAsync(animeId, cancellationToken).ConfigureAwait(false);
-        if (anime == null)
-        {
-            _cache.SetNegative(key);
-        }
-        else
-        {
-            _cache.SetPositive(key, [anime]);
-        }
-
-        return anime;
-    }
+        => (await GetAnimeAsync([animeId], cancellationToken).ConfigureAwait(false)).GetValueOrDefault(animeId);
 
     /// <summary>
-    /// Finds anime by AniList IDs, through the cache.
+    /// Gets several anime with all their themes, through the cache, missing ones in batches.
     /// </summary>
-    /// <param name="aniListIds">AniList IDs.</param>
+    /// <param name="animeIds">animethemes.moe anime IDs.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Entries with themes, in the order of the IDs.</returns>
+    /// <returns>The anime that exist, by ID.</returns>
     /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
-    public async Task<List<Anime>> FindByAniListAsync(IEnumerable<int> aniListIds, CancellationToken cancellationToken)
+    public async Task<Dictionary<int, Anime>> GetAnimeAsync(IEnumerable<int> animeIds, CancellationToken cancellationToken)
     {
-        var ids = aniListIds.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToList();
-        var found = new Dictionary<string, Anime[]>(StringComparer.Ordinal);
-        var missing = new List<string>();
-        foreach (var id in ids)
+        var result = new Dictionary<int, Anime>();
+        var missing = new List<int>();
+        foreach (var id in animeIds.Distinct())
         {
-            if (_cache.TryGet(CacheKey(Sites.AniList, id), out var cached))
+            if (_cache.TryGet(AnimeKey(id), out var cached))
             {
-                found[id] = cached ?? [];
+                if (cached is { Length: > 0 })
+                {
+                    result[id] = cached[0];
+                }
             }
             else
             {
@@ -254,24 +230,68 @@ public sealed class AnimeResolver
 
         if (missing.Count > 0)
         {
-            var fetched = await _client.FindByExternalIdsAsync(Sites.AniList, missing, cancellationToken).ConfigureAwait(false);
+            var fetched = (await _client.GetAnimeAsync(missing, cancellationToken).ConfigureAwait(false)).ToDictionary(a => a.Id);
             foreach (var id in missing)
             {
-                var usable = fetched.TryGetValue(id, out var animes) ? animes.Where(AnimeThemeAvailability.HasUsableTheme).ToArray() : [];
-                if (usable.Length == 0)
+                if (fetched.TryGetValue(id, out var anime))
                 {
-                    _cache.SetNegative(CacheKey(Sites.AniList, id));
+                    _cache.SetPositive(AnimeKey(id), [anime]);
+                    result[id] = anime;
                 }
                 else
                 {
-                    _cache.SetPositive(CacheKey(Sites.AniList, id), usable);
+                    _cache.SetNegative(AnimeKey(id));
                 }
-
-                found[id] = usable;
             }
         }
 
-        return ids.SelectMany(id => found.TryGetValue(id, out var animes) ? animes.Take(1) : []).DistinctBy(anime => anime.Id).ToList();
+        return result;
+    }
+
+    /// <summary>
+    /// Finds anime by AniList IDs, through the cache.
+    /// </summary>
+    /// <param name="aniListIds">AniList IDs.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>For each AniList ID, the animethemes.moe anime linked to it (the first when several are).</returns>
+    /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
+    public async Task<Dictionary<int, Anime>> FindByAniListAsync(IEnumerable<int> aniListIds, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<int, Anime>();
+        var missing = new List<int>();
+        foreach (var id in aniListIds.Distinct())
+        {
+            if (_cache.TryGet(CacheKey(Sites.AniList, Text(id)), out var cached))
+            {
+                if (cached is { Length: > 0 })
+                {
+                    result[id] = cached[0];
+                }
+            }
+            else
+            {
+                missing.Add(id);
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            var fetched = await _client.FindByExternalIdsAsync(Sites.AniList, missing.Select(Text), cancellationToken).ConfigureAwait(false);
+            foreach (var id in missing)
+            {
+                var animes = fetched.TryGetValue(Text(id), out var list) ? list : [];
+                if (animes.Length == 0)
+                {
+                    _cache.SetNegative(CacheKey(Sites.AniList, Text(id)));
+                    continue;
+                }
+
+                _cache.SetPositive(CacheKey(Sites.AniList, Text(id)), animes);
+                result[id] = animes.OrderBy(a => a.Id).First();
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -281,12 +301,27 @@ public sealed class AnimeResolver
     public void Forget(BaseItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        foreach (var providerKey in Sites.DefaultPriority)
+        foreach (var (providerKey, site) in Sites.ProviderToSite)
         {
-            if (Sites.ProviderToSite.TryGetValue(providerKey, out var site) && item.TryGetProviderId(providerKey, out var id) && !string.IsNullOrWhiteSpace(id))
+            if (item.TryGetProviderId(providerKey, out var id) && !string.IsNullOrWhiteSpace(id))
             {
                 _cache.Remove(CacheKey(site, id.Trim()));
             }
+        }
+
+        _cache.Remove(TitleSearchResolver.CacheKey(TitleSearchResolver.QueryFor(item)));
+    }
+
+    /// <summary>
+    /// Forgets the cached details of anime entries, so their themes are read again.
+    /// </summary>
+    /// <param name="animeIds">animethemes.moe anime IDs.</param>
+    public void ForgetAnime(IEnumerable<int> animeIds)
+    {
+        ArgumentNullException.ThrowIfNull(animeIds);
+        foreach (var id in animeIds)
+        {
+            _cache.Remove(AnimeKey(id));
         }
     }
 
@@ -310,6 +345,12 @@ public sealed class AnimeResolver
             .ThenBy(anime => anime.Id)
             .First();
     }
+
+    private static Resolution Unreachable() => Resolution.Without(MatchState.Unavailable, "animethemes.moe could not be reached");
+
+    private static string Text(int id) => id.ToString(CultureInfo.InvariantCulture);
+
+    private static string AnimeKey(int id) => "anime:" + Text(id);
 
     private static string CacheKey(string site, string externalId) => site + ":" + externalId;
 

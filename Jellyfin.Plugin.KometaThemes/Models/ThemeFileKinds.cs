@@ -17,11 +17,8 @@ namespace Jellyfin.Plugin.KometaThemes.Models;
 /// theme video, and which directory a given theme file belongs in.
 /// </summary>
 /// <remarks>
-/// This used to be spelled out as a literal <c>"*.webm"</c> in eight different places, which was
-/// correct only while animethemes.moe was the sole source. Imported themes keep the container the
-/// extractor produced — an mp4 stream copy instead of a multi-minute VP9 re-encode — so every one of
-/// those globs had to learn about a second extension, and the theme-link repair service in
-/// particular would otherwise have silently failed to register mp4 themes with Jellyfin.
+/// Themes from animethemes.moe are WebM; themes imported from YouTube keep the container the
+/// extractor produced (an mp4 stream copy rather than a VP9 re-encode), so both count as videos.
 /// </remarks>
 public static class ThemeFileKinds
 {
@@ -34,11 +31,6 @@ public static class ThemeFileKinds
     /// Folder holding theme videos, relative to the item folder. Jellyfin's own convention.
     /// </summary>
     public const string VideoDirectory = "backdrops";
-
-    /// <summary>
-    /// Root-level theme song, a copy of one of the tracked audio files.
-    /// </summary>
-    public const string RootAudioFileName = "theme.mp3";
 
     /// <summary>
     /// Extensions recognised as theme audio.
@@ -85,14 +77,6 @@ public static class ThemeFileKinds
     /// <returns>Whether this is a theme video.</returns>
     public static bool IsVideoFile(string? fileName)
         => fileName != null && VideoExtensions.Any(extension => fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>
-    /// Returns true when the file name has a recognised theme audio extension.
-    /// </summary>
-    /// <param name="fileName">File name to test.</param>
-    /// <returns>Whether this is a theme song.</returns>
-    public static bool IsAudioFile(string? fileName)
-        => fileName != null && AudioExtensions.Any(extension => fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Infers the theme directory for a file name, for tracker records written before the directory

@@ -1,5 +1,5 @@
 /*
- * KometaThemes 2.0 — "Scaletta".
+ * KometaThemes 2.1 — "Scaletta".
  * Reads Jellyfin 12's theme variables (--jf-palette-*), so the page follows whichever theme the
  * user picked. The one signature element is the episode map: which episodes each song plays in.
  */
@@ -66,8 +66,6 @@
 .kt-page .kt-icon-btn:hover { background: var(--kt-hover); }
 .kt-page .kt-icon-btn[aria-pressed="true"] { background: var(--kt-accent); border-color: var(--kt-accent); color: var(--kt-accent-ink); }
 .kt-page .kt-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.kt-page .kt-spin { animation: kt-spin 1s linear infinite; }
-@keyframes kt-spin { to { transform: rotate(360deg); } }
 
 /* ---------- header and tabs ---------- */
 .kt-page .kt-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 8px 0 12px; }
@@ -127,7 +125,7 @@
     font: inherit; text-align: left; cursor: pointer;
 }
 .kt-page .kt-row:hover { background: var(--kt-hover); }
-.kt-page .kt-poster { width: 40px; aspect-ratio: 2 / 3; border-radius: 3px; object-fit: cover; background: var(--kt-paper); display: grid; place-items: center; color: var(--kt-fg2); font-weight: 700; }
+.kt-page .kt-poster { width: 40px; height: auto; aspect-ratio: 2 / 3; border-radius: 3px; object-fit: cover; background: var(--kt-paper); display: grid; place-items: center; color: var(--kt-fg2); font-weight: 700; }
 .kt-page .kt-name { min-width: 0; }
 .kt-page .kt-name b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kt-page .kt-name span, .kt-page .kt-songs { color: var(--kt-fg2); font-size: 0.9em; }
@@ -149,13 +147,30 @@
 .kt-page .kt-back { margin: -4px 0 12px -10px; }
 .kt-page .kt-detail { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 28px; align-items: start; }
 .kt-page .kt-side { display: grid; gap: 12px; position: sticky; top: 16px; }
-.kt-page .kt-side .kt-cover { width: 100%; aspect-ratio: 2 / 3; border-radius: var(--kt-radius); object-fit: cover; background: var(--kt-paper); }
+.kt-page .kt-side .kt-cover { width: 100%; height: auto; aspect-ratio: 2 / 3; border-radius: var(--kt-radius); object-fit: cover; background: var(--kt-paper); }
 .kt-page .kt-side span.kt-cover { display: grid; place-items: center; font-size: 3em; font-weight: 700; color: var(--kt-fg2); }
 .kt-page .kt-side h2 { font-size: 1.3em; }
 .kt-page .kt-side .kt-facts { display: grid; gap: 2px; color: var(--kt-fg2); font-size: 0.9em; }
 .kt-page .kt-side .kt-row-actions .kt-btn { flex: 1 1 auto; }
 .kt-page .kt-main { display: grid; gap: 16px; min-width: 0; }
 .kt-page .kt-seasons { display: flex; gap: 2px; border-bottom: 1px solid var(--kt-line); overflow-x: auto; }
+.kt-page .kt-tabdot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; vertical-align: 1px; border: 1px solid var(--kt-fg2); }
+.kt-page .kt-tabdot--matched { background: var(--kt-ok); border-color: var(--kt-ok); }
+
+/* How the seasons play their themes: one row per season, under the series. */
+.kt-page .kt-plan-box { display: grid; gap: 6px; }
+.kt-page .kt-plan-box h3 { font-size: 1em; }
+.kt-page .kt-plan { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--kt-line); }
+.kt-page .kt-plan-row {
+    display: grid; grid-template-columns: minmax(6rem, 9rem) 7.5rem minmax(0, 1fr) auto; gap: 12px; align-items: center;
+    width: 100%; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--kt-line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.kt-page .kt-plan-row:hover { background: var(--kt-hover); }
+.kt-page .kt-plan-season { font-weight: 600; }
+.kt-page .kt-plan-state { font-size: 0.85em; font-weight: 600; color: var(--kt-fg2); }
+.kt-page .kt-plan-state--matched { color: var(--kt-ok-text); }
+.kt-page .kt-plan-entry { color: var(--kt-fg2); font-size: 0.9em; min-width: 0; overflow-wrap: anywhere; }
+.kt-page .kt-plan-count { color: var(--kt-fg2); font-size: 0.85em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kt-page .kt-match { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 .kt-page .kt-match-text { flex: 1 1 320px; display: grid; gap: 2px; min-width: 0; }
 .kt-page .kt-match-how { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--kt-ok-text); }
@@ -252,7 +267,6 @@
 .kt-page .kt-steps li::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--kt-line); font-size: 0.85em; }
 .kt-page .kt-steps li[aria-current="step"] { color: var(--kt-fg); }
 .kt-page .kt-steps li[aria-current="step"]::before { background: var(--kt-accent); border-color: var(--kt-accent); color: var(--kt-accent-ink); }
-.kt-page .kt-steps li + li::after { content: none; }
 
 /* ---------- activity ---------- */
 .kt-page .kt-activity { list-style: none; margin: 0; padding: 0; }
@@ -281,6 +295,8 @@ dialog.kt-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
 .kt-page .kt-result img, .kt-page .kt-result .kt-poster { width: 48px; }
 .kt-page .kt-result-pick { grid-column: 1 / -1; display: grid; gap: 8px; padding: 4px 4px 4px 60px; }
 .kt-page .kt-result-pick ol { margin: 0; padding-left: 1.2em; color: var(--kt-fg2); }
+.kt-page .kt-franchise { display: grid; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--kt-line); }
+.kt-page .kt-franchise h4 { margin: 4px 0; font-size: 0.95em; color: var(--kt-fg2); }
 .kt-page .kt-score { font-size: 0.8em; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--kt-accent-soft); white-space: nowrap; }
 
 /* ---------- toast ---------- */
@@ -311,6 +327,9 @@ dialog.kt-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
     .kt-page .kt-search { flex-basis: 100%; margin-left: 0; }
     .kt-page .kt-file { grid-template-columns: minmax(0, 1fr) auto; }
     .kt-page .kt-file .kt-tag { grid-row: 2; }
+    .kt-page .kt-plan-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .kt-page .kt-plan-entry { grid-column: 1 / -1; }
+    .kt-page .kt-plan-count { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
     .kt-page .kt *, .kt-page .kt *::before { animation: none !important; transition: none !important; }

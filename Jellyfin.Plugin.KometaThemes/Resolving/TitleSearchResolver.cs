@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,56 +10,22 @@ using Jellyfin.Plugin.KometaThemes.AnimeThemes;
 using Jellyfin.Plugin.KometaThemes.Caching;
 using Jellyfin.Plugin.KometaThemes.Models;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.KometaThemes.Resolving;
 
 /// <summary>
-/// Resolver that searches for anime by title using fuzzy matching.
-/// Used as a fallback when no external IDs are available.
+/// Finds an item's animethemes.moe entry by its titles, when none of its IDs is known there.
 /// </summary>
-public class TitleSearchResolver
+public sealed partial class TitleSearchResolver
 {
-    private const int MinimumFallbackScore = 62;
-    private const int ExactMatchScore = 100;
-
-    /// <summary>
-    /// Subtracted when the searched title names a season the candidate does not.
-    /// Large enough to push an otherwise perfect token match below the confident threshold.
-    /// </summary>
-    private const int SeasonMismatchScorePenalty = 26;
+    private const int MaxSearches = 4;
+    private const int MaxDetailFetches = 3;
 
     private readonly AnimeThemesClient _client;
     private readonly IResolutionCache _cache;
     private readonly ILogger<TitleSearchResolver> _logger;
-
-    private static readonly Regex CodecResolutionRegex = new(@"\b(10[0-9]{2}p|2160p|4[Kk]|8[Kk])\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex CodecVideoRegex = new(@"\b([xXhH]2[0-9]{2}|[Hh]\.?2[0-9]{2}|HEVC|AV1|AVC|MPEG-\d)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex CodecAudioRegex = new(@"\b(AAC|AC3|EAC3|DTS|FLAC|OPUS|MP3|AAC\d?)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex LanguageTagRegex = new(@"\b(Subs?\s*)?(iTA|ITA|ENG|JAP|JPN|MULTi?)(\s*Subs?)?\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex SourceTagRegex = new(@"\b(BDRip|BRRip|WEBRip|WEB-DL|WEB|BluRay|BLURAY|HDRip|DVDRip)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex BracketInfoRegex = new(@"\[.*?\]|\(.*?(?:H26[45]|x26[45]|HEVC|AV1|AAC|AC3|FLAC|BD|WEB|A Mux).*?\)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex MultiSpaceRegex = new(@"\s+", RegexOptions.Compiled);
-    private static readonly Regex SeasonOrdinalRegex = new(
-        @"\b(?:season|series|cour|part|stagione)\s*(?:(?<num>\d{1,2})|(?<roman>I{1,3}|IV|VI{0,3}|IX|X))\b",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    private static readonly HashSet<string> SearchNoiseWords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "a",
-        "an",
-        "and",
-        "cour",
-        "episode",
-        "movie",
-        "no",
-        "ova",
-        "part",
-        "season",
-        "special",
-        "the",
-        "tv"
-    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TitleSearchResolver"/> class.
@@ -86,518 +52,260 @@ public class TitleSearchResolver
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        var searchKeys = GetSearchKeys(item);
-        if (searchKeys.Count == 0)
+        var query = QueryFor(item);
+        if (query.Titles.Count == 0)
         {
             return null;
         }
 
-        var year = item.ProductionYear;
-        var primaryTitle = searchKeys[0].Value;
-        var cacheKey = $"title3:{string.Join("|", searchKeys.Select(key => key.Normalized))}:{year}";
-
+        var required = RequiredScore(threshold);
+        var cacheKey = CacheKey(query);
         if (_cache.TryGet(cacheKey, out var cached))
         {
-            return cached is { Length: > 0 } ? (cached[0], "title match \u201c" + primaryTitle + "\u201d") : null;
+            return cached is { Length: > 0 } ? (cached[0], Describe(query, cached[0])) : null;
         }
 
-        Anime? bestMatch = null;
-        var bestScore = 0;
-        var bestQuery = primaryTitle;
-
-        foreach (var query in searchKeys.Select(key => key.Value).Distinct(StringComparer.OrdinalIgnoreCase))
+        var candidates = new Dictionary<int, Anime>();
+        var searched = new HashSet<string>(StringComparer.Ordinal);
+        IReadOnlyList<(Anime Anime, int Score)> ranked = [];
+        foreach (var text in query.Titles.Concat(query.WeakTitles))
         {
-            var results = await _client.SearchAsync(query, cancellationToken).ConfigureAwait(false);
-            foreach (var anime in results)
+            var folded = string.Concat(TitleMatcher.Words(text));
+            if (folded.Length < 2 || !searched.Add(folded) || searched.Count > MaxSearches)
             {
-                var score = ScoreSearchCandidate(anime, searchKeys, year);
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    bestMatch = anime;
-                    bestQuery = query;
-                }
+                continue;
             }
 
-            if (bestScore >= ExactMatchScore)
+            foreach (var anime in await _client.SearchAsync(text, cancellationToken).ConfigureAwait(false))
+            {
+                candidates.TryAdd(anime.Id, anime);
+            }
+
+            ranked = TitleMatcher.Rank(query, candidates.Values);
+            if (ranked.Count > 0 && ranked[0].Score >= TitleMatcher.Exact - 5)
             {
                 break;
             }
         }
 
-        var requiredScore = RequiredScore(threshold);
-        if (bestMatch == null || bestScore < requiredScore)
+        foreach (var (candidate, score) in ranked.Where(r => r.Score >= required).Take(MaxDetailFetches))
         {
-            _logger.LogDebug("No title match for {Title} (best score {Score}, required {Required})", primaryTitle, bestScore, requiredScore);
-            _cache.SetNegative(cacheKey);
-            return null;
+            // Search results carry theme stubs only; the full entry tells whether anything can be downloaded.
+            var full = await _client.GetAnimeAsync(candidate.Id, cancellationToken).ConfigureAwait(false);
+            if (full == null || !AnimeThemeAvailability.HasUsableTheme(full))
+            {
+                continue;
+            }
+
+            _logger.LogInformation("Title match for {Name}: {Match} (score {Score}, required {Required})", item.Name, full.Name, score, required);
+            _cache.SetPositive(cacheKey, [full]);
+            return (full, Describe(query, full));
         }
 
-        var full = await _client.GetAnimeAsync(bestMatch.Id, cancellationToken).ConfigureAwait(false);
-        if (full == null || !AnimeThemeAvailability.HasUsableTheme(full))
-        {
-            _cache.SetNegative(cacheKey);
-            return null;
-        }
-
-        _logger.LogInformation(
-            "Title match for {Title} via {Query}: {Match} (score {Score}, required {Required})",
-            primaryTitle,
-            bestQuery,
-            full.Name,
-            bestScore,
-            requiredScore);
-        _cache.SetPositive(cacheKey, [full]);
-        return (full, "title match \u201c" + bestQuery + "\u201d");
+        _logger.LogDebug(
+            "No title match for {Name}: best {Best} ({Score}, required {Required})",
+            item.Name,
+            ranked.Count > 0 ? ranked[0].Anime.Name : "nothing",
+            ranked.Count > 0 ? ranked[0].Score : 0,
+            required);
+        _cache.SetNegative(cacheKey);
+        return null;
     }
 
     /// <summary>
-    /// Scores search results against the item's titles, for the manual search.
+    /// Scores search results against the search text, for the manual search: what the owner typed
+    /// decides, the item only tells the format and the year.
     /// </summary>
-    /// <param name="item">Library item, or null to score against the query alone.</param>
-    /// <param name="query">The search text.</param>
+    /// <param name="item">The series, season or movie being matched, or null.</param>
+    /// <param name="search">The search text.</param>
     /// <param name="candidates">Search results.</param>
     /// <returns>Candidates with a 0-100 score, best first.</returns>
-    public static IReadOnlyList<(Anime Anime, int Score)> Rank(BaseItem? item, string query, IEnumerable<Anime> candidates)
+    public static IReadOnlyList<(Anime Anime, int Score)> Rank(BaseItem? item, string search, IEnumerable<Anime> candidates)
     {
-        var keys = new List<SearchKey>();
-        AddSearchKey(keys, query);
-        if (item != null)
+        var years = new List<int>();
+        if (item?.PremiereDate is { } premiere)
         {
-            foreach (var key in GetSearchKeys(item))
-            {
-                if (keys.All(existing => existing.Normalized != key.Normalized))
-                {
-                    keys.Add(key);
-                }
-            }
+            years.Add(premiere.Year);
+        }
+        else if (item?.ProductionYear is { } year)
+        {
+            years.Add(year);
         }
 
-        return candidates
-            .Select(anime => (Anime: anime, Score: keys.Count == 0 ? 0 : ScoreSearchCandidate(anime, keys, item?.ProductionYear)))
-            .OrderByDescending(pair => pair.Score)
-            .ToList();
+        return TitleMatcher.Rank(new TitleQuery([search], [], years, null, item is Movie), candidates);
     }
 
     /// <summary>
-    /// Converts a 0.5-1 threshold to a score, never below the weakest accepted bucket.
+    /// Gets the cache key of a title lookup.
+    /// </summary>
+    /// <param name="query">The item's titles.</param>
+    /// <returns>The key.</returns>
+    internal static string CacheKey(TitleQuery query)
+        => "title:" + string.Join('|', query.Titles.Select(t => string.Concat(TitleMatcher.Words(t))))
+            + ":" + string.Join(',', query.Years) + (query.IsMovie ? ":movie" : string.Empty);
+
+    /// <summary>
+    /// Converts a 0.5-1 threshold to a score.
     /// </summary>
     /// <param name="threshold">The threshold.</param>
     /// <returns>The required score.</returns>
     internal static int RequiredScore(double threshold)
-        => Math.Clamp((int)Math.Round(threshold * 100, MidpointRounding.AwayFromZero), MinimumFallbackScore, ExactMatchScore);
+        => Math.Clamp((int)Math.Round(threshold * 100, MidpointRounding.AwayFromZero), 50, TitleMatcher.Exact);
 
-    private static List<SearchKey> GetSearchKeys(BaseItem item)
+    /// <summary>
+    /// Collects what an item says about its title: names, folder, slugs on other sites, years.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>The query.</returns>
+    internal static TitleQuery QueryFor(BaseItem item)
     {
-        var keys = new List<SearchKey>();
+        ArgumentNullException.ThrowIfNull(item);
+        var titles = new List<string>();
+        var years = new List<int>();
+        int? titleYear = null;
 
-        AddSearchKey(keys, item.Name);
-        AddSearchKey(keys, item.OriginalTitle);
-        AddSearchKey(keys, GetProviderValue(item, "TvdbSlug"));
-        AddSearchKey(keys, ExtractAnimeClickSlug(GetProviderValue(item, "AnimeClick")));
+        void Add(string? raw, bool isName)
+        {
+            var (title, year) = Clean(raw);
+            if (year is { } y)
+            {
+                years.Add(y);
+                if (isName)
+                {
+                    titleYear = y;
+                }
+            }
 
-        return keys;
+            if (title.Length > 0 && titles.All(t => !string.Equals(string.Concat(TitleMatcher.Words(t)), string.Concat(TitleMatcher.Words(title)), StringComparison.Ordinal)))
+            {
+                titles.Add(title);
+            }
+        }
+
+        Add(item.Name, true);
+        Add(item.OriginalTitle, false);
+        Add(FolderName(item), false);
+        Add(Slug(Provider(item, "AnimeClick")), false);
+        Add(Slug(Provider(item, "TvdbSlug")), false);
+
+        if (item.ProductionYear is { } production)
+        {
+            years.Add(production);
+        }
+
+        if (item.PremiereDate is { } premiere)
+        {
+            years.Add(premiere.Year);
+        }
+
+        // "Paprika - Sognando un sogno": the original title is the first part.
+        var weak = titles
+            .SelectMany(t => TitleSeparatorRegex().Split(t))
+            .Select(part => part.Trim())
+            .Where(part => part.Length >= 3 && titles.All(t => !string.Equals(t, part, StringComparison.OrdinalIgnoreCase)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new TitleQuery(titles, weak, years.Distinct().ToList(), titleYear, item is Movie);
+    }
+
+    private static string? Provider(BaseItem item, string key)
+        => item.ProviderIds != null && item.ProviderIds.TryGetValue(key, out var value) ? value : null;
+
+    private static string? FolderName(BaseItem item)
+    {
+        var path = item.IsFolder ? item.Path : item.ContainingFolderPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        if (item is Movie { IsInMixedFolder: true })
+        {
+            name = Path.GetFileNameWithoutExtension(item.Path);
+        }
+
+        return name;
     }
 
     /// <summary>
-    /// Removes codec/quality/resolution patterns from a title that may be present
-    /// when Jellyfin stores a raw filename as the item name.
+    /// Takes the title part of a folder or provider value: "Aura (2013) [1080p x265]" gives "Aura" and 2013.
     /// </summary>
-    private static string CleanTitle(string title)
+    /// <param name="raw">The value.</param>
+    /// <returns>The title, and a year written in it.</returns>
+    internal static (string Title, int? Year) Clean(string? raw)
     {
-        if (string.IsNullOrWhiteSpace(title))
+        if (string.IsNullOrWhiteSpace(raw))
         {
-            return title;
+            return (string.Empty, null);
         }
 
-        var cleaned = CodecResolutionRegex.Replace(title, string.Empty);
-        cleaned = CodecVideoRegex.Replace(cleaned, string.Empty);
-        cleaned = CodecAudioRegex.Replace(cleaned, string.Empty);
-        cleaned = LanguageTagRegex.Replace(cleaned, string.Empty);
-        cleaned = SourceTagRegex.Replace(cleaned, string.Empty);
-        cleaned = BracketInfoRegex.Replace(cleaned, string.Empty);
-        cleaned = MultiSpaceRegex.Replace(cleaned, " ");
-        cleaned = cleaned.Trim();
+        var text = raw.Trim();
 
-        return cleaned.Length > 0 ? cleaned : title.Trim();
+        // Release names use dots or underscores for spaces; folder names use + for a slash.
+        if (!text.Contains(' ', StringComparison.Ordinal))
+        {
+            text = text.Replace('.', ' ').Replace('_', ' ');
+        }
+
+        text = text.Replace('+', '/');
+        text = BracketsRegex().Replace(text, " ");
+
+        int? year = null;
+        var match = YearRegex().Match(text);
+        if (match.Success && match.Index > 0)
+        {
+            year = int.Parse(match.Groups["y"].Value, CultureInfo.InvariantCulture);
+            text = text[..match.Index];
+        }
+
+        text = ReleaseTagsRegex().Replace(text, " ");
+        text = SpacesRegex().Replace(text, " ").Trim(' ', '-', '.', ',', ';');
+        return (text, year);
     }
 
-    private static string? GetProviderValue(BaseItem item, string key)
-    {
-        return item.ProviderIds != null && item.ProviderIds.TryGetValue(key, out var value) ? value : null;
-    }
-
-    private static string? ExtractAnimeClickSlug(string? value)
+    private static string? Slug(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             return null;
         }
 
-        var trimmed = value.Trim();
-        var lastSlash = trimmed.LastIndexOf('/');
-        if (lastSlash >= 0 && lastSlash < trimmed.Length - 1)
+        // AnimeClick stores "26918/honzuki-no-gekokujou".
+        var slug = value.Trim();
+        var slash = slug.LastIndexOf('/');
+        if (slash >= 0)
         {
-            trimmed = trimmed[(lastSlash + 1)..];
+            slug = slug[(slash + 1)..];
         }
 
-        var index = 0;
-        while (index < trimmed.Length && char.IsDigit(trimmed[index]))
-        {
-            index++;
-        }
-
-        while (index < trimmed.Length && (trimmed[index] == '-' || trimmed[index] == '_' || trimmed[index] == '.'))
-        {
-            index++;
-        }
-
-        return index < trimmed.Length ? trimmed[index..] : trimmed;
+        slug = slug.Replace('-', ' ').Replace('_', ' ').Trim();
+        return slug.Length >= 3 && !slug.All(char.IsDigit) ? slug : null;
     }
 
-    private static void AddSearchKey(List<SearchKey> keys, string? value)
+    private static string Describe(TitleQuery query, Anime anime)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return;
-        }
-
-        var cleaned = CleanTitle(value);
-        var normalized = NormalizeSearchText(cleaned);
-        if (normalized.Length == 0 || keys.Any(key => key.Normalized == normalized))
-        {
-            return;
-        }
-
-        keys.Add(new SearchKey(cleaned, normalized, TokenizeSearchText(cleaned)));
+        var title = query.Titles.Concat(query.WeakTitles)
+            .Select(t => (Title: t, Score: TitleMatcher.Score(query with { Titles = [t], WeakTitles = [] }, anime)))
+            .OrderByDescending(pair => pair.Score)
+            .Select(pair => pair.Title)
+            .FirstOrDefault() ?? anime.Name;
+        return "title match “" + title + "”";
     }
 
-    private static int ScoreSearchCandidate(Anime anime, List<SearchKey> searchKeys, int? year)
-    {
-        var candidateName = NormalizeSearchText(anime.Name);
-        var candidateSlug = NormalizeSearchText(anime.Slug);
-        var candidateTokens = TokenizeSearchText(string.Create(CultureInfo.InvariantCulture, $"{anime.Name} {anime.Slug}"));
-        var bestScore = 0;
+    [GeneratedRegex(@"\s+[-–:|]\s+|:\s+", RegexOptions.CultureInvariant)]
+    private static partial Regex TitleSeparatorRegex();
 
-        foreach (var key in searchKeys)
-        {
-            var score = 0;
-            if (candidateName == key.Normalized || candidateSlug == key.Normalized)
-            {
-                score = ExactMatchScore;
-            }
-            else
-            {
-                var coverage = CalculateTokenCoverage(key.Tokens, candidateTokens);
-                var orderedCoverage = CalculateOrderedTokenCoverage(key.Tokens, candidateTokens);
-                if (coverage >= 0.95)
-                {
-                    score = 86;
-                }
-                else if (coverage >= 0.80 && orderedCoverage >= 0.60)
-                {
-                    score = 74;
-                }
-                else if (coverage >= 0.65 && orderedCoverage >= 0.50)
-                {
-                    score = 62;
-                }
-                else if (key.Normalized.Length >= 8 && (candidateName.Contains(key.Normalized, StringComparison.Ordinal) || candidateSlug.Contains(key.Normalized, StringComparison.Ordinal)))
-                {
-                    score = 68;
-                }
-                else if (candidateName.Length >= 8 && key.Normalized.StartsWith(candidateName, StringComparison.Ordinal))
-                {
-                    score = ScorePrefixMatch(key.Normalized, candidateName);
-                }
-                else if (candidateSlug.Length >= 8 && key.Normalized.StartsWith(candidateSlug, StringComparison.Ordinal))
-                {
-                    score = ScorePrefixMatch(key.Normalized, candidateSlug);
-                }
-            }
+    [GeneratedRegex(@"\[[^\]]*\]|\{[^}]*\}", RegexOptions.CultureInvariant)]
+    private static partial Regex BracketsRegex();
 
-            if (year.HasValue && anime.Year.HasValue)
-            {
-                var yearDelta = Math.Abs(anime.Year.Value - year.Value);
-                if (yearDelta == 0)
-                {
-                    score += 8;
-                }
-                else if (yearDelta == 1)
-                {
-                    score += 3;
-                }
-                else if (yearDelta > 3)
-                {
-                    score -= 8;
-                }
-            }
+    [GeneratedRegex(@"\(?\b(?<y>(?:19[5-9]|20[0-3])\d)\b\)?", RegexOptions.CultureInvariant)]
+    private static partial Regex YearRegex();
 
-            score -= SeasonMismatchPenalty(key.Value, anime.Name, anime.Slug);
+    [GeneratedRegex(@"\b(?:\d{3,4}p|2160p|4k|8k|uhd|hdr\d*|dv|x26[45]|h\.?26[45]|hevc|av1|avc|10bit|8bit|aac\d?(?:\.\d)?|ac3|eac3|dts(?:-hd)?|flac|opus|truehd|atmos|bd(?:rip|remux)?|bluray|blu-ray|web(?:-?dl|rip)?|dvdrip|remux|dual[ -]audio|multi|ita|eng|jap|jpn|sub(?:s|bed)?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ReleaseTagsRegex();
 
-            bestScore = Math.Max(bestScore, score);
-        }
-
-        return Math.Max(0, bestScore);
-    }
-
-    /// <summary>
-    /// Scores a match where the candidate's title is a prefix of the searched title.
-    /// </summary>
-    /// <remarks>
-    /// This bucket used to be a flat 80, which is at or above the default confidence threshold. That
-    /// made "Fullmetal Alchemist Brotherhood" confidently match the *different* show "Fullmetal
-    /// Alchemist", and the wrong match was then cached positively for days with no per-item way to
-    /// invalidate it. A prefix match is only strong evidence when what remains is trivial; a
-    /// substantial leftover usually means the candidate is the parent series, a different season or
-    /// another entry in the franchise, so it now scores below the confident threshold and is
-    /// surfaced as a weak suggestion instead of being bound automatically.
-    /// </remarks>
-    /// <param name="query">Normalized searched title.</param>
-    /// <param name="candidate">Normalized candidate title.</param>
-    /// <returns>A score for this match.</returns>
-    private static int ScorePrefixMatch(string query, string candidate)
-    {
-        var leftover = query.Length - candidate.Length;
-        return leftover <= 2 ? 80 : MinimumFallbackScore;
-    }
-
-    /// <summary>
-    /// Penalty for a season/part ordinal present on one side and absent or different on the other.
-    /// </summary>
-    /// <remarks>
-    /// <c>season</c>, <c>part</c> and <c>cour</c> are in the noise-word list, so tokenizing
-    /// "Attack on Titan Season 2" and "Attack on Titan" produced identical token sets and a
-    /// coverage of 1.0 — a confident match onto the wrong season. The ordinal is exactly the
-    /// discriminator that was being thrown away, so it is compared separately here.
-    /// </remarks>
-    /// <param name="query">Raw searched title.</param>
-    /// <param name="candidateName">Candidate anime name.</param>
-    /// <param name="candidateSlug">Candidate anime slug.</param>
-    /// <returns>The penalty to subtract from the score.</returns>
-    private static int SeasonMismatchPenalty(string? query, string? candidateName, string? candidateSlug)
-    {
-        var queryOrdinal = ExtractSeasonOrdinal(query);
-        if (queryOrdinal == null)
-        {
-            return 0;
-        }
-
-        var candidateOrdinal = ExtractSeasonOrdinal(candidateName) ?? ExtractSeasonOrdinal(candidateSlug);
-
-        // A candidate with no ordinal at all is most likely season 1 / the parent entry.
-        if (candidateOrdinal == null)
-        {
-            return queryOrdinal.Value == 1 ? 0 : SeasonMismatchScorePenalty;
-        }
-
-        return candidateOrdinal.Value == queryOrdinal.Value ? 0 : SeasonMismatchScorePenalty;
-    }
-
-    /// <summary>
-    /// Extracts an explicit season/part/cour ordinal from a title, in digits or roman numerals.
-    /// </summary>
-    /// <param name="value">Title to inspect.</param>
-    /// <returns>The ordinal, or null when the title carries none.</returns>
-    internal static int? ExtractSeasonOrdinal(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var match = SeasonOrdinalRegex.Match(value);
-        if (!match.Success)
-        {
-            return null;
-        }
-
-        var digits = match.Groups["num"].Value;
-        if (digits.Length > 0 && int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed))
-        {
-            return parsed is > 0 and <= 50 ? parsed : null;
-        }
-
-        var roman = match.Groups["roman"].Value;
-        return roman.Length > 0 ? RomanToInt(roman) : null;
-    }
-
-    private static int? RomanToInt(string roman)
-    {
-        return roman.ToUpperInvariant() switch
-        {
-            "I" => 1,
-            "II" => 2,
-            "III" => 3,
-            "IV" => 4,
-            "V" => 5,
-            "VI" => 6,
-            "VII" => 7,
-            "VIII" => 8,
-            "IX" => 9,
-            "X" => 10,
-            _ => null
-        };
-    }
-
-    private static string NormalizeSearchText(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        var normalized = value.Normalize(NormalizationForm.FormD);
-        var builder = new StringBuilder(normalized.Length);
-        foreach (var character in normalized)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-            if (category == UnicodeCategory.NonSpacingMark)
-            {
-                continue;
-            }
-
-            if (char.IsLetterOrDigit(character))
-            {
-                builder.Append(char.ToLowerInvariant(character));
-            }
-        }
-
-        return builder.ToString();
-    }
-
-    private static string[] TokenizeSearchText(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return [];
-        }
-
-        var normalized = value.Normalize(NormalizationForm.FormD);
-        var tokens = new List<string>();
-        var builder = new StringBuilder(normalized.Length);
-        foreach (var character in normalized)
-        {
-            var category = CharUnicodeInfo.GetUnicodeCategory(character);
-            if (category == UnicodeCategory.NonSpacingMark)
-            {
-                continue;
-            }
-
-            if (char.IsLetterOrDigit(character))
-            {
-                builder.Append(char.ToLowerInvariant(character));
-                continue;
-            }
-
-            AddToken(tokens, builder);
-        }
-
-        AddToken(tokens, builder);
-        return tokens.Distinct(StringComparer.Ordinal).ToArray();
-    }
-
-    private static void AddToken(List<string> tokens, StringBuilder builder)
-    {
-        if (builder.Length == 0)
-        {
-            return;
-        }
-
-        var token = builder.ToString();
-        builder.Clear();
-        if (token.Length > 1 && !SearchNoiseWords.Contains(token))
-        {
-            tokens.Add(token);
-        }
-    }
-
-    private static double CalculateTokenCoverage(string[] expectedTokens, string[] candidateTokens)
-    {
-        if (expectedTokens.Length == 0)
-        {
-            return 0;
-        }
-
-        var candidateSet = new HashSet<string>(candidateTokens, StringComparer.Ordinal);
-        var matches = expectedTokens.Count(candidateSet.Contains);
-        return (double)matches / expectedTokens.Length;
-    }
-
-    private static double CalculateOrderedTokenCoverage(string[] expectedTokens, string[] candidateTokens)
-    {
-        if (expectedTokens.Length == 0)
-        {
-            return 0;
-        }
-
-        var expectedIndex = 0;
-        foreach (var candidateToken in candidateTokens)
-        {
-            if (expectedIndex < expectedTokens.Length && string.Equals(candidateToken, expectedTokens[expectedIndex], StringComparison.Ordinal))
-            {
-                expectedIndex++;
-            }
-        }
-
-        return (double)expectedIndex / expectedTokens.Length;
-    }
-
-    /// <summary>
-    /// Calculates the Levenshtein similarity ratio between two strings.
-    /// Returns a value between 0.0 (completely different) and 1.0 (identical).
-    /// </summary>
-    /// <param name="s1">First string to compare.</param>
-    /// <param name="s2">Second string to compare.</param>
-    /// <returns>A similarity ratio between 0.0 and 1.0.</returns>
-    internal static double CalculateSimilarity(string s1, string s2)
-    {
-        if (string.Equals(s1, s2, StringComparison.Ordinal))
-        {
-            return 1.0;
-        }
-
-        var maxLen = Math.Max(s1.Length, s2.Length);
-        if (maxLen == 0)
-        {
-            return 1.0;
-        }
-
-        var distance = LevenshteinDistance(s1, s2);
-        return 1.0 - ((double)distance / maxLen);
-    }
-
-    private static int LevenshteinDistance(string s1, string s2)
-    {
-        var n = s1.Length;
-        var m = s2.Length;
-
-        // Use two single-dimensional arrays instead of 2D array (CA1814)
-        var prev = new int[m + 1];
-        var curr = new int[m + 1];
-
-        for (var j = 0; j <= m; j++)
-        {
-            prev[j] = j;
-        }
-
-        for (var i = 1; i <= n; i++)
-        {
-            curr[0] = i;
-            for (var j = 1; j <= m; j++)
-            {
-                var cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
-                curr[j] = Math.Min(
-                    Math.Min(prev[j] + 1, curr[j - 1] + 1),
-                    prev[j - 1] + cost);
-            }
-
-            // Swap arrays
-            (prev, curr) = (curr, prev);
-        }
-
-        return prev[m];
-    }
-
-    private sealed record SearchKey(string Value, string Normalized, string[] Tokens);
+    [GeneratedRegex(@"\s+", RegexOptions.CultureInvariant)]
+    private static partial Regex SpacesRegex();
 }

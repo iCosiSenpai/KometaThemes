@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using Jellyfin.Plugin.KometaThemes.Configuration;
 using Jellyfin.Plugin.KometaThemes.Models;
+using Jellyfin.Plugin.KometaThemes.Resolving;
 using Jellyfin.Plugin.KometaThemes.Themes;
 
 namespace Jellyfin.Plugin.KometaThemes.Tests;
@@ -84,7 +85,43 @@ public class ThemeCatalogTests
 
         Assert.Equal(["Clean", "Credits", "Second"], ThemeCatalog.Select([anime], All(), 5).Select(c => c.Title));
         Assert.Equal(["Clean", "Second"], ThemeCatalog.Select([anime], All(creditlessOnly: true), 5).Select(c => c.Title));
-        Assert.Equal(2, ThemeCatalog.Select([anime], All(), 2).Count);
+
+        // The limit applies to openings and to endings separately: a long series with many openings
+        // used to get no ending at all.
+        Assert.Equal(["Clean", "Credits"], ThemeCatalog.Select([anime], All(), 1).Select(c => c.Title));
+    }
+
+    [Fact]
+    public void TransitionVersions_AreUsed_WhenNoCleanOneExists()
+    {
+        // "Skip versions with episode scenes over the song" skips only Over: a version that fades into
+        // the episode is still the whole song.
+        var anime = TestSupport.Anime(
+            1,
+            TestSupport.Theme(1, ThemeType.OP, 1, "Fades out", overlap: OverlapType.Transition),
+            TestSupport.Theme(2, ThemeType.ED, 1, "Talked over", overlap: OverlapType.Over));
+
+        Assert.Equal(["Fades out"], ThemeCatalog.Select([anime], All(), 5).Select(c => c.Title));
+    }
+
+    [Fact]
+    public void Window_KeepsTheThemesOfItsEpisodes()
+    {
+        // Black Clover: one animethemes.moe entry of 170 episodes, four seasons on TVDB.
+        var anime = TestSupport.Anime(
+            1,
+            TestSupport.Theme(1, ThemeType.OP, 1, "Haruka Mirai", episodes: "1-13"),
+            TestSupport.Theme(2, ThemeType.OP, 2, "PAiNT it BLACK", episodes: "14-27"),
+            TestSupport.Theme(3, ThemeType.OP, 3, "Black Rover", episodes: "28-39"),
+            TestSupport.Theme(4, ThemeType.OP, 4, "Guess Who Is Back", episodes: "40-51"),
+            TestSupport.Theme(5, ThemeType.OP, 5, "Gamushara", episodes: "52-64"),
+            TestSupport.Theme(6, ThemeType.ED, 1, "Undated"));
+
+        var first = ThemeCatalog.All([anime], new EpisodeWindow(1, 51)).Select(c => c.Title).ToList();
+        var second = ThemeCatalog.All([anime], new EpisodeWindow(52, 102)).Select(c => c.Title).ToList();
+
+        Assert.Equal(["Haruka Mirai", "PAiNT it BLACK", "Black Rover", "Guess Who Is Back", "Undated"], first);
+        Assert.Equal(["Gamushara"], second);
     }
 
     [Fact]

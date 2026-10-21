@@ -26,8 +26,9 @@ public sealed record SeasonTarget(Season Season, ThemeFolder Folder, LibrarySeas
 /// <param name="Owner">The series or movie.</param>
 /// <param name="Root">The series or movie folder; null when themes cannot go there.</param>
 /// <param name="Seasons">Season folders, in season order.</param>
+/// <param name="AllSeasons">Every season numbered 1 or higher, with a folder of its own or not, for season matching.</param>
 /// <param name="Note">Why <paramref name="Root"/> is null, if it is.</param>
-public sealed record ItemTargets(BaseItem Owner, ThemeFolder? Root, IReadOnlyList<SeasonTarget> Seasons, string? Note);
+public sealed record ItemTargets(BaseItem Owner, ThemeFolder? Root, IReadOnlyList<SeasonTarget> Seasons, IReadOnlyList<SeasonInfo> AllSeasons, string? Note);
 
 /// <summary>
 /// Works out where an item's themes go.
@@ -60,20 +61,20 @@ public sealed class ItemTargetFinder
             {
                 // Jellyfin does not read theme folders next to a movie that shares its folder with
                 // others, so files written there would only clutter the folder. 1.x wrote them anyway.
-                return new ItemTargets(owner, null, [], "This movie shares its folder with other movies, where Jellyfin does not look for themes. Move it into its own folder.");
+                return new ItemTargets(owner, null, [], [], "This movie shares its folder with other movies, where Jellyfin does not look for themes. Move it into its own folder.");
             }
 
             return Folder(owner) is { } movieFolder
-                ? new ItemTargets(owner, new ThemeFolder(owner.Id, movieFolder, 0, true), [], null)
-                : new ItemTargets(owner, null, [], "Its folder is not available.");
+                ? new ItemTargets(owner, new ThemeFolder(owner.Id, movieFolder, 0, true), [], [], null)
+                : new ItemTargets(owner, null, [], [], "Its folder is not available.");
         }
 
         if (owner is not Series series || Folder(series) is not { } seriesFolder)
         {
-            return new ItemTargets(owner, null, [], "Its folder is not available.");
+            return new ItemTargets(owner, null, [], [], "Its folder is not available.");
         }
 
-        var seasons = _libraryManager.GetItemList(new InternalItemsQuery
+        var all = _libraryManager.GetItemList(new InternalItemsQuery
             {
                 ParentId = series.Id,
                 IncludeItemTypes = [BaseItemKind.Season],
@@ -81,13 +82,19 @@ public sealed class ItemTargetFinder
             })
             .OfType<Season>()
             .Where(season => season.IndexNumber is > 0)
-            .Select(season => (Season: season, Path: Folder(season)))
-            .Where(pair => pair.Path != null && !SamePath(pair.Path, seriesFolder))
-            .OrderBy(pair => pair.Season.IndexNumber)
-            .Select(pair => new SeasonTarget(pair.Season, new ThemeFolder(pair.Season.Id, pair.Path!, pair.Season.IndexNumber!.Value, false), Describe(pair.Season)))
+            .OrderBy(season => season.IndexNumber)
+            .Select(season => (Season: season, Path: Folder(season), Info: Describe(season)))
             .ToList();
 
-        return new ItemTargets(owner, new ThemeFolder(owner.Id, seriesFolder, 0, true), seasons, null);
+        var targets = all
+            .Where(s => s.Path != null && !SamePath(s.Path, seriesFolder))
+            .Select(s => new SeasonTarget(s.Season, new ThemeFolder(s.Season.Id, s.Path!, s.Season.IndexNumber!.Value, false), s.Info))
+            .ToList();
+        var infos = all
+            .Select(s => new SeasonInfo(s.Season.Id, s.Info, targets.Any(t => t.Season.Id == s.Season.Id)))
+            .ToList();
+
+        return new ItemTargets(owner, new ThemeFolder(owner.Id, seriesFolder, 0, true), targets, infos, null);
     }
 
     private LibrarySeason Describe(Season season)

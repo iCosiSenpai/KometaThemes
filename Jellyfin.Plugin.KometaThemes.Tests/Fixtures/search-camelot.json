@@ -1,0 +1,29 @@
+{
+  "search": {
+    "anime": [
+      {
+        "id": 3474,
+        "name": "Fate/Grand Order: Shinsei Entaku Ryouiki Camelot 1 - Wandering; Agateram",
+        "slug": "fategrand_order_shinsei_entaku_ryouiki_camelot_1_wandering_agateram",
+        "year": 2020,
+        "season": "Fall",
+        "media_format": "Movie",
+        "animesynonyms": [
+          {
+            "text": "Fate/Grand Order Divine Realm of the Round Table: Camelot - Wandering; Agateram"
+          },
+          {
+            "text": "劇場版 Fate/Grand Order -神聖円卓領域キャメロット- 前編 Wandering; Agateram"
+          }
+        ],
+        "series": [
+          {
+            "id": 42,
+            "name": "Fate",
+            "slug": "fate"
+          }
+        ]
+      }
+    ]
+  }
+}

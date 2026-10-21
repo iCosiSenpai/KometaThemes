@@ -1,23 +1,16 @@
-using System;
-
-#pragma warning disable SA1516, CS1591
-
 namespace Jellyfin.Plugin.KometaThemes.Resolving;
 
-public sealed class EpisodeRange
-{
-    public EpisodeRange(int startEpisode, int? endEpisode)
-    {
-        StartEpisode = startEpisode;
-        EndEpisode = endEpisode ?? startEpisode;
-    }
+/// <summary>
+/// Episodes a theme version is listed for, such as 2 to 12.
+/// </summary>
+/// <param name="StartEpisode">First episode.</param>
+/// <param name="EndEpisode">Last episode, the first when the range is a single episode.</param>
+public sealed record EpisodeRange(int StartEpisode, int EndEpisode);
 
-    public int StartEpisode { get; }
-    public int EndEpisode { get; }
-
-    public bool Contains(int episode) =>
-        episode >= StartEpisode && episode <= EndEpisode;
-
-    public bool Overlaps(EpisodeRange other) =>
-        StartEpisode <= other.EndEpisode && EndEpisode >= other.StartEpisode;
-}
+/// <summary>
+/// The episodes of one anime entry that a library season holds, when several seasons share the
+/// entry: TVDB splits Black Clover's 170 episodes into four seasons, animethemes.moe lists one anime.
+/// </summary>
+/// <param name="First">First episode of the entry in the season.</param>
+/// <param name="Last">Last episode of the entry in the season.</param>
+public sealed record EpisodeWindow(int First, int Last);

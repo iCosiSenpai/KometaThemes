@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.KometaThemes.Models;
 public enum ThemeSource
 {
     /// <summary>
-    /// Downloaded from animethemes.moe, either by a sync or by the Theme Finder. Prunable.
+    /// Downloaded from animethemes.moe by a check or an action on the anime page. Prunable.
     /// </summary>
     AnimeThemes = 0,
 

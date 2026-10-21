@@ -18,9 +18,17 @@ the anime's titles or IDs change in Jellyfin.
 
 ## A season plays the series themes
 
-That season could not be matched with confidence: AniList has no sequel whose premiere year and
-episode count agree with the season in your library. The season tab says why. Use **Find a match**
-on that tab to choose its entry yourself.
+That season could not be matched with confidence: no entry of the franchise on animethemes.moe
+premiered when the season did with the same number of episodes, or two entries fit equally well, or
+its entry is not on animethemes.moe yet. The season tab says why. Use **Find a match** on that tab:
+the entries of the same franchise are listed first.
+
+A season without a premiere date in Jellyfin is matched by its episodes and its place in the
+franchise only, which is often not enough. Refreshing the season's metadata in Jellyfin can help.
+
+## AniList is down
+
+Nothing to do. AniList only confirms sequels; seasons are matched from animethemes.moe without it.
 
 ## The wrong anime was matched
 

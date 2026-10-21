@@ -65,6 +65,10 @@ public sealed class ProblemEntry
     /// <summary>Gets or sets a hash of the item's names and IDs when it failed; a change retries at once.</summary>
     [JsonPropertyName("fingerprint")]
     public string? Fingerprint { get; set; }
+
+    /// <summary>Gets or sets the matching revision that recorded the problem; an older one retries at once.</summary>
+    [JsonPropertyName("revision")]
+    public int Revision { get; set; }
 }
 
 /// <summary>
@@ -78,6 +82,12 @@ public sealed class ProblemEntry
 /// </remarks>
 public sealed class FailedItemsStore : IDisposable
 {
+    /// <summary>
+    /// Revision of the matching rules. Problems recorded under an older one are retried at the next
+    /// check: 2.1 finds anime by title and seasons through their franchise, which 2.0 could not.
+    /// </summary>
+    internal const int MatchingRevision = 2;
+
     private static readonly TimeSpan[] UnresolvedBackoff = [TimeSpan.FromDays(1), TimeSpan.FromDays(3), TimeSpan.FromDays(7), TimeSpan.FromDays(30)];
     private static readonly TimeSpan[] DownloadBackoff = [TimeSpan.FromHours(1), TimeSpan.FromHours(6), TimeSpan.FromHours(24)];
 
@@ -97,11 +107,13 @@ public sealed class FailedItemsStore : IDisposable
         {
             if (Guid.TryParse(entry.ItemId, out var id))
             {
-                // 1.x entries have no schedule: retry them once, soon.
-                if (entry.NextAttemptUtc == default)
+                // Entries of 1.x have no schedule, and older matching rules may have missed what the
+                // current ones find: retry them once, soon, as if they had never failed.
+                if (entry.NextAttemptUtc == default || entry.Revision < MatchingRevision)
                 {
                     entry.Attempts = 0;
                     entry.NextAttemptUtc = DateTime.UtcNow;
+                    entry.Revision = MatchingRevision;
                 }
 
                 _entries[id] = entry;
@@ -217,6 +229,7 @@ public sealed class FailedItemsStore : IDisposable
         Attempts = attempts,
         NextAttemptUtc = now + Backoff(kind, attempts),
         Fingerprint = fingerprint,
+        Revision = MatchingRevision,
     };
 
     private void Persist() => _file.Save(() => _entries.Values.ToList());

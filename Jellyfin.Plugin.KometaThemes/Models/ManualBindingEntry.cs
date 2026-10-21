@@ -4,8 +4,8 @@ using System.Text.Json.Serialization;
 namespace Jellyfin.Plugin.KometaThemes.Models;
 
 /// <summary>
-/// A manual item-to-anime binding created by the user through the Theme Finder.
-/// Takes precedence over automatic provider/title resolution.
+/// The owner's match of a series, season or movie to an animethemes.moe entry, set from the anime
+/// page. It wins over every automatic match.
 /// </summary>
 public class ManualBindingEntry
 {
@@ -40,7 +40,7 @@ public class ManualBindingEntry
     public DateTime BoundAt { get; set; }
 
     /// <summary>
-    /// Gets or sets the source of the binding (e.g. "ThemeFinder").
+    /// Gets or sets where the match was made: "Page" for the anime page, "ThemeFinder" for 1.x.
     /// </summary>
     [JsonPropertyName("source")]
     public string Source { get; set; } = string.Empty;

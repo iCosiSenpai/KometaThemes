@@ -12,10 +12,16 @@ namespace Jellyfin.Plugin.KometaThemes.Library;
 /// Tells Jellyfin to pick up theme files that were added, renamed or removed.
 /// </summary>
 /// <remarks>
+/// <para>
 /// 1.x ran a full refresh with "replace all metadata" after every download: every metadata provider
-/// was queried again and non-locked fields could be overwritten, all to register one theme song. In
-/// Jellyfin 12 a refresh always re-reads an item's extras, so a default refresh does it, exactly as a
-/// library scan would. Images are only validated, never fetched.
+/// was queried again and non-locked fields could be overwritten, all to register one theme song.
+/// </para>
+/// <para>
+/// Jellyfin re-reads an item's extras (theme songs and videos) on every refresh, before and apart from
+/// its metadata providers. A refresh in validation mode therefore registers the new files and never
+/// asks a metadata provider anything; 2.0's default mode still ran every provider when the library's
+/// refresh interval had passed, exactly like a library scan.
+/// </para>
 /// </remarks>
 public sealed class ItemRefresher
 {
@@ -44,7 +50,7 @@ public sealed class ItemRefresher
         ArgumentNullException.ThrowIfNull(item);
         var options = new MetadataRefreshOptions(new DirectoryService(_fileSystem))
         {
-            MetadataRefreshMode = MetadataRefreshMode.Default,
+            MetadataRefreshMode = MetadataRefreshMode.ValidationOnly,
             ImageRefreshMode = MetadataRefreshMode.ValidationOnly,
             ReplaceAllMetadata = false,
             ReplaceAllImages = false,

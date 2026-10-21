@@ -67,9 +67,9 @@ public sealed class KometaStateController : KometaControllerBase
         var youTube = _youTube.GetAvailability();
         return Json(new
         {
-            version = Plugin.Instance?.Version.ToString() ?? "2.0.0.0",
+            version = Plugin.Instance?.Version.ToString() ?? string.Empty,
             setupRequired = config.SetupCompletedVersion < PluginConfiguration.CurrentSchemaVersion,
-            whatsNew = !config.WhatsNewDismissed && config.SetupCompletedVersion >= PluginConfiguration.CurrentSchemaVersion,
+            whatsNew = config.WhatsNewSeen != PluginConfiguration.WhatsNewRelease && config.SetupCompletedVersion >= PluginConfiguration.CurrentSchemaVersion,
             libraries = _scope.GetLibraries(config),
             counts = new
             {
@@ -159,7 +159,7 @@ public sealed class KometaStateController : KometaControllerBase
         Plugin.MutateConfiguration(c =>
         {
             c.SetupCompletedVersion = PluginConfiguration.CurrentSchemaVersion;
-            c.WhatsNewDismissed = true;
+            c.WhatsNewSeen = PluginConfiguration.WhatsNewRelease;
         });
         return NoContent();
     }
@@ -171,7 +171,7 @@ public sealed class KometaStateController : KometaControllerBase
     [HttpPost("WhatsNew/Dismiss")]
     public ActionResult DismissWhatsNew()
     {
-        Plugin.MutateConfiguration(c => c.WhatsNewDismissed = true);
+        Plugin.MutateConfiguration(c => c.WhatsNewSeen = PluginConfiguration.WhatsNewRelease);
         return NoContent();
     }
 

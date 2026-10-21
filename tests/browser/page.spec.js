@@ -44,13 +44,17 @@ test('an anime page shows songs, episodes and each season', async ({ page }) => 
   await expect(page.locator('.kt-map-bar')).toHaveCount(4);
 
   // Arrow keys move between the season tabs.
-  await page.getByRole('tab', { name: 'Series' }).focus();
+  // The series tab lists how every season plays its themes.
+  await expect(page.locator('.kt-plan-row')).toHaveCount(2);
+  await expect(page.locator('.kt-plan-row').nth(1)).toContainText('own themes');
+
+  await page.getByRole('tab', { name: 'Series', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('tab', { name: 'Season 1' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: /^Season 1/ })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.kt-match')).toContainText('Plays the series themes');
 
   await page.keyboard.press('ArrowRight');
-  await expect(page.locator('.kt-match')).toContainText('Matched as a sequel on AniList');
+  await expect(page.locator('.kt-match')).toContainText('Matched to this season');
   await expect(page.locator('.kt-track').first()).toContainText('DADDY! DADDY! DO!');
   await expect(page.locator('.kt-track').nth(1)).toContainText('Episodes 2–4, 6–11');
 

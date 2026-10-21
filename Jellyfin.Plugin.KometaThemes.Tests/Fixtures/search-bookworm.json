@@ -1,0 +1,101 @@
+{
+  "search": {
+    "anime": [
+      {
+        "id": 1182,
+        "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen",
+        "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen",
+        "year": 2019,
+        "season": "Fall",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Ascendance of a Bookworm"
+          },
+          {
+            "text": "本好きの下剋上 司書になるためには手段を選んでいられません"
+          }
+        ],
+        "series": [
+          {
+            "id": 221,
+            "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen",
+            "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen"
+          }
+        ]
+      },
+      {
+        "id": 1183,
+        "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen 2nd Season",
+        "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen_2nd_season",
+        "year": 2020,
+        "season": "Spring",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Ascendance of a Bookworm"
+          },
+          {
+            "text": "Ascendance of a Bookworm Part 2"
+          },
+          {
+            "text": "本好きの下剋上 司書になるためには手段を選んでいられません 第2期"
+          }
+        ],
+        "series": [
+          {
+            "id": 221,
+            "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen",
+            "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen"
+          }
+        ]
+      },
+      {
+        "id": 4835,
+        "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen - Ryoushu no Youjo",
+        "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen_ryoushu_no_youjo",
+        "year": 2026,
+        "season": "Spring",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Ascendance of a Bookworm: Adopted Daughter of an Archduke"
+          },
+          {
+            "text": "本好きの下剋上 領主の養女"
+          }
+        ],
+        "series": [
+          {
+            "id": 221,
+            "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen",
+            "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen"
+          }
+        ]
+      },
+      {
+        "id": 3768,
+        "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen 3rd Season",
+        "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen_3rd_season",
+        "year": 2022,
+        "season": "Spring",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "Ascendance of a Bookworm Season 3"
+          },
+          {
+            "text": "本好きの下剋上 司書になるためには手段を選んでいられません 第3期"
+          }
+        ],
+        "series": [
+          {
+            "id": 221,
+            "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeiraremasen",
+            "slug": "honzuki_no_gekokujou_shisho_ni_naru_tame_ni_wa_shudan_wo_erandeiraremasen"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -74,7 +74,7 @@ public class ConfigurationTests
         Assert.True(config.VideoSettings.IgnoreThemesWithCredits);
         Assert.Equal(4, config.DegreeOfParallelism);
         Assert.Equal(90, config.RateLimitPerMinute);
-        Assert.Equal(["AniList", "AniDB", "MyAnimeList", "Kitsu", "AniSearch"], config.ProviderPriority);
+        Assert.Equal(["AniList", "AniDB", "MyAnimeList", "Kitsu"], config.ProviderPriority);
         Assert.Single(config.SkippedItems);
         Assert.Equal(new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc), config.SkippedItems[0].SkippedUtc.ToUniversalTime());
         Assert.Equal(1386, config.FindBinding(Guid.Parse("fcce4ac5-4da3-020f-92df-f4e1cbb1ec26"))!.AnimeId);
@@ -101,7 +101,7 @@ public class ConfigurationTests
         Assert.True(config.AudioSettings.Enabled);
         Assert.False(config.VideoSettings.Enabled);
         Assert.True(config.PerSeasonThemes);
-        Assert.Equal(5, config.ProviderPriority.Count);
+        Assert.Equal(4, config.ProviderPriority.Count);
     }
 
     [Fact]
@@ -121,7 +121,7 @@ public class ConfigurationTests
         }
 
         Assert.Single(config.LibraryIds);
-        Assert.Equal(5, config.ProviderPriority.Count);
+        Assert.Equal(4, config.ProviderPriority.Count);
     }
 
     [Theory]

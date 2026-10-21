@@ -8,11 +8,9 @@ namespace Jellyfin.Plugin.KometaThemes.Sync;
 /// Process-wide cap on concurrent ffmpeg invocations started by this plugin.
 /// </summary>
 /// <remarks>
-/// The Theme Finder used to cap parallelism with a <see cref="SemaphoreSlim"/> held in a field of the
-/// controller, which ASP.NET Core creates per request. It therefore limited concurrency only within a
-/// single request: N simultaneous download requests started 2N transcodes, with nothing bounding the
-/// total. On a NAS that is enough to starve playback transcoding. A DI singleton gives every entry
-/// point — sync, Theme Finder, YouTube import — one shared budget.
+/// A limit owned by a controller (created per request) or by one check would bound only that caller:
+/// a check, page actions and YouTube imports together could start any number of ffmpeg processes and
+/// starve playback transcoding on a NAS. A singleton gives every entry point one shared budget.
 /// </remarks>
 public sealed class TranscodeGate : IDisposable
 {

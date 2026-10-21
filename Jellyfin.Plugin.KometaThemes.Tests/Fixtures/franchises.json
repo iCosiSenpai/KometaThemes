@@ -1,0 +1,1008 @@
+[
+ {
+  "name": "3D Kanojo: Real Girl",
+  "root": 19,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2018,
+    "month": 4
+   },
+   {
+    "number": 2,
+    "eps": 12,
+    "year": 2019,
+    "month": 1
+   }
+  ],
+  "entries": [
+   {
+    "id": 19,
+    "year": 2018,
+    "month": 4,
+    "format": "TV",
+    "eps": null,
+    "al": "100526",
+    "themes": 2,
+    "name": "3D Kanojo: Real Girl"
+   },
+   {
+    "id": 20,
+    "year": 2019,
+    "month": 1,
+    "format": "TV",
+    "eps": 12,
+    "al": "102882",
+    "themes": 3,
+    "name": "3D Kanojo: Real Girl 2nd Season"
+   }
+  ]
+ },
+ {
+  "name": "The Angel Next Door Spoils Me Rotten",
+  "root": 3969,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2023,
+    "month": 1
+   },
+   {
+    "number": 2,
+    "eps": 12,
+    "year": 2026,
+    "month": 4
+   }
+  ],
+  "entries": [
+   {
+    "id": 3969,
+    "year": 2023,
+    "month": 1,
+    "format": "TV",
+    "eps": 12,
+    "al": "143338",
+    "themes": 4,
+    "name": "Otonari no Tenshi-sama ni Itsunomanika Dame Ningen ni Sareteita Ken"
+   },
+   {
+    "id": 4791,
+    "year": 2026,
+    "month": 4,
+    "format": "TV",
+    "eps": 12,
+    "al": "170019",
+    "themes": 5,
+    "name": "Otonari no Tenshi-sama ni Itsunomanika Dame Ningen ni Sareteita Ken 2n"
+   }
+  ]
+ },
+ {
+  "name": "Arrivare a te",
+  "root": 1507,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 25,
+    "year": 2009,
+    "month": 10
+   },
+   {
+    "number": 2,
+    "eps": 13,
+    "year": 2011,
+    "month": 1
+   },
+   {
+    "number": 3,
+    "eps": 6,
+    "year": 2024,
+    "month": 8
+   }
+  ],
+  "entries": [
+   {
+    "id": 1507,
+    "year": 2009,
+    "month": 10,
+    "format": "TV",
+    "eps": null,
+    "al": "6045",
+    "themes": 2,
+    "name": "Kimi ni Todoke"
+   },
+   {
+    "id": 1508,
+    "year": 2011,
+    "month": 1,
+    "format": "TV",
+    "eps": null,
+    "al": "9656",
+    "themes": 2,
+    "name": "Kimi ni Todoke 2nd Season"
+   },
+   {
+    "id": 4386,
+    "year": 2024,
+    "month": 7,
+    "format": "ONA",
+    "eps": 5,
+    "al": "168872",
+    "themes": 6,
+    "name": "Kimi ni Todoke 3rd Season"
+   }
+  ]
+ },
+ {
+  "name": "Ascendance of a Bookworm",
+  "root": 1182,
+  "seasons": [
+   {
+    "number": 4,
+    "eps": 12,
+    "year": null,
+    "month": null
+   }
+  ],
+  "entries": [
+   {
+    "id": 1182,
+    "year": 2019,
+    "month": 10,
+    "format": "TV",
+    "eps": null,
+    "al": "108268",
+    "themes": 2,
+    "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeirarem"
+   },
+   {
+    "id": 1183,
+    "year": 2020,
+    "month": 4,
+    "format": "TV",
+    "eps": null,
+    "al": "113693",
+    "themes": 2,
+    "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeirarem"
+   },
+   {
+    "id": 3768,
+    "year": 2022,
+    "month": 4,
+    "format": "TV",
+    "eps": 10,
+    "al": "121176",
+    "themes": 2,
+    "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeirarem"
+   },
+   {
+    "id": 4835,
+    "year": 2026,
+    "month": 4,
+    "format": "TV",
+    "eps": 13,
+    "al": "171110",
+    "themes": 4,
+    "name": "Honzuki no Gekokujou: Shisho ni Naru Tame ni wa Shudan wo Erandeirarem"
+   }
+  ]
+ },
+ {
+  "name": "The Asterisk War",
+  "root": 836,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2015,
+    "month": 10
+   },
+   {
+    "number": 2,
+    "eps": 12,
+    "year": 2016,
+    "month": 4
+   }
+  ],
+  "entries": [
+   {
+    "id": 836,
+    "year": 2015,
+    "month": 10,
+    "format": "TV",
+    "eps": 12,
+    "al": "21131",
+    "themes": 2,
+    "name": "Gakusen Toshi Asterisk"
+   },
+   {
+    "id": 837,
+    "year": 2016,
+    "month": 4,
+    "format": "TV",
+    "eps": 12,
+    "al": "21390",
+    "themes": 3,
+    "name": "Gakusen Toshi Asterisk 2nd Season"
+   }
+  ]
+ },
+ {
+  "name": "Black Clover",
+  "root": 308,
+  "seasons": [
+   {
+    "number": 2,
+    "eps": 3,
+    "year": 2026,
+    "month": 10
+   }
+  ],
+  "entries": [
+   {
+    "id": 308,
+    "year": 2017,
+    "month": 10,
+    "format": "TV",
+    "eps": 170,
+    "al": "97940",
+    "themes": 27,
+    "name": "Black Clover (TV)"
+   },
+   {
+    "id": 1981,
+    "year": 2019,
+    "month": 7,
+    "format": "ONA",
+    "eps": 1,
+    "al": "110318",
+    "themes": 1,
+    "name": "Mugyutto! Black Clover"
+   },
+   {
+    "id": 4963,
+    "year": 2026,
+    "month": 10,
+    "format": "TV",
+    "eps": 1,
+    "al": "195604",
+    "themes": 2,
+    "name": "Black Clover 2nd Season"
+   }
+  ]
+ },
+ {
+  "name": "The Caf\u00e9 Terrace and Its Goddesses",
+  "root": 4051,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2023,
+    "month": 4
+   },
+   {
+    "number": 2,
+    "eps": 12,
+    "year": 2024,
+    "month": 7
+   }
+  ],
+  "entries": [
+   {
+    "id": 4051,
+    "year": 2023,
+    "month": 4,
+    "format": "TV",
+    "eps": 12,
+    "al": "154412",
+    "themes": 2,
+    "name": "Megami no Caf\u00e9 Terrace"
+   },
+   {
+    "id": 4342,
+    "year": 2024,
+    "month": 7,
+    "format": "TV",
+    "eps": 12,
+    "al": "166477",
+    "themes": 2,
+    "name": "Megami no Caf\u00e9 Terrace 2nd Season"
+   }
+  ]
+ },
+ {
+  "name": "A Certain Magical Index",
+  "root": 2957,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 24,
+    "year": 2008,
+    "month": 10
+   },
+   {
+    "number": 2,
+    "eps": 24,
+    "year": 2010,
+    "month": 10
+   },
+   {
+    "number": 3,
+    "eps": 26,
+    "year": 2018,
+    "month": 10
+   }
+  ],
+  "entries": [
+   {
+    "id": 2957,
+    "year": 2008,
+    "month": 10,
+    "format": "TV",
+    "eps": 24,
+    "al": "4654",
+    "themes": 4,
+    "name": "Toaru Majutsu no Index"
+   },
+   {
+    "id": 2953,
+    "year": 2009,
+    "month": 10,
+    "format": "TV",
+    "eps": 24,
+    "al": "6213",
+    "themes": 5,
+    "name": "Toaru Kagaku no Railgun"
+   },
+   {
+    "id": 2954,
+    "year": 2010,
+    "month": 10,
+    "format": "OVA",
+    "eps": null,
+    "al": "9047",
+    "themes": 2,
+    "name": "Toaru Kagaku no Railgun: Misaka-san wa Ima Chuumoku no Mato Desu kara"
+   },
+   {
+    "id": 2958,
+    "year": 2010,
+    "month": 10,
+    "format": "TV",
+    "eps": 24,
+    "al": "8937",
+    "themes": 4,
+    "name": "Toaru Majutsu no Index II"
+   },
+   {
+    "id": 2955,
+    "year": 2013,
+    "month": 4,
+    "format": "TV",
+    "eps": 24,
+    "al": "16049",
+    "themes": 6,
+    "name": "Toaru Kagaku no Railgun S"
+   },
+   {
+    "id": 2959,
+    "year": 2018,
+    "month": 10,
+    "format": "TV",
+    "eps": 25,
+    "al": "100185",
+    "themes": 4,
+    "name": "Toaru Majutsu no Index III"
+   },
+   {
+    "id": 2952,
+    "year": 2019,
+    "month": 7,
+    "format": "TV",
+    "eps": 12,
+    "al": "104463",
+    "themes": 2,
+    "name": "Toaru Kagaku no Accelerator"
+   },
+   {
+    "id": 2956,
+    "year": 2020,
+    "month": 1,
+    "format": "TV",
+    "eps": 25,
+    "al": "104462",
+    "themes": 4,
+    "name": "Toaru Kagaku no Railgun T"
+   },
+   {
+    "id": 5018,
+    "year": 2026,
+    "month": 10,
+    "format": "TV",
+    "eps": 2,
+    "al": "186742",
+    "themes": 2,
+    "name": "Toaru Anbu no ITEM"
+   }
+  ]
+ },
+ {
+  "name": "Clannad",
+  "root": 486,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 23,
+    "year": 2007,
+    "month": 10
+   },
+   {
+    "number": 2,
+    "eps": 24,
+    "year": 2008,
+    "month": 10
+   }
+  ],
+  "entries": [
+   {
+    "id": 489,
+    "year": 2007,
+    "month": 7,
+    "format": "Movie",
+    "eps": null,
+    "al": "1723",
+    "themes": 2,
+    "name": "Clannad Movie"
+   },
+   {
+    "id": 486,
+    "year": 2007,
+    "month": 10,
+    "format": "TV",
+    "eps": null,
+    "al": "2167",
+    "themes": 2,
+    "name": "Clannad"
+   },
+   {
+    "id": 487,
+    "year": 2008,
+    "month": 10,
+    "format": "TV",
+    "eps": 23,
+    "al": "4181",
+    "themes": 3,
+    "name": "Clannad: After Story"
+   },
+   {
+    "id": 488,
+    "year": 2009,
+    "month": 7,
+    "format": "Special",
+    "eps": null,
+    "al": "6351",
+    "themes": 2,
+    "name": "Clannad: After Story - Mou Hitotsu no Sekai, Kyou-hen"
+   },
+   {
+    "id": 3556,
+    "year": 2021,
+    "month": 10,
+    "format": "TV Short",
+    "eps": 11,
+    "al": "132528",
+    "themes": 1,
+    "name": "Kaginado"
+   },
+   {
+    "id": 3781,
+    "year": 2022,
+    "month": 4,
+    "format": "TV Short",
+    "eps": 11,
+    "al": "143150",
+    "themes": 1,
+    "name": "Kaginado Season 2"
+   }
+  ]
+ },
+ {
+  "name": "Da campagnolo stagionato a gran maestro di spada",
+  "root": 4537,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2025,
+    "month": 4
+   },
+   {
+    "number": 2,
+    "eps": 12,
+    "year": 2026,
+    "month": 7
+   }
+  ],
+  "entries": [
+   {
+    "id": 4537,
+    "year": 2025,
+    "month": 4,
+    "format": "TV",
+    "eps": 12,
+    "al": "179955",
+    "themes": 2,
+    "name": "Katainaka no Ossan, Kensei ni Naru"
+   },
+   {
+    "id": 4916,
+    "year": 2026,
+    "month": 7,
+    "format": "TV",
+    "eps": 1,
+    "al": "194829",
+    "themes": 2,
+    "name": "Katainaka no Ossan, Kensei ni Naru II"
+   }
+  ]
+ },
+ {
+  "name": "The Dangers in My Heart",
+  "root": 4025,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2023,
+    "month": 4
+   },
+   {
+    "number": 2,
+    "eps": 13,
+    "year": null,
+    "month": null
+   }
+  ],
+  "entries": [
+   {
+    "id": 4025,
+    "year": 2023,
+    "month": 4,
+    "format": "TV",
+    "eps": 12,
+    "al": "153152",
+    "themes": 2,
+    "name": "Boku no Kokoro no Yabai Yatsu"
+   },
+   {
+    "id": 4212,
+    "year": 2024,
+    "month": 1,
+    "format": "TV",
+    "eps": 1,
+    "al": "166216",
+    "themes": 2,
+    "name": "Boku no Kokoro no Yabai Yatsu Season 2"
+   },
+   {
+    "id": 4939,
+    "year": 2026,
+    "month": 1,
+    "format": "Movie",
+    "eps": null,
+    "al": "182317",
+    "themes": 1,
+    "name": "Boku no Kokoro no Yabai Yatsu Movie"
+   }
+  ]
+ },
+ {
+  "name": "DanMachi",
+  "root": 680,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 13,
+    "year": null,
+    "month": null
+   },
+   {
+    "number": 2,
+    "eps": 13,
+    "year": null,
+    "month": null
+   },
+   {
+    "number": 3,
+    "eps": 12,
+    "year": null,
+    "month": null
+   },
+   {
+    "number": 4,
+    "eps": 22,
+    "year": null,
+    "month": null
+   },
+   {
+    "number": 5,
+    "eps": 15,
+    "year": null,
+    "month": null
+   }
+  ],
+  "entries": [
+   {
+    "id": 680,
+    "year": 2015,
+    "month": 4,
+    "format": "TV",
+    "eps": 13,
+    "al": "20920",
+    "themes": 3,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka"
+   },
+   {
+    "id": 686,
+    "year": 2016,
+    "month": 10,
+    "format": "OVA",
+    "eps": null,
+    "al": "21660",
+    "themes": 2,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka OVA"
+   },
+   {
+    "id": 684,
+    "year": 2017,
+    "month": 4,
+    "format": "TV",
+    "eps": 12,
+    "al": "21676",
+    "themes": 2,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka Gaiden: Sword"
+   },
+   {
+    "id": 685,
+    "year": 2019,
+    "month": 1,
+    "format": "Movie",
+    "eps": null,
+    "al": "101166",
+    "themes": 1,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka Movie: Orion"
+   },
+   {
+    "id": 681,
+    "year": 2019,
+    "month": 7,
+    "format": "TV",
+    "eps": 12,
+    "al": "101167",
+    "themes": 2,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II"
+   },
+   {
+    "id": 682,
+    "year": 2020,
+    "month": 1,
+    "format": "OVA",
+    "eps": null,
+    "al": "112125",
+    "themes": 1,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka II OVA"
+   },
+   {
+    "id": 683,
+    "year": 2020,
+    "month": 10,
+    "format": "TV",
+    "eps": 12,
+    "al": "112124",
+    "themes": 2,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka III"
+   },
+   {
+    "id": 3386,
+    "year": 2021,
+    "month": 4,
+    "format": "OVA",
+    "eps": null,
+    "al": "127368",
+    "themes": 1,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka III OVA"
+   },
+   {
+    "id": 3866,
+    "year": 2022,
+    "month": 7,
+    "format": "TV",
+    "eps": 11,
+    "al": "129196",
+    "themes": 2,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka IV: Shin Shou"
+   },
+   {
+    "id": 3957,
+    "year": 2023,
+    "month": 1,
+    "format": "TV",
+    "eps": 11,
+    "al": "155211",
+    "themes": 2,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka IV: Fuka Shou"
+   },
+   {
+    "id": 4403,
+    "year": 2024,
+    "month": 10,
+    "format": "TV",
+    "eps": 15,
+    "al": "170732",
+    "themes": 2,
+    "name": "Dungeon ni Deai wo Motomeru no wa Machigatteiru Darou ka V: Houjou no"
+   }
+  ]
+ },
+ {
+  "name": "The Disastrous Life of Saiki K.",
+  "root": 2442,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 24,
+    "year": 2016,
+    "month": 7
+   },
+   {
+    "number": 2,
+    "eps": 24,
+    "year": 2018,
+    "month": 1
+   },
+   {
+    "number": 3,
+    "eps": 2,
+    "year": null,
+    "month": null
+   }
+  ],
+  "entries": [
+   {
+    "id": 2442,
+    "year": 2016,
+    "month": 7,
+    "format": "TV Short",
+    "eps": 24,
+    "al": "21804",
+    "themes": 4,
+    "name": "Saiki Kusuo no \u03a8-nan"
+   },
+   {
+    "id": 2443,
+    "year": 2018,
+    "month": 1,
+    "format": "TV",
+    "eps": 24,
+    "al": "98034",
+    "themes": 4,
+    "name": "Saiki Kusuo no \u03a8-nan 2"
+   }
+  ]
+ },
+ {
+  "name": "The Faraway Paladin",
+  "root": 3539,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2021,
+    "month": 10
+   },
+   {
+    "number": 2,
+    "eps": 12,
+    "year": 2023,
+    "month": 10
+   }
+  ],
+  "entries": [
+   {
+    "id": 3539,
+    "year": 2021,
+    "month": 10,
+    "format": "TV",
+    "eps": 12,
+    "al": "132473",
+    "themes": 3,
+    "name": "Saihate no Paladin"
+   },
+   {
+    "id": 4171,
+    "year": 2023,
+    "month": 10,
+    "format": "TV",
+    "eps": 12,
+    "al": "143085",
+    "themes": 3,
+    "name": "Saihate no Paladin: Tetsusabi no Yama no Ou"
+   }
+  ]
+ },
+ {
+  "name": "Fruits Basket 1st Season",
+  "root": 784,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 25,
+    "year": 2019,
+    "month": 4
+   },
+   {
+    "number": 2,
+    "eps": 25,
+    "year": 2020,
+    "month": 4
+   },
+   {
+    "number": 3,
+    "eps": 13,
+    "year": 2021,
+    "month": 4
+   }
+  ],
+  "entries": [
+   {
+    "id": 783,
+    "year": 2001,
+    "month": 7,
+    "format": "TV",
+    "eps": 25,
+    "al": "120",
+    "themes": 3,
+    "name": "Fruits Basket"
+   },
+   {
+    "id": 784,
+    "year": 2019,
+    "month": 4,
+    "format": "TV",
+    "eps": 25,
+    "al": "105334",
+    "themes": 4,
+    "name": "Fruits Basket"
+   },
+   {
+    "id": 785,
+    "year": 2020,
+    "month": 4,
+    "format": "TV",
+    "eps": 25,
+    "al": "111762",
+    "themes": 5,
+    "name": "Fruits Basket 2nd Season"
+   },
+   {
+    "id": 3324,
+    "year": 2021,
+    "month": 4,
+    "format": "TV",
+    "eps": 13,
+    "al": "124194",
+    "themes": 2,
+    "name": "Fruits Basket: The Final"
+   },
+   {
+    "id": 3792,
+    "year": 2022,
+    "month": 1,
+    "format": "Movie",
+    "eps": null,
+    "al": "136192",
+    "themes": 1,
+    "name": "Fruits Basket: Prelude"
+   }
+  ]
+ },
+ {
+  "name": "Grand Blue Dreaming",
+  "root": 975,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2018,
+    "month": 7
+   },
+   {
+    "number": 2,
+    "eps": 12,
+    "year": 2025,
+    "month": 7
+   },
+   {
+    "number": 3,
+    "eps": 12,
+    "year": 2026,
+    "month": 7
+   }
+  ],
+  "entries": [
+   {
+    "id": 975,
+    "year": 2018,
+    "month": 7,
+    "format": "TV",
+    "eps": 11,
+    "al": "100922",
+    "themes": 3,
+    "name": "Grand Blue"
+   },
+   {
+    "id": 4610,
+    "year": 2025,
+    "month": 7,
+    "format": "TV",
+    "eps": 12,
+    "al": "182309",
+    "themes": 2,
+    "name": "Grand Blue Season 2"
+   },
+   {
+    "id": 4902,
+    "year": 2026,
+    "month": 7,
+    "format": "TV",
+    "eps": 12,
+    "al": "199111",
+    "themes": 2,
+    "name": "Grand Blue Season 3"
+   }
+  ]
+ },
+ {
+  "name": "HELL MODE - Il giocatore hardcore domina in un altro mondo con settaggi folli",
+  "root": 4757,
+  "seasons": [
+   {
+    "number": 1,
+    "eps": 12,
+    "year": 2026,
+    "month": 1
+   },
+   {
+    "number": 2,
+    "eps": 13,
+    "year": 2026,
+    "month": 7
+   }
+  ],
+  "entries": [
+   {
+    "id": 4757,
+    "year": 2026,
+    "month": 1,
+    "format": "TV",
+    "eps": 2,
+    "al": "185262",
+    "themes": 2,
+    "name": "Hell Mode: Yarikomi Suki no Gamer wa Haisettei no Isekai de Musou Suru"
+   },
+   {
+    "id": 4873,
+    "year": 2026,
+    "month": 7,
+    "format": "TV",
+    "eps": 1,
+    "al": "209983",
+    "themes": 2,
+    "name": "Hell Mode: Yarikomi-zuki no Gamer wa Haisettei no Isekai de Musou Suru"
+   }
+  ]
+ }
+]

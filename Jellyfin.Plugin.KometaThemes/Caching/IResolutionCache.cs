@@ -43,17 +43,4 @@ public interface IResolutionCache
 
     /// <summary>Forgets everything.</summary>
     void Clear();
-
-    /// <summary>Gets entry counts and hit statistics.</summary>
-    /// <returns>The statistics.</returns>
-    CacheStats GetStats();
 }
-
-/// <summary>
-/// Cache statistics.
-/// </summary>
-/// <param name="PositiveEntries">Remembered matches.</param>
-/// <param name="NegativeEntries">Remembered misses.</param>
-/// <param name="TotalHits">Lookups answered from the cache.</param>
-/// <param name="TotalMisses">Lookups that went to the network.</param>
-public record CacheStats(int PositiveEntries, int NegativeEntries, long TotalHits, long TotalMisses);

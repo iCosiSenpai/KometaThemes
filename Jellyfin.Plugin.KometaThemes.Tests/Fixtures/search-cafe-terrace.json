@@ -1,0 +1,55 @@
+{
+  "search": {
+    "anime": [
+      {
+        "id": 4051,
+        "name": "Megami no Café Terrace",
+        "slug": "megami_no_cafe_terrace",
+        "year": 2023,
+        "season": "Spring",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "The Café Terrace and Its Goddesses"
+          },
+          {
+            "text": "Goddess Café Terrace"
+          },
+          {
+            "text": "女神のカフェテラス"
+          }
+        ],
+        "series": [
+          {
+            "id": 328,
+            "name": "Megami no Café Terrace",
+            "slug": "megami_no_cafe_terrace"
+          }
+        ]
+      },
+      {
+        "id": 4342,
+        "name": "Megami no Café Terrace 2nd Season",
+        "slug": "megami_no_cafe_terrace_2nd_season",
+        "year": 2024,
+        "season": "Summer",
+        "media_format": "TV",
+        "animesynonyms": [
+          {
+            "text": "The Café Terrace and Its Goddesses Season 2"
+          },
+          {
+            "text": "女神のカフェテラス 第２期"
+          }
+        ],
+        "series": [
+          {
+            "id": 328,
+            "name": "Megami no Café Terrace",
+            "slug": "megami_no_cafe_terrace"
+          }
+        ]
+      }
+    ]
+  }
+}

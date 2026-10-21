@@ -11,7 +11,7 @@
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-12.x-7c5cff?labelColor=171a2b)
 [![License](https://img.shields.io/github/license/iCosiSenpai/KometaThemes?labelColor=171a2b)](LICENSE)
 
-[Install](#installation) · [First run](#first-run) · [Everyday use](#everyday-use) · [Upgrading from 1.x](#upgrading-from-1x) · [Troubleshooting](docs/troubleshooting.md) · [API](docs/api.md)
+[Install](#installation) · [First run](#first-run) · [Everyday use](#everyday-use) · [How seasons are matched](#how-seasons-are-matched) · [Upgrading](#upgrading) · [Troubleshooting](docs/troubleshooting.md) · [API](docs/api.md)
 
 </div>
 
@@ -26,11 +26,12 @@ No account or API key is needed.
 
 - **Real songs, real names.** Files are named after the song, `OP1 - Love Dramatic feat. Rikka Ihara.mp3`,
   and tagged with title, artist and anime.
-- **Every season its own themes.** A later season is matched to its own animethemes.moe entry by
-  following the sequels on AniList, and only when the premiere year and the number of episodes
-  agree. When the match is not certain the season plays the series themes: never the wrong song.
-- **Matching that explains itself.** AniDB, AniList, MyAnimeList, Kitsu and aniSearch IDs first,
-  then a careful title search. The anime page says how each match was made, and you can change it.
+- **Every season its own themes.** A later season is matched to its own entry among the anime
+  animethemes.moe groups with the series, by premiere date and number of episodes. When the match is
+  not certain the season plays the series themes: never the wrong song. [How it works](#how-seasons-are-matched).
+- **Matching that explains itself.** AniDB, AniList, MyAnimeList and Kitsu IDs first, then the
+  titles, other titles and abbreviations included ("DanMachi", "The Café Terrace and Its Goddesses").
+  The anime page says how each match was made, and you can change it.
 - **An episode map.** Each anime page shows which episodes every opening and ending plays in.
 - **Songs, videos, or both.** Choose openings, endings, the main theme or all of them, creditless
   videos only, and the volume.
@@ -80,9 +81,11 @@ or *Needs attention* when animethemes.moe has no entry for it. Filter and search
 
 **Anime page.** Click an anime to see:
 
-- the entry it is matched to and how (for example *Matched by AniList ID 101921*, or *Matched as a
-  sequel on AniList* for a season), with **Change match** to search animethemes.moe yourself;
-- one tab for the series and one per season;
+- the entry it is matched to and how (for example *Matched by AniList ID 101921*, or *premiered Apr
+  2020, 12 episodes* for a season), with **Change match**, which lists the entries of the same
+  franchise and searches animethemes.moe;
+- one tab for the series and one per season; on the series tab, the **Seasons** list shows which
+  season has its own themes, from which entry, and which plays the series themes;
 - the episode map and the list of songs, each with a preview and **Song** / **Video** buttons: a
   solid button is in the folder, a dashed one downloads at the next check, a struck one stays out;
 - the files in each theme folder, including your own, which KometaThemes never touches;
@@ -107,9 +110,36 @@ every 12 hours by default) and from **Check now**.
 Next to them, `_kometa_themes.json` records which files KometaThemes wrote. Movies that share a
 folder with other movies get no themes: Jellyfin does not look for them there.
 
-## Upgrading from 1.x
+## How seasons are matched
 
-Install 2.0 from the catalog on Jellyfin 12. Your settings, exclusions and manual matches are kept,
+On animethemes.moe every season is a separate anime, and anime of one franchise are grouped in a
+*series* (Kaguya-sama's four seasons, a special and a movie). Jellyfin numbers the seasons of a
+show, usually as TVDB does. KometaThemes lines the two up, in order:
+
+- Each library season is paired with the entry whose premiere is closest to the season's, when the
+  number of episodes agrees too. A season number in the entry's name ("2nd Season", "III") and the
+  order of the franchise help when Jellyfin does not date a season.
+- A season can take several consecutive entries, when TVDB counts a split cour as one season
+  (DanMachi IV is two entries).
+- Seasons can share one long entry (TVDB splits Black Clover's 170 episodes into four seasons): each
+  season then gets the openings and endings of its own episodes.
+- Movies, OVAs and side stories in between (the KonoSuba movie, Sword Oratoria) are skipped, never
+  taken for a season.
+- AniList, when it is reachable, confirms which entries are sequels and gives exact episode counts.
+  It is not required: on 2026-10-21 its API was switched off, and matching went on without it.
+- A pairing needs two signals that agree and must beat every alternative; otherwise the season
+  plays the series themes. **Change match** on a season fixes it by hand.
+
+Jellyfin plays a season's own themes on the season page and its episodes, and the series themes
+everywhere else. The series folder holds the themes of the first season.
+
+## Upgrading
+
+From 2.0: anime that were not found are tried again at the next check, the files of each season are
+matched anew, and long series get their endings back. Nothing is downloaded again that is already
+right.
+
+From 1.x: install 2.x from the catalog on Jellyfin 12. Your settings, exclusions and manual matches are kept,
 and the libraries matched by the old name pattern become the selected libraries. At the next check:
 
 - files are renamed to the song names (`OP0 - Op1__50.mp3` becomes `OP1 - Love Dramatic.mp3`),

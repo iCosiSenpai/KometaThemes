@@ -128,13 +128,56 @@ public class HttpTests
     }
 
     [Fact]
-    public async Task GetAnime_ReturnsNullFor404_AndThrowsOnGarbage()
+    public async Task GetAnime_ScopesTheIdFilterToAnime()
+    {
+        // An unscoped filter[id] also filters the included themes, resources and images by that ID:
+        // 2.0 got every manual and title match back without a single theme.
+        var kaguya = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "kaguya-s1.json"));
+        var anime = System.Text.Json.JsonDocument.Parse(kaguya).RootElement.GetProperty("anime").GetRawText();
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"anime\":[" + anime + "],\"links\":{\"next\":null}}")));
+
+        var found = await Client(server).GetAnimeAsync(1386, CancellationToken.None);
+
+        var query = Uri.UnescapeDataString(server.Requests.Single().Query);
+        Assert.Contains("filter[anime][id]=1386", query, StringComparison.Ordinal);
+        Assert.DoesNotContain("filter[id]", query, StringComparison.Ordinal);
+        Assert.NotNull(found);
+        Assert.NotEmpty(found!.Themes!);
+    }
+
+    [Fact]
+    public async Task GetAnime_DropsAnimeThatWereNotAskedFor()
+    {
+        var kaguya = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "kaguya-s1.json"));
+        var anime = System.Text.Json.JsonDocument.Parse(kaguya).RootElement.GetProperty("anime").GetRawText();
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"anime\":[" + anime + "],\"links\":{\"next\":null}}")));
+
+        Assert.Null(await Client(server).GetAnimeAsync(42, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetSeries_ReturnsEmptyFor404_AndThrowsOnGarbage()
     {
         var missing = new FakeServer((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
-        Assert.Null(await Client(missing).GetAnimeBySlugAsync("nope", CancellationToken.None));
+        Assert.Empty(await Client(missing).GetSeriesAsync("nope", CancellationToken.None));
 
         var garbage = new FakeServer((_, _) => Task.FromResult(Json("<html>maintenance</html>")));
         await Assert.ThrowsAsync<HttpRequestException>(() => Client(garbage).GetAnimeAsync(1, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetSeries_ReadsTheFranchise()
+    {
+        const string body = "{\"series\":{\"id\":223,\"name\":\"Kaguya-sama wa Kokurasetai\",\"slug\":\"kaguya_sama_wa_kokurasetai\",\"anime\":["
+            + "{\"id\":1386,\"name\":\"Kaguya-sama wa Kokurasetai: Tensai-tachi no Renai Zunousen\",\"slug\":\"a\",\"year\":2019,\"season\":\"Winter\",\"media_format\":\"TV\"},"
+            + "{\"id\":1387,\"name\":\"Kaguya-sama wa Kokurasetai?: Tensai-tachi no Renai Zunousen\",\"slug\":\"b\",\"year\":2020,\"season\":\"Spring\",\"media_format\":\"TV\"}]}}";
+        var server = new FakeServer((_, _) => Task.FromResult(Json(body)));
+
+        var members = await Client(server).GetSeriesAsync("kaguya_sama_wa_kokurasetai", CancellationToken.None);
+
+        Assert.Equal("/series/kaguya_sama_wa_kokurasetai", server.Requests.Single().AbsolutePath);
+        Assert.Equal([1386, 1387], members.Select(m => m.Id));
+        Assert.Equal("Spring", members[1].Season);
     }
 
     [Fact]
