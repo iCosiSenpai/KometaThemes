@@ -2,32 +2,40 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.KometaThemes.Models;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.KometaThemes.AnimeThemes;
 
 /// <summary>
-/// Client of the animethemes.moe JSON:API.
+/// Client of the animethemes.moe GraphQL API.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Failures are reported in one way only: a request that could not be answered (network error,
-/// timeout, 5xx after retries, unreadable body) throws <see cref="HttpRequestException"/>, while an
-/// answer that simply has no data returns an empty result. Callers can then tell "not on
-/// animethemes.moe" from "animethemes.moe is unreachable".
+/// The REST JSON:API this class used before (<c>https://api.animethemes.moe/</c>) answers 503 on every
+/// route since November 2026, which left the plugin unable to download anything. The same data is
+/// served as GraphQL at <c>https://graphql.animethemes.moe/</c>: one POST per request, carrying the
+/// document and its variables. The public surface and the models it returns are unchanged, so
+/// <see cref="Resolving.AnimeResolver"/>, <see cref="Resolving.SeasonResolver"/>,
+/// <see cref="Resolving.TitleSearchResolver"/> and <see cref="Api.KometaItemsController"/> need no
+/// change.
 /// </para>
 /// <para>
-/// Filters are always scoped to the anime type (<c>filter[anime][id]</c>). The API applies an
-/// unscoped filter to every included relation too, so 2.0's <c>filter[id]=1386</c> also filtered the
-/// themes, resources and images by that ID and returned an anime with none of them: every title match
-/// and every manual match then looked like an entry without themes.
+/// Filters are always part of the query itself. The REST API applied an unscoped filter to every
+/// included relation too, so 2.0's <c>filter[id]=1386</c> also filtered themes, resources and images
+/// by that ID; the GraphQL API has no such trap, and the IDs that come back are re-checked anyway.
+/// </para>
+/// <para>
+/// Failures are reported in one way only: a request that could not be answered (network error,
+/// timeout, non-success status after retries, GraphQL <c>errors</c> without data, unreadable body)
+/// throws <see cref="HttpRequestException"/>, while an answer with no data returns an empty result.
+/// Callers can then tell "not on animethemes.moe" from "animethemes.moe is unreachable".
 /// </para>
 /// </remarks>
 public sealed class AnimeThemesClient
@@ -35,16 +43,11 @@ public sealed class AnimeThemesClient
     /// <summary>Name of the configured HTTP client.</summary>
     public const string HttpClientName = "AnimeThemes";
 
-    /// <summary>Relations included with every anime: covers, songs and artists, versions, files, external IDs, franchise, other titles.</summary>
-    internal const string DetailInclude = "images,animethemes.song.artists,animethemes.animethemeentries.videos.audio,resources,series,animesynonyms";
+    /// <summary>IDs per lookup: the API answers a hundred in one request.</summary>
+    private const int LookupBatch = 100;
 
-    /// <summary>Largest page the API serves.</summary>
-    private const int PageSize = 100;
-
-    /// <summary>Anime per detail request: each carries all its themes and files, so pages stay small.</summary>
+    /// <summary>Anime per detail request: each carries all its themes and files, so batches stay small.</summary>
     private const int DetailBatch = 10;
-
-    private const int MaxPages = 5;
 
     private readonly IHttpClientFactory _clientFactory;
     private readonly ILogger<AnimeThemesClient> _logger;
@@ -64,8 +67,8 @@ public sealed class AnimeThemesClient
     /// Finds anime by their ID on another site, in batches.
     /// </summary>
     /// <remarks>
-    /// The resource filter also limits the included resources to that site, so the anime returned
-    /// here carry only the link that matched. <see cref="GetAnimeAsync(IEnumerable{int}, CancellationToken)"/> returns them all.
+    /// The answer carries every anime that has a link to that site with one of the requested IDs,
+    /// with all its resources; each returned anime is re-checked against the requested link.
     /// </remarks>
     /// <param name="site">Site name as animethemes.moe spells it, such as <c>AniList</c>.</param>
     /// <param name="ids">IDs on that site.</param>
@@ -74,6 +77,8 @@ public sealed class AnimeThemesClient
     /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
     public async Task<Dictionary<string, Anime[]>> FindByExternalIdsAsync(string site, IEnumerable<string> ids, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(ids);
+
         var requested = ids
             .Select(id => id?.Trim() ?? string.Empty)
             .Where(id => id.Length > 0)
@@ -81,10 +86,25 @@ public sealed class AnimeThemesClient
             .ToArray();
 
         var result = new Dictionary<string, Anime[]>(StringComparer.OrdinalIgnoreCase);
-        foreach (var batch in requested.Chunk(PageSize))
+
+        // animethemes.moe only stores IDs of the sites its enum names: anything else cannot match, and
+        // asking would be a GraphQL validation error rather than an empty answer.
+        var graphQlSite = AnimeThemesMapper.SiteEnum(site);
+        if (graphQlSite == null)
+        {
+            foreach (var id in requested)
+            {
+                result[id] = [];
+            }
+
+            _logger.LogDebug("animethemes.moe stores no {Site} IDs, so none of the {Requested} IDs can match", site, requested.Length);
+            return result;
+        }
+
+        foreach (var batch in requested.Chunk(LookupBatch))
         {
             // Only numeric IDs can match: the API stores external IDs as integers. Anything else is
-            // answered locally instead of producing a malformed filter.
+            // answered locally instead of producing a malformed variable.
             var numeric = batch
                 .Select(id => (Raw: id, Ok: int.TryParse(id, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n), Value: n))
                 .ToArray();
@@ -93,18 +113,16 @@ public sealed class AnimeThemesClient
             var valid = numeric.Where(n => n.Ok).Select(n => n.Value).Distinct().ToArray();
             if (valid.Length > 0)
             {
-                var query = new Dictionary<string, string?>
-                {
-                    ["filter[resource][external_id]"] = string.Join(',', valid.Select(v => v.ToString(CultureInfo.InvariantCulture))),
-                    ["filter[resource][site]"] = site,
+                var data = await PostAsync(
+                    AnimeThemesQueries.FindByExternalIds,
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["site"] = graphQlSite,
+                        ["ids"] = valid,
+                    },
+                    cancellationToken).ConfigureAwait(false);
 
-                    // Without this the resource filter is ignored and the API returns an arbitrary page.
-                    ["filter[has]"] = "resources",
-                    ["page[size]"] = PageSize.ToString(CultureInfo.InvariantCulture),
-                    ["include"] = DetailInclude,
-                };
-
-                foreach (var anime in await GetAllPagesAsync(QueryHelpers.AddQueryString("anime", query), cancellationToken).ConfigureAwait(false))
+                foreach (var anime in AnimeThemesMapper.ReadAnimeList(AnimeThemesMapper.Field(data, "findAnimeByExternalSite")))
                 {
                     // Re-check the link: never trust that a returned anime belongs to a requested ID.
                     foreach (var resource in anime.Resources ?? [])
@@ -155,16 +173,12 @@ public sealed class AnimeThemesClient
             return [];
         }
 
-        var uri = QueryHelpers.AddQueryString("search", new Dictionary<string, string?>
-        {
-            ["q"] = title.Trim(),
-            ["fields[search]"] = "anime",
-            ["include[anime]"] = "images,animethemes,animesynonyms,series",
-            ["page[limit]"] = "15",
-        });
-
-        var response = await GetJsonAsync<SearchResponse>(uri, cancellationToken).ConfigureAwait(false);
-        return response?.Search?.Anime?.ToArray() ?? [];
+        var data = await PostAsync(
+            AnimeThemesQueries.Search,
+            new Dictionary<string, object?>(StringComparer.Ordinal) { ["search"] = title.Trim() },
+            cancellationToken).ConfigureAwait(false);
+        var search = AnimeThemesMapper.Field(data, "search");
+        return AnimeThemesMapper.ReadAnimeList(AnimeThemesMapper.Field(search, "anime")).ToArray();
     }
 
     /// <summary>
@@ -189,19 +203,28 @@ public sealed class AnimeThemesClient
     /// <exception cref="HttpRequestException">animethemes.moe could not be reached.</exception>
     public async Task<IReadOnlyList<Anime>> GetAnimeAsync(IEnumerable<int> ids, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(ids);
+
         var wanted = ids.Where(id => id > 0).Distinct().ToArray();
         var result = new List<Anime>();
         foreach (var batch in wanted.Chunk(DetailBatch))
         {
-            var uri = QueryHelpers.AddQueryString("anime", new Dictionary<string, string?>
-            {
-                ["filter[anime][id]"] = string.Join(',', batch.Select(id => id.ToString(CultureInfo.InvariantCulture))),
-                ["page[size]"] = PageSize.ToString(CultureInfo.InvariantCulture),
-                ["include"] = DetailInclude,
-            });
+            var data = await PostAsync(
+                AnimeThemesQueries.AnimeByIds(batch),
+                AnimeThemesQueries.AnimeByIdVariables(batch),
+                cancellationToken).ConfigureAwait(false);
 
             // Re-check the IDs: an ignored filter must never hand back unrelated anime.
-            result.AddRange((await GetAllPagesAsync(uri, cancellationToken).ConfigureAwait(false)).Where(anime => batch.Contains(anime.Id)));
+            foreach (var alias in data.EnumerateObject())
+            {
+                foreach (var anime in AnimeThemesMapper.ReadAnimeList(AnimeThemesMapper.Field(alias.Value, "data")))
+                {
+                    if (batch.Contains(anime.Id))
+                    {
+                        result.Add(anime);
+                    }
+                }
+            }
         }
 
         return result.DistinctBy(anime => anime.Id).ToList();
@@ -221,100 +244,98 @@ public sealed class AnimeThemesClient
             return [];
         }
 
-        var uri = QueryHelpers.AddQueryString("series/" + Uri.EscapeDataString(slug.Trim()), "include", "anime");
-        using var document = await GetDocumentAsync(uri, cancellationToken).ConfigureAwait(false);
-        if (document == null
-            || !document.RootElement.TryGetProperty("series", out var series)
-            || series.ValueKind != JsonValueKind.Object
-            || !series.TryGetProperty("anime", out var members)
-            || members.ValueKind != JsonValueKind.Array)
+        var data = await PostAsync(
+            AnimeThemesQueries.Series,
+            new Dictionary<string, object?>(StringComparer.Ordinal) { ["slug"] = slug.Trim() },
+            cancellationToken).ConfigureAwait(false);
+        var series = AnimeThemesMapper.Field(data, "series");
+        if (series is not { ValueKind: JsonValueKind.Object })
         {
             return [];
         }
 
-        return Read<List<Anime>>(members) ?? [];
-    }
-
-    private async Task<List<Anime>> GetAllPagesAsync(string firstUri, CancellationToken cancellationToken)
-    {
-        var all = new List<Anime>();
-        string? next = firstUri;
-        for (var page = 0; page < MaxPages && next != null; page++)
-        {
-            using var document = await GetDocumentAsync(next, cancellationToken).ConfigureAwait(false);
-            if (document == null)
-            {
-                break;
-            }
-
-            var root = document.RootElement;
-            if (root.TryGetProperty("anime", out var list) && list.ValueKind == JsonValueKind.Array)
-            {
-                all.AddRange(Read<List<Anime>>(list) ?? []);
-            }
-
-            next = root.TryGetProperty("links", out var links)
-                && links.TryGetProperty("next", out var nextElement)
-                && nextElement.ValueKind == JsonValueKind.String
-                    ? nextElement.GetString()
-                    : null;
-        }
-
-        return all;
-    }
-
-    private async Task<T?> GetJsonAsync<T>(string uri, CancellationToken cancellationToken)
-        where T : class
-    {
-        using var document = await GetDocumentAsync(uri, cancellationToken).ConfigureAwait(false);
-        return document == null ? null : Read<T>(document.RootElement);
-    }
-
-    private static T? Read<T>(JsonElement element)
-        where T : class
-    {
-        try
-        {
-            return element.Deserialize<T>();
-        }
-        catch (JsonException ex)
-        {
-            throw new HttpRequestException("animethemes.moe sent data in an unexpected shape.", ex);
-        }
+        return AnimeThemesMapper.ReadAnimeList(AnimeThemesMapper.Field(series, "anime")).ToList();
     }
 
     /// <summary>
-    /// Fetches a JSON document. Null means "no such resource"; anything that prevents an answer throws.
+    /// Sends one GraphQL document and returns its <c>data</c> object.
     /// </summary>
-    private async Task<JsonDocument?> GetDocumentAsync(string uri, CancellationToken cancellationToken)
+    /// <remarks>
+    /// Everything that prevents an answer throws: the caller must never read an outage as "no data".
+    /// </remarks>
+    /// <param name="query">GraphQL document.</param>
+    /// <param name="variables">Variables of the document.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The <c>data</c> object of the answer.</returns>
+    /// <exception cref="HttpRequestException">animethemes.moe could not answer.</exception>
+    private async Task<JsonElement> PostAsync(string query, Dictionary<string, object?> variables, CancellationToken cancellationToken)
     {
         var client = _clientFactory.CreateClient(HttpClientName);
-        using var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        var body = JsonSerializer.Serialize(new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            return null;
-        }
+            ["query"] = query,
+            ["variables"] = variables,
+        });
 
+        // A string body is buffered, so the retry handler can send the same request again.
+        using var request = new HttpRequestMessage(HttpMethod.Post, string.Empty)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            // 4xx other than 404 means the request itself is wrong; still not "no data", so report it.
+            // Not even a GraphQL answer: the endpoint itself is gone or refusing the request.
             throw new HttpRequestException(
-                string.Create(CultureInfo.InvariantCulture, $"animethemes.moe answered {(int)response.StatusCode} for {uri}"),
+                string.Create(CultureInfo.InvariantCulture, $"animethemes.moe answered {(int)response.StatusCode}"),
                 null,
                 response.StatusCode);
         }
 
+        JsonDocument document;
         try
         {
-            var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using (stream.ConfigureAwait(false))
-            {
-                return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
-            }
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
         catch (JsonException ex)
         {
             throw new HttpRequestException("animethemes.moe sent a response that is not valid JSON.", ex);
         }
+
+        using (document)
+        {
+            var root = document.RootElement;
+            var errors = AnimeThemesMapper.Field(root, "errors");
+            var data = AnimeThemesMapper.Field(root, "data");
+            if (data is { ValueKind: JsonValueKind.Object } value)
+            {
+                if (errors is { ValueKind: JsonValueKind.Array } list && list.GetArrayLength() > 0)
+                {
+                    // Partial answers exist (one alias of a batch failed); the data that came back is
+                    // still usable, but the failure must be visible in the log.
+                    _logger.LogWarning("animethemes.moe answered with GraphQL errors: {Errors}", FirstMessage(list));
+                }
+
+                return value.Clone();
+            }
+
+            if (errors is { ValueKind: JsonValueKind.Array } failed && failed.GetArrayLength() > 0)
+            {
+                throw new HttpRequestException("animethemes.moe refused the request: " + FirstMessage(failed));
+            }
+
+            throw new HttpRequestException("animethemes.moe sent data in an unexpected shape.");
+        }
     }
+
+    private static string FirstMessage(JsonElement errors)
+        => errors
+            .EnumerateArray()
+            .Select(error => AnimeThemesMapper.Field(error, "message"))
+            .Select(text => text is { ValueKind: JsonValueKind.String } value ? value.GetString() : null)
+            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text))
+            ?? "no message";
 }

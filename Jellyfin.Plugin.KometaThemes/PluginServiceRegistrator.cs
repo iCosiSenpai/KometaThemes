@@ -70,7 +70,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
 
         serviceCollection.AddHttpClient(AnimeThemesClient.HttpClientName, client =>
             {
-                client.BaseAddress = new Uri("https://api.animethemes.moe/");
+                // The REST API this plugin used until 2.1.0.0 answers 503 on every route; the same data
+                // is served as GraphQL.
+                client.BaseAddress = new Uri("https://graphql.animethemes.moe/");
                 client.DefaultRequestHeaders.UserAgent.Add(userAgent);
                 client.DefaultRequestHeaders.UserAgent.Add(contact);
 

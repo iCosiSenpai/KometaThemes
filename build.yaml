@@ -1,7 +1,7 @@
 ---
 name: "KometaThemes"
 guid: "48c98707-45d1-43ac-94b8-f74d875ad29c"
-version: "2.1.0.0"
+version: "2.1.1.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 overview: "Anime openings and endings on Jellyfin."
@@ -15,6 +15,8 @@ artifacts:
   - "Jellyfin.Plugin.KometaThemes.dll"
   - "YoutubeExplode.dll"
 changelog: |-
+  v2.1.1.0
+  - Fix: animethemes.moe switched its old JSON API off (every request answered 503), so 2.1.0.0 downloaded nothing. The plugin now reads the same data from the GraphQL API the site serves: matching by ID or title, franchises, themes and audio links work again. Nothing else changed.
   v2.1.0.0
   - Fix: anime matched by title or by hand got their entry without a single theme (an API filter that also emptied the included themes). Title matching never worked in 2.0, and a manual match removed the files instead of downloading them.
   - Title matching knows every title of an entry (synonyms and abbreviations such as "DanMachi"), folds romanizations (Jouzu/Jozu), reads the folder name and its year, and tells movies from series and remakes from originals.

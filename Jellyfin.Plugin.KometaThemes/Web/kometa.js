@@ -7,7 +7,7 @@
  * from the library, and are never parsed as HTML.
  */
 
-const VERSION = '2.1.0.0';
+const VERSION = '2.1.1.0';
 const PAGE = 'KometaThemes';
 const LIBRARY_PAGE_SIZE = 100;
 

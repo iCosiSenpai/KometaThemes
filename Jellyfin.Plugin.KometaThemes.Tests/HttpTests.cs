@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using Jellyfin.Plugin.KometaThemes.AnimeThemes;
 using Jellyfin.Plugin.KometaThemes.Http;
+using Jellyfin.Plugin.KometaThemes.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -10,8 +12,17 @@ namespace Jellyfin.Plugin.KometaThemes.Tests;
 /// <summary>
 /// Retry handling and the animethemes.moe client, against a fake server.
 /// </summary>
+/// <remarks>
+/// The responses come from the live GraphQL API and are kept in <c>Fixtures</c>: the REST API the
+/// client used before answers 503 on every route, so a hand-written body would hide a schema change.
+/// </remarks>
 public class HttpTests
 {
+    private static readonly Uri BaseAddress = new("https://graphql.animethemes.moe/");
+
+    /// <summary>One request the fake server received.</summary>
+    private sealed record Sent(Uri Uri, HttpMethod Method, string Body);
+
     private sealed class FakeServer : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>> _answer;
@@ -22,12 +33,13 @@ public class HttpTests
 
         public int Calls { get; private set; }
 
-        public List<Uri> Requests { get; } = [];
+        public List<Sent> Requests { get; } = [];
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Requests.Add(request.RequestUri!);
-            return _answer(request, ++Calls, cancellationToken);
+            var body = request.Content == null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+            Requests.Add(new Sent(request.RequestUri!, request.Method, body));
+            return await _answer(request, ++Calls, cancellationToken);
         }
     }
 
@@ -99,25 +111,69 @@ public class HttpTests
     {
         var factory = new Mock<IHttpClientFactory>();
         factory.Setup(f => f.CreateClient(AnimeThemesClient.HttpClientName))
-            .Returns(() => new HttpClient(server, disposeHandler: false) { BaseAddress = new Uri("https://api.animethemes.moe/") });
+            .Returns(() => new HttpClient(server, disposeHandler: false) { BaseAddress = BaseAddress });
         return new AnimeThemesClient(factory.Object, NullLogger<AnimeThemesClient>.Instance);
     }
 
-    [Fact]
-    public async Task FindByExternalIds_FiltersAndRechecksTheLink()
+    private static string Fixture(string name)
+        => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
+
+    /// <summary>The anime of the recorded detail response, as the API sent it.</summary>
+    private static string AnimeNode()
     {
-        var kaguya = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "kaguya-s1.json"));
-        var anime = System.Text.Json.JsonDocument.Parse(kaguya).RootElement.GetProperty("anime").GetRawText();
-        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"anime\":[" + anime + "],\"links\":{\"next\":null}}")));
+        using var document = JsonDocument.Parse(Fixture("graphql-bocchi.json"));
+        return document.RootElement
+            .GetProperty("data")
+            .GetProperty("animePagination")
+            .GetProperty("data")
+            .EnumerateArray()
+            .Single()
+            .GetRawText();
+    }
 
-        var result = await Client(server).FindByExternalIdsAsync("AniList", ["101921", "999", "not-a-number"], CancellationToken.None);
+    /// <summary>The GraphQL request the client sent: the document and its variables.</summary>
+    private static (string Query, JsonElement Variables) GraphQl(Sent sent)
+    {
+        using var document = JsonDocument.Parse(sent.Body);
+        var root = document.RootElement;
+        return (root.GetProperty("query").GetString()!, root.GetProperty("variables").Clone());
+    }
 
-        var query = Uri.UnescapeDataString(server.Requests.Single().Query);
-        Assert.Contains("filter[has]=resources", query, StringComparison.Ordinal);
-        Assert.Contains("filter[resource][external_id]=101921,999", query, StringComparison.Ordinal);
-        Assert.Single(result["101921"]);
+    private static int[] Numbers(JsonElement array) => array.EnumerateArray().Select(item => item.GetInt32()).ToArray();
+
+    [Fact]
+    public async Task FindByExternalIds_FindsTheAniListId()
+    {
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"findAnimeByExternalSite\":[" + AnimeNode() + "]}}")));
+
+        var result = await Client(server).FindByExternalIdsAsync("AniList", ["130003", "999", "not-a-number"], CancellationToken.None);
+
+        var sent = Assert.Single(server.Requests);
+        Assert.Equal(HttpMethod.Post, sent.Method);
+        Assert.Equal(BaseAddress, sent.Uri);
+        var (query, variables) = GraphQl(sent);
+        Assert.Contains("findAnimeByExternalSite", query, StringComparison.Ordinal);
+        Assert.Equal("ANILIST", variables.GetProperty("site").GetString());
+        Assert.Equal([130003, 999], Numbers(variables.GetProperty("ids")));
+
+        var anime = Assert.Single(result["130003"]);
+        Assert.Equal(3912, anime.Id);
+        Assert.Equal("bocchi_the_rock", anime.Slug);
+        Assert.Equal(130003, anime.GetExternalId("AniList"));
         Assert.Empty(result["999"]);
         Assert.Empty(result["not-a-number"]);
+    }
+
+    [Fact]
+    public async Task FindByExternalIds_DoesNotAskAboutASiteItCannotMatch()
+    {
+        // aniSearch was the 1.x bug: animethemes.moe stores no such site, so every ID came back empty.
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"findAnimeByExternalSite\":[]}}")));
+
+        var result = await Client(server).FindByExternalIdsAsync("aniSearch", ["1"], CancellationToken.None);
+
+        Assert.Empty(result["1"]);
+        Assert.Empty(server.Requests);
     }
 
     [Fact]
@@ -128,56 +184,295 @@ public class HttpTests
     }
 
     [Fact]
-    public async Task GetAnime_ScopesTheIdFilterToAnime()
+    public async Task GetAnime_MapsTheDetailTheRestIncludeProvided()
     {
-        // An unscoped filter[id] also filters the included themes, resources and images by that ID:
-        // 2.0 got every manual and title match back without a single theme.
-        var kaguya = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "kaguya-s1.json"));
-        var anime = System.Text.Json.JsonDocument.Parse(kaguya).RootElement.GetProperty("anime").GetRawText();
-        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"anime\":[" + anime + "],\"links\":{\"next\":null}}")));
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"a0\":{\"data\":[" + AnimeNode() + "]}}}")));
 
-        var found = await Client(server).GetAnimeAsync(1386, CancellationToken.None);
+        var found = await Client(server).GetAnimeAsync(3912, CancellationToken.None);
 
-        var query = Uri.UnescapeDataString(server.Requests.Single().Query);
-        Assert.Contains("filter[anime][id]=1386", query, StringComparison.Ordinal);
-        Assert.DoesNotContain("filter[id]", query, StringComparison.Ordinal);
+        var sent = Assert.Single(server.Requests);
+        var (query, variables) = GraphQl(sent);
+        Assert.Contains("animePagination", query, StringComparison.Ordinal);
+        Assert.Contains("animethemeentries", query, StringComparison.Ordinal);
+        Assert.Equal(3912, variables.GetProperty("id0").GetInt32());
+
         Assert.NotNull(found);
-        Assert.NotEmpty(found!.Themes!);
+        Assert.Equal("Bocchi the Rock!", found!.Name);
+        Assert.Equal(2022, found.Year);
+
+        // The REST API spelled them "Fall" and "TV"; SeasonMatcher and TitleMatcher compare those words.
+        Assert.Equal("Fall", found.Season);
+        Assert.Equal("TV", found.MediaFormat);
+
+        Assert.NotNull(found.GetCover(large: false));
+        Assert.NotNull(found.GetCover(large: true));
+        Assert.Equal(47917, found.GetExternalId("MyAnimeList"));
+        Assert.Equal(44196, found.GetExternalId("Kitsu"));
+        Assert.Equal("bocchi_the_rock", Assert.Single(found.Series!).Slug);
+
+        var opening = Assert.Single(found.Themes!, theme => theme.Type == ThemeType.OP);
+        Assert.Equal("OP1", opening.Slug);
+        Assert.Equal(11829, opening.Id);
+        Assert.Equal("Seishun Complex", opening.Song!.Title);
+        Assert.Equal("Kessoku Band", opening.Song.ArtistNames);
+        Assert.Equal("kessoku_band", Assert.Single(opening.Song.Artists!).Slug);
+        Assert.Equal("1-7, 9-11", Assert.Single(opening.Entries!).Episodes);
+
+        var ending = Assert.Single(found.Themes!, theme => theme.Type == ThemeType.ED);
+        Assert.Equal("ED1", ending.Slug);
+        Assert.Equal(1, ending.Sequence);
+
+        var video = opening.Entries!.Single().Videos!.Single(item => item.Creditless);
+        Assert.Equal(1080, video.Resolution);
+        Assert.Equal(VideoSource.BD, video.Source);
+        Assert.Equal(OverlapType.None, video.Overlap);
+        Assert.Equal("BocchiTheRock-OP1-NCBD1080.webm", video.Basename);
+        Assert.Equal(55992110L, video.Size);
+        Assert.False(video.Subbed);
+        Assert.False(video.Lyrics);
+        Assert.Equal("https://a.animethemes.moe/BocchiTheRock-OP1-NCBD1080.ogg", video.Audio!.Link);
+        Assert.Equal(3619755L, video.Audio.Size);
+    }
+
+    [Fact]
+    public async Task GetAnime_BatchesTheIdsIntoOneRequest()
+    {
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"a0\":{\"data\":[" + AnimeNode() + "]},\"a1\":{\"data\":[]}}}")));
+
+        var found = await Client(server).GetAnimeAsync([3912, 3913], CancellationToken.None);
+
+        var sent = Assert.Single(server.Requests);
+        var (_, variables) = GraphQl(sent);
+        Assert.Equal(3912, variables.GetProperty("id0").GetInt32());
+        Assert.Equal(3913, variables.GetProperty("id1").GetInt32());
+        Assert.Equal(3912, Assert.Single(found).Id);
     }
 
     [Fact]
     public async Task GetAnime_DropsAnimeThatWereNotAskedFor()
     {
-        var kaguya = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "kaguya-s1.json"));
-        var anime = System.Text.Json.JsonDocument.Parse(kaguya).RootElement.GetProperty("anime").GetRawText();
-        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"anime\":[" + anime + "],\"links\":{\"next\":null}}")));
+        // An ignored filter must never hand back unrelated anime.
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"a0\":{\"data\":[" + AnimeNode() + "]}}}")));
 
         Assert.Null(await Client(server).GetAnimeAsync(42, CancellationToken.None));
     }
 
     [Fact]
-    public async Task GetSeries_ReturnsEmptyFor404_AndThrowsOnGarbage()
+    public async Task GetSeries_ReturnsTheFranchiseMembers()
     {
-        var missing = new FakeServer((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
-        Assert.Empty(await Client(missing).GetSeriesAsync("nope", CancellationToken.None));
+        var server = new FakeServer((_, _) => Task.FromResult(Json(Fixture("graphql-series-bocchi.json"))));
 
-        var garbage = new FakeServer((_, _) => Task.FromResult(Json("<html>maintenance</html>")));
-        await Assert.ThrowsAsync<HttpRequestException>(() => Client(garbage).GetAnimeAsync(1, CancellationToken.None));
+        var members = await Client(server).GetSeriesAsync("bocchi_the_rock", CancellationToken.None);
+
+        var sent = Assert.Single(server.Requests);
+        var (query, variables) = GraphQl(sent);
+        Assert.Contains("series", query, StringComparison.Ordinal);
+        Assert.Equal("bocchi_the_rock", variables.GetProperty("slug").GetString());
+
+        Assert.Equal([3912, 4517, 4518], members.Select(member => member.Id).Order());
+        var television = members.Single(member => member.Id == 3912);
+        Assert.Equal("Bocchi the Rock!", television.Name);
+        Assert.Equal("TV", television.MediaFormat);
+        Assert.Equal("Fall", television.Season);
+
+        // Members come without their themes: SeasonResolver fetches the details of the entries it chooses.
+        var movie = members.Single(member => member.Id == 4517);
+        Assert.Equal("Movie", movie.MediaFormat);
+        Assert.Equal("Spring", movie.Season);
+        Assert.Null(movie.Themes);
     }
 
     [Fact]
-    public async Task GetSeries_ReadsTheFranchise()
+    public async Task GetSeries_ReturnsEmptyForAnUnknownSlug()
     {
-        const string body = "{\"series\":{\"id\":223,\"name\":\"Kaguya-sama wa Kokurasetai\",\"slug\":\"kaguya_sama_wa_kokurasetai\",\"anime\":["
-            + "{\"id\":1386,\"name\":\"Kaguya-sama wa Kokurasetai: Tensai-tachi no Renai Zunousen\",\"slug\":\"a\",\"year\":2019,\"season\":\"Winter\",\"media_format\":\"TV\"},"
-            + "{\"id\":1387,\"name\":\"Kaguya-sama wa Kokurasetai?: Tensai-tachi no Renai Zunousen\",\"slug\":\"b\",\"year\":2020,\"season\":\"Spring\",\"media_format\":\"TV\"}]}}";
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"series\":null}}")));
+
+        Assert.Empty(await Client(server).GetSeriesAsync("nope", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Search_ReturnsTheRankedMatches()
+    {
+        var server = new FakeServer((_, _) => Task.FromResult(Json(Fixture("graphql-search-takagi.json"))));
+
+        var results = await Client(server).SearchAsync("Takagi-san", CancellationToken.None);
+
+        var sent = Assert.Single(server.Requests);
+        var (query, variables) = GraphQl(sent);
+        Assert.Contains("search", query, StringComparison.Ordinal);
+        Assert.Equal("Takagi-san", variables.GetProperty("search").GetString());
+
+        Assert.Equal([4006, 3624, 1449, 1448], results.Select(anime => anime.Id));
+        var television = results.Single(anime => anime.Id == 1448);
+        Assert.Equal("Karakai Jouzu no Takagi-san", television.Name);
+        Assert.Equal("TV", television.MediaFormat);
+        Assert.Equal("Winter", television.Season);
+        Assert.Contains("Skilled Teaser Takagi-san", television.Titles);
+        Assert.Equal("karakai_jouzu_no_takagi_san", Assert.Single(television.Series!).Slug);
+        Assert.NotNull(television.GetCover(large: false));
+        Assert.Contains(television.Themes!, theme => theme.Slug == "OP1" && theme.Type == ThemeType.OP);
+    }
+
+    [Fact]
+    public async Task Search_ReturnsNothingForBlankText()
+    {
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"search\":{\"anime\":[]}}}")));
+
+        Assert.Empty(await Client(server).SearchAsync("   ", CancellationToken.None));
+        Assert.Empty(server.Requests);
+    }
+
+    [Fact]
+    public async Task Client_ReturnsEmptyForAnAnswerWithoutData()
+    {
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"data\":{\"findAnimeByExternalSite\":[],\"animePagination\":{\"data\":[]},\"search\":{\"anime\":[]}}}")));
+
+        var found = await Client(server).FindByExternalIdsAsync("AniList", ["1"], CancellationToken.None);
+        Assert.Empty(found["1"]);
+        Assert.Null(await Client(server).GetAnimeAsync(1, CancellationToken.None));
+        Assert.Empty(await Client(server).SearchAsync("anything", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetAnime_TranslatesTheGraphQlEnumSpellings()
+    {
+        // 2.x compares "TV Short", "Winter", "Transition" and "Over", and skips anything but OP or ED.
+        const string body = """
+            {
+              "data": {
+                "a0": {
+                  "data": [
+                    {
+                      "id": 7,
+                      "slug": "short",
+                      "year": 2021,
+                      "season": "WINTER",
+                      "format": "TV_SHORT",
+                      "title": {
+                        "romaji": "Short"
+                      },
+                      "animethemes": [
+                        {
+                          "id": 70,
+                          "type": "IN",
+                          "sequence": null,
+                          "slug": "IN1"
+                        },
+                        {
+                          "id": 71,
+                          "type": "ED",
+                          "sequence": 2,
+                          "slug": "ED2",
+                          "song": {
+                            "id": 710,
+                            "title": {
+                              "romaji": "Song",
+                              "native": null
+                            },
+                            "performances": []
+                          },
+                          "animethemeentries": [
+                            {
+                              "id": 7100,
+                              "version": 2,
+                              "episodes": null,
+                              "nsfw": true,
+                              "spoiler": true,
+                              "videos": {
+                                "nodes": [
+                                  {
+                                    "id": 71000,
+                                    "basename": "Short-ED2.webm",
+                                    "link": "https://v.animethemes.moe/Short-ED2.webm",
+                                    "resolution": 720,
+                                    "source": "DVD",
+                                    "overlap": "TRANS",
+                                    "nc": false,
+                                    "subbed": true,
+                                    "lyrics": true,
+                                    "size": 1,
+                                    "audio": {
+                                      "id": 7100,
+                                      "link": "https://a.animethemes.moe/Short-ED2.ogg",
+                                      "size": 2
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+            """;
         var server = new FakeServer((_, _) => Task.FromResult(Json(body)));
 
-        var members = await Client(server).GetSeriesAsync("kaguya_sama_wa_kokurasetai", CancellationToken.None);
+        var anime = await Client(server).GetAnimeAsync(7, CancellationToken.None);
 
-        Assert.Equal("/series/kaguya_sama_wa_kokurasetai", server.Requests.Single().AbsolutePath);
-        Assert.Equal([1386, 1387], members.Select(m => m.Id));
-        Assert.Equal("Spring", members[1].Season);
+        Assert.NotNull(anime);
+        Assert.Equal("TV Short", anime!.MediaFormat);
+        Assert.Equal("Winter", anime.Season);
+        Assert.Contains(anime.Themes!, theme => theme.Type == ThemeType.Other && theme.Slug == "IN1");
+        var ending = anime.Themes!.Single(theme => theme.Type == ThemeType.ED);
+
+        // A song without credited performers has no artist list, not an empty name.
+        Assert.Empty(ending.Song!.Artists ?? []);
+        var entry = Assert.Single(ending.Entries!);
+        Assert.True(entry.Nsfw);
+        Assert.True(entry.Spoiler);
+        Assert.Equal(2, entry.Version);
+        var video = Assert.Single(entry.Videos!);
+        Assert.Equal(VideoSource.DVD, video.Source);
+        Assert.Equal(OverlapType.Transition, video.Overlap);
+        Assert.True(video.Subbed);
+        Assert.True(video.Lyrics);
+        Assert.False(video.Creditless);
+    }
+
+    [Fact]
+    public async Task Client_KeepsTheDataOfAPartialAnswer()
+    {
+        // One alias of a batch can fail while the others answer; the data that came back is still usable.
+        var server = new FakeServer((_, _) => Task.FromResult(Json(
+            "{\"data\":{\"a0\":{\"data\":[" + AnimeNode() + "]},\"a1\":null},\"errors\":[{\"message\":\"a1 failed\"}]}")));
+
+        var found = await Client(server).GetAnimeAsync([3912, 3913], CancellationToken.None);
+
+        Assert.Equal(3912, Assert.Single(found).Id);
+    }
+
+    [Fact]
+    public async Task Client_TurnsGraphQlErrorsIntoHttpRequestException()
+    {
+        // A request the API refuses was not answered: the caller must not read it as "not on animethemes.moe".
+        var server = new FakeServer((_, _) => Task.FromResult(Json("{\"errors\":[{\"message\":\"Cannot query field\"}]}")));
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => Client(server).GetAnimeAsync(1, CancellationToken.None));
+        Assert.Contains("Cannot query field", error.Message, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<HttpRequestException>(() => Client(server).SearchAsync("anything", CancellationToken.None));
+        await Assert.ThrowsAsync<HttpRequestException>(() => Client(server).GetSeriesAsync("anything", CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.NotFound)]
+    public async Task Client_TurnsANonSuccessStatusIntoHttpRequestException(HttpStatusCode status)
+    {
+        var server = new FakeServer((_, _) => Task.FromResult(new HttpResponseMessage(status)));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => Client(server).GetSeriesAsync("bocchi_the_rock", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Client_TurnsAnUnreadableBodyIntoHttpRequestException()
+    {
+        var server = new FakeServer((_, _) => Task.FromResult(Json("<html>maintenance</html>")));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => Client(server).GetAnimeAsync(1, CancellationToken.None));
     }
 
     [Fact]
